@@ -5,10 +5,10 @@ import numba as nb
 _magicNumber = -936936.813665
 
 
-def packInterpolator(grid, values):
+def pack_interpolator(grid, values):
     '''Creates a packed array containing data required for interpolation.'''
     assert len(grid) == values.ndim
-    pgrid = [_processAxis_(g, values.shape[i]) for i, g in enumerate(grid)]
+    pgrid = [_process_axis_(g, values.shape[i]) for i, g in enumerate(grid)]
     return np.concatenate([
         [_magicNumber, values.ndim],
         [len(xi) for xi in grid],
@@ -20,7 +20,7 @@ def packInterpolator(grid, values):
 
 @nb.njit(fastmath=False, cache=True)
 def interp1d(data, point):
-    '''1-d interpolator (regular or irregular), where data is the output of packInterpolator'''
+    '''1-d interpolator (regular or irregular), where data is the output of pack_interpolator'''
     if (data[0] != _magicNumber) or (data[1] != 1.):
         print("Bad input array for interp1d.")
         return np.nan
@@ -43,7 +43,7 @@ def interp1d(data, point):
 
 @nb.njit(fastmath=False, cache=True)
 def interp2d(data, point0, point1):
-    '''2-d interpolator (regular or irregular), where data is the output of packInterpolator'''
+    '''2-d interpolator (regular or irregular), where data is the output of pack_interpolator'''
     if (data[0] != _magicNumber) or (data[1] != 2.):
         print("Bad input array for interp2d.")
         return np.nan
@@ -75,7 +75,7 @@ def interp2d(data, point0, point1):
 
 @nb.njit(fastmath=False, cache=True)
 def interp3d(data, point0, point1, point2):
-    '''3-d interpolator (regular or irregular), where data is the output of packInterpolator'''
+    '''3-d interpolator (regular or irregular), where data is the output of pack_interpolator'''
     if (data[0] != _magicNumber) or (data[1] != 3.):
         print("Bad input array for interp3d.")
         return np.nan
@@ -119,7 +119,7 @@ def interp3d(data, point0, point1, point2):
 
 @nb.njit(fastmath=False, cache=True)
 def interp4d(data, point0, point1, point2, point3):
-    '''4-d interpolator (regular or irregular), where data is the output of packInterpolator'''
+    '''4-d interpolator (regular or irregular), where data is the output of pack_interpolator'''
     if (data[0] != _magicNumber) or (data[1] != 4.):
         print("Bad input array for interp3d.")
         return np.nan
@@ -178,7 +178,7 @@ def interp4d(data, point0, point1, point2, point3):
 
 
 @nb.njit
-def _processAxis_(x, length, tol=1e-6):
+def _process_axis_(x, length, tol=1e-6):
     '''Processes an interpolation axis into a regularized form for interpolation.
 
     Specifically, if the axis is non-uniformly spaced, it just verifies that it is sorted and the specified length,
@@ -199,7 +199,7 @@ def _processAxis_(x, length, tol=1e-6):
 @nb.njit(fastmath=False, inline="always")
 def _locate_point_(point, axis, axisLength):
     '''Quickly locates the linear interpolation index and weight across a given axis, which must be formatted
-    according to _processAxis_. This allows it to detect if the axis is uniorm and directly calculate the
+    according to _process_axis_. This allows it to detect if the axis is uniorm and directly calculate the
     index from that.'''
     if not np.isfinite(point):
         return -1, 0.

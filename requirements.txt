@@ -1,3 +1,7 @@
 numpy
+scipy
+numba
 pytest
 flake8
+pytest-cov
+genbadge[all]
