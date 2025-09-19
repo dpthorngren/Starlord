@@ -1,0 +1,27 @@
+[project]
+name = "starlord"
+dynamic = ["version"]
+description = "A Python library for fitting stellar observations to models, varying the model grid and parameters included."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE", content-type = "text/plain"}
+authors = [
+	{name = "Daniel Thorngren", email = "dpthorngren@gmail.com"}
+]
+
+[project.urls]
+repository = "https://github.com/dpthorngren/Starlord"
+
+[build-system]
+requires = ["setuptools"]
+
+[project.scripts]
+starlord = "starlord.cli:main"
+
+[tool.yapf]
+based_on_style = "google"
+split_before_first_argument = true
+column_limit = 120
+blank_line_before_nested_class_or_def = false
+coalesce_brackets = true
+arithmetic_precedence_indication = true
