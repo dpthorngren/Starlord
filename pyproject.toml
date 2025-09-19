@@ -3,7 +3,6 @@ name = "starlord"
 dynamic = ["version"]
 description = "A Python library for fitting stellar observations to models, varying the model grid and parameters included."
 readme = "README.md"
-requires-python = ">=3.8"
 license = {file = "LICENSE", content-type = "text/plain"}
 authors = [
 	{name = "Daniel Thorngren", email = "dpthorngren@gmail.com"}
@@ -25,3 +24,6 @@ column_limit = 120
 blank_line_before_nested_class_or_def = false
 coalesce_brackets = true
 arithmetic_precedence_indication = true
+
+[tool.pytest.ini_options]
+pythonpath = "src"
