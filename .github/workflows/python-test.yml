@@ -32,8 +32,8 @@ jobs:
         pytest --junitxml=junit.xml --cov --cov-report='xml' --cov-report='term' --cov-report="html"
     - name: badges
       run: |
-        genbadge coverage -i coverage.xml -o htmlcov/coverage_badge.svg
-        genbadge tests -i junit.xml -o htmlcov/tests_badge.svg
+        genbadge coverage -n Coverage -i coverage.xml -o htmlcov/coverage_badge.svg
+        genbadge tests -n Tests -i junit.xml -o htmlcov/tests_badge.svg
     - name: Upload Artifacts
       id: deployment
       uses: actions/upload-pages-artifact@v3
