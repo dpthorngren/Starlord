@@ -1,4 +1,4 @@
-name: Python Testing
+name: Test and Report
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  testing:
+  test:
 
     runs-on: ubuntu-latest
 
@@ -29,12 +29,29 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
     - name: Pytest
       run: |
-        pytest --junitxml=junit.xml --cov --cov-report='xml' --cov-report='term'
+        pytest --junitxml=junit.xml --cov --cov-report='xml' --cov-report='term' --cov-report="html"
     - name: badges
       run: |
-        genbadge coverage -i coverage.xml
-        genbadge tests -i junit.xml
-    - uses: actions/upload-artifact@v4
+        genbadge coverage -i coverage.xml -o htmlcov/coverage_badge.svg
+        genbadge tests -i junit.xml -o htmlcov/tests_badge.svg
+    - name: Upload Artifacts
+      id: deployment
+      uses: actions/upload-pages-artifact@v3
       with:
-        name: badges
-        path: ./*.svg
+        path: htmlcov/
+
+  deploy:
+    needs: test
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
