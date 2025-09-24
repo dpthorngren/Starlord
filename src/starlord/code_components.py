@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Union
 
 
 class Symb(str):
@@ -14,7 +15,6 @@ class Symb(str):
         except ValueError:
             raise ValueError(f"Could not interpret {source} as a symbol or literal.")
         return super().__new__(cls, str(value))
-
 
     @property
     def name(self) -> str:
@@ -33,10 +33,13 @@ class Component:
     code: str
 
     def __repr__(self) -> str:
-        return f"ExprComponent({self.requires}) -> ({self.provides})"
+        return f"ExprComponent({', '.join(self.requires)}) -> ({', '.join(self.provides)})"
 
-    def generate_code(self, name_map: dict) -> str:
-        return self.code.format_map(name_map)
+    def generate_code(self, name_map: Union[dict, None] = None) -> str:
+        if name_map is None:
+            return self.code
+        else:
+            return self.code.format_map(name_map)
 
 
 class AssignmentComponent(Component):

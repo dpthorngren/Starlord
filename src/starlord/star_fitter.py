@@ -8,6 +8,7 @@ from .code_gen import CodeGenerator
 
 class StarFitter():
     '''Fits parameters of a stellar grid to observed data'''
+
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
         self._gen = CodeGenerator()
@@ -107,6 +108,10 @@ class StarFitter():
             self.prior(var, dist, spec)
         else:
             self.constraint(var, dist, spec)
+
+    def summary(self, print_code: bool = False) -> None:
+        print(self._grids)
+        print(self._gen.summary(print_code))
 
     def run_sampler(self, options: dict) -> dict:
         if self.verbose:

@@ -14,7 +14,8 @@ else:
 def main():
     parser = argparse.ArgumentParser(
         "starlord", description="Fit stellar observations with starlord from the command line.")
-    parser.add_argument("input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
+    parser.add_argument(
+        "input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
@@ -28,7 +29,8 @@ def main():
         print("Settings: ", settings)
 
     if args.input is not None:
-        print(args.input)
+        if args.verbose:
+            print(args.input)
         with open(args.input, 'rb') as f:
             settings.update(tomllib.load(f))
     # Handle syntax errors in the toml file
@@ -45,6 +47,7 @@ def main():
         print("No model information was specified.")
         return
     if args.dry_run:
+        fitter.summary(args.verbose)
         return
 
     # === Run Sampler ==
@@ -52,7 +55,8 @@ def main():
     results = fitter.run_sampler(settings['sampling'])
 
     # === Write Outputs ===
-    out = settings['output']
+    out: dict = {"terminal": False, "file": ""}
+    out.update(settings['output'])
     if out['terminal']:
         print("TODO: print results to terminal.")
         # results.summary()

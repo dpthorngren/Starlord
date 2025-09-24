@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 based_on_style = "google"
 split_before_first_argument = true
 column_limit = 120
-blank_line_before_nested_class_or_def = false
+blank_line_before_nested_class_or_def = true
 coalesce_brackets = true
 arithmetic_precedence_indication = true
 
