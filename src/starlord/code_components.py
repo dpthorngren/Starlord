@@ -5,12 +5,16 @@ from dataclasses import dataclass
 
 
 class Symb(str):
-    # TODO: Add Symb literal
     def __new__(cls, source: str) -> Symb:
-        assert re.fullmatch(r"[pcbla][_.][A-Za-z_]\w*", source) is not None
-        source = source.replace(".", "_")
-        output: Symb = super().__new__(cls, source)
-        return output
+        if re.fullmatch(r"[pcbla][_.][A-Za-z_]\w*", source) is not None:
+            source = source.replace(".", "_")
+            return super().__new__(cls, source)
+        try:
+            value: float = float(source)
+        except ValueError:
+            raise ValueError(f"Could not interpret {source} as a symbol or literal.")
+        return super().__new__(cls, str(value))
+
 
     @property
     def name(self) -> str:

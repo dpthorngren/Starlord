@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from .code_components import Symb
 from .code_gen import CodeGenerator
 
@@ -16,57 +18,95 @@ class StarFitter():
         if self.verbose:
             print("Loading from model dict:", model)
         if "expr" in model.keys():
-            print("TODO: raw expression list passing")
+            for name, code in model['expr'].items():
+                if self.verbose:
+                    print(name, code[:50])
+                self.expression(code)
         if "var" in model.keys():
             for key, value in model['var'].items():
+                if self.verbose:
+                    print(key, value)
                 if type(value) is str:
-                    self.assignment(key, value)
+                    self.assign(key, value)
                 elif type(value) is list:
                     assert type(value[0]) is str
-                    # TODO: Check if value[0] is a distribution (which would be an error)
-                    self.assignment(key, value.pop(0))
+                    assert value[0] not in self._avail_grids.keys()
+                    self.assign(key, value.pop(0))
                     if len(value) > 0:
-                        self._constraint("var." + key, value)
-            print(f"TODO: Variable assignment")
+                        self._unpack_distribution("l." + key, value)
         if "prior" in model.keys():
-            print(f"TODO: prior assignment")
+            for key, value in model['prior'].items():
+                if self.verbose:
+                    print(key, value)
+                self._unpack_distribution("p." + key, value, True)
         for grid in self._avail_grids.keys():
             if grid in model.keys():
-                self._grids.setdefault(grid, set())
                 for key, value in model[grid].items():
-                    self._constraint(grid + "." + key, value)
+                    if self.verbose:
+                        print(grid, key, value)
+                    self._unpack_distribution(grid + "." + key, value)
 
-    def assignment(self, var: str, expr: str) -> None:
-        print("TODO: variable assignment")
-        return
+    def _register_grid_key(self, grid: str, key: str):
+        assert grid in self._avail_grids.keys()
+        # TODO: Check if key is in the grid
+        self._grids.setdefault(grid, set())
+        self._grids[grid].add(key)
 
-    def _constraint(self, var: str, spec: list) -> None:
+    def expression(self, expr: str) -> None:
+        if self.verbose:
+            print(f"    SF: Expression('{expr[:50]}...')")
+        # Identify grids, register required columns
+        match = re.findall(r"(?<=[\W])(\w+)\.([A-Za-z_]\w*)", expr)
+        if match is not None:
+            for label, name in set(match):
+                if label in 'pcbla':
+                    continue
+                elif label in self._avail_grids.keys():
+                    self._register_grid_key(label, name)
+                    expr = expr.replace(f"{label}.{name}", f"l.{label}_{name}")
+                # TODO: Check against library names to avoid compilation errors
+        if self.verbose:
+            print("    ---> ", expr)
+        self._gen.expression(expr)
+
+    def assign(self, var: str, expr: str) -> None:
+        if self.verbose:
+            print(f"    SF: Assignment({var}, '{expr[:50]}...')")
+        self.expression(f"{var} = {expr}")
+
+    def constraint(self, var: str, dist: str, params: list[str]) -> None:
+        '''Adds a constraint to the model, either "var" or "grid.var".'''
+        if self.verbose:
+            print(f"    SF: Constraint({dist}({var} | {params})", end="")
+        label, name = var.split(".")  # TODO: better exception
+        if label == "l":
+            if self.verbose:
+                print(" (Simple Variable)")
+            self._gen.constraint("l." + name, dist, params)
+            return
+        assert label in self._avail_grids.keys(), label
+        if self.verbose:
+            print(" (Grid Variable)")
+        self._register_grid_key(label, name)
+        self._gen.constraint(f"l.{label}_{name}", dist, params)
+
+    def prior(self, var: str, dist: str, params: list[str]):
+        if self.verbose:
+            print(f"    SF: Prior {var} ~ {dist}({params})")
+        self._gen.prior(var, dist, params)
+
+    def _unpack_distribution(self, var: str, spec: list, prior: bool = False) -> None:
+        '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
+        the results on to prior(...) if prior=True else constraint(...)'''
         assert type(spec) == list
         assert len(spec) >= 2
         dist: str = "normal"
         if type(spec[0]) is str:
             dist = spec.pop(0)
-        self.constraint(var, dist, spec)
-
-    def constraint(self, var: str, dist: str, params: list[float]) -> None:
-        '''Adds a constraint to the model, either "var" or "grid.var".'''
-        if self.verbose:
-            print(f"Adding constraint {dist}({var} | {params})")
-        label, name = var.split(".")  # TODO: better exception
-        if label == "var":
-            print("Not a grid, simple assignment")
+        if prior:
+            self.prior(var, dist, spec)
         else:
-            assert label in self._avail_grids.keys()
-            print("TODO: Provide grid variable.")
-            # Or recurse if it's a computable
-            # assert key in self._avail_grids[label].keys() # Need grid object
-            # Register that we're using label.key
-            # self._grids[label] += key
-            # Assign variable label_key = interp{N}D(a_label({params})
-            # self.assignment()
-
-    def _ensure_symbol(self, symb: str) -> Symb:
-        return Symb(symb)
+            self.constraint(var, dist, spec)
 
     def run_sampler(self, options: dict) -> dict:
         if self.verbose:
