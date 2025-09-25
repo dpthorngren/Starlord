@@ -13,22 +13,63 @@ class CodeGenerator:
         self._prior_components = []
         self.verbose = verbose
 
-    def get_variables(self, filter_label: str = "pcbla", prior: bool = False) -> set[Symb]:
-        result: set[Symb] = set()
+    def get_variables(self, prior: bool = False) -> dict[str, set[Symb]]:
+        result: dict[str, set[Symb]] = {i: set() for i in 'pcbla'}
         target: list[Component] = self._prior_components if prior else self._like_components
         for comp in target:
             for sym in comp.requires.union(comp.provides):
-                if sym.label in filter_label:
-                    result.add(sym)
+                assert sym.label in 'pcbla'
+                result[sym.label].add(sym)
         return result
+
+    def generate_log_like(self) -> str:
+        # Get all variables
+        variables = self.get_variables()
+        mapping: dict[str, str] = {c: c for c in variables['c']}
+        mapping.update({a: a for a in variables['a']})
+        mapping.update({l: l for l in variables['l']})
+        # Set the sorted order of indexed variables
+        params: list[str] = sorted(list(variables['p']))
+        mapping.update({name: f"params[{i}]" for i, name in enumerate(params)})
+        blobs: list[str] = sorted(list(variables['b']))
+        mapping.update({name: f"blobs[{i}]" for i, name in enumerate(blobs)})
+        # Write the function header 
+        result = []
+        result.append("@nb.njit")
+        result.append("def log_like(params):")
+        result.append("    logL = 0.")
+        # Check that every variable used is initialized somewhere
+        result: list[str] = []
+        components = self._like_components.copy()
+        initialized = set()
+        for v in variables['l'].union(variables['b']):
+            for comp in components:
+                if v in comp.provides:
+                    break
+            else:
+                raise LookupError(f"Variable {v} is used but never initialized.")
+        # Call components according to their initialization requirements
+        while len(components) > 0:
+            for comp in components:
+                reqs = {c for c in comp.requires if c[0] in "bl" and c not in initialized}
+                if len(reqs) == 0:
+                    result.append("    " + comp.generate_code(mapping))
+                    components.remove(comp)
+                    initialized = initialized.union(comp.provides)
+                    break
+            else:
+                raise LookupError("Circular dependencies in local / blob variables.")
+        result.append("    return logL if np.isfinite(logL) else -np.inf")
+        return "\n".join(result)
 
     def summary(self, code: bool = False) -> str:
         result: list[str] = []
         result += ["=== Variables ==="]
+        variables = self.get_variables()
         for label in ["Params", "Constants", "Blobs", "Locals", "Arrays"]:
-            variables: set[Symb] = self.get_variables(label[0].lower())
-            if len(variables) > 0:
-                result += [label + ": " + ", ".join(variables)]
+            key = label[0].lower()
+            if len(variables[key]) > 0:
+                result += [(label + ": ").ljust(12) + ", ".join(variables[key])]
         result += ["=== Likelihood ==="]
         result += [i.generate_code() if code else str(i) for i in self._like_components]
         result += ["=== Prior ==="]

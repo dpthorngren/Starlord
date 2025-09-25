@@ -18,6 +18,7 @@ def main():
         "input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-c", "--code", action="store_true", help="Print code upon generation.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
@@ -46,6 +47,8 @@ def main():
     else:
         print("No model information was specified.")
         return
+    if args.code:
+        print(fitter.generate_log_like())
     if args.dry_run:
         fitter.summary(args.verbose)
         return

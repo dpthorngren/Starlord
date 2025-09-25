@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-from .code_components import Symb
 from .code_gen import CodeGenerator
 
 
@@ -112,6 +111,9 @@ class StarFitter():
     def summary(self, print_code: bool = False) -> None:
         print(self._grids)
         print(self._gen.summary(print_code))
+
+    def generate_log_like(self) -> str:
+        return self._gen.generate_log_like()
 
     def run_sampler(self, options: dict) -> dict:
         if self.verbose:
