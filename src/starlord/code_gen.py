@@ -132,6 +132,6 @@ class CodeGenerator:
     def _extract_params_(source: str) -> tuple[str, set[str]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
-        template: str = re.sub(r"(?<=[\W])([pcbl])\.(([A-Za-z_]\w*))", r"{\1_\2}", source)
-        variables: set[str] = set(re.findall(r"(?<=\{)[pcbl]_[A-Za-z_]\w*(?=\})", template))
+        template: str = re.sub(r"(?<!\w)([pcbla])\.(([A-Za-z_]\w*))", r"{\1_\2}", source)
+        variables: set[str] = set(re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template))
         return template, variables
