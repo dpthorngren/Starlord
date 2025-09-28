@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import os
 import re
+import shutil
+from importlib import util
+from importlib.machinery import ModuleSpec
+from pathlib import Path
 
+from ._config import config
 from .code_components import Component, Symb
 
 
 class CodeGenerator:
     '''A class for generated log_likelihood, log_prior, and prior_ppf functions for use in MCMC fitting.'''
+
+    _dynamic_modules_: dict = {}
 
     def __init__(self, verbose: bool = False):
         self._like_components = []
@@ -33,7 +43,7 @@ class CodeGenerator:
         mapping.update({name: f"params[{i}]" for i, name in enumerate(params)})
         blobs: list[str] = sorted(list(variables['b']))
         mapping.update({name: f"blobs[{i}]" for i, name in enumerate(blobs)})
-        # Write the function header 
+        # Write the function header
         result = []
         result.append("@nb.njit")
         result.append("def log_like(params):")
@@ -121,13 +131,6 @@ class CodeGenerator:
         else:
             self._like_components.append(new_comp)
 
-    # def normal(self, val: str, mean: str, std: str, prior: bool = False) -> None:
-    #     # TODO: Account for val
-    #     _mean = Symb(mean)
-    #     _std = Symb(std)
-    #     template: str = f"NORMAL({{{_mean}}}, {{{_std}}})"
-    #     self._add_component({_mean, _std}, set(), [_mean, _std], template, prior)
-
     @staticmethod
     def _extract_params_(source: str) -> tuple[str, set[str]]:
         '''Extracts variables from the given string and replaces them with format brackets.
@@ -135,3 +138,55 @@ class CodeGenerator:
         template: str = re.sub(r"(?<!\w)([pcbla])\.(([A-Za-z_]\w*))", r"{\1_\2}", source)
         variables: set[str] = set(re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template))
         return template, variables
+
+    @staticmethod
+    def _compile_to_module(code: str) -> str:
+        # Get the code hash for file lookup
+        hasher = hashlib.shake_128(code.encode())
+        hash = base64.b32encode(hasher.digest(25)).decode("utf-8")
+        name = f"sl_gen_{hash}"
+        pyxfile = config.cache_dir / (name+".pyx")
+        # Clean up old cached files
+        # TODO: If temp files exceeds 100, delete anything not accessed within a week
+        # 		path.stat.st_atime # Verify that this works before using!
+        # 		Don't delete the requested file or a file in use (how to track?)
+        # Write the pyx file if needed
+        if not pyxfile.exists():
+            with pyxfile.open("w") as pxfh:
+                pxfh.write(code)
+                pxfh.close()
+            assert pyxfile.exists(), "Wrote the code to a file, but the file still doesn't exist."
+        libfiles = list(config.cache_dir.glob(name + ".*.*"))
+        if len(libfiles) == 0:
+            os.system(f"cythonize -f -i {pyxfile}")
+            cfile = config.cache_dir / (name+".c")
+            libfiles = list(config.cache_dir.glob(name + ".*.*"))
+            assert len(libfiles) >= 1, "Compiled but failed to produce an object file to import."
+            # Remove the (surprisingly large) build c file artifact
+            assert cfile.exists()
+            cfile.unlink()
+            builddir = config.cache_dir / "build"
+            # Remove the build directory -- the output was moved to cache_dir automatically
+            assert builddir.exists()
+            shutil.rmtree(builddir)
+        return hash
+
+    @staticmethod
+    def _load_module(hash: str):
+        if hash in CodeGenerator._dynamic_modules_.keys():
+            return CodeGenerator._dynamic_modules_[hash]
+        name = f"sl_gen_{hash}"
+        libfiles = list(config.cache_dir.glob(name + ".*.*"))
+        assert len(libfiles) > 0, f"Could not find module with hash {hash}"
+        assert len(libfiles) == 1, f"Unexpected files in the cache directory: {libfiles}"
+        libfile = libfiles[0]
+        assert libfile.suffix in [
+            ".so", ".dll", ".dynlib", ".sl"
+        ], f"Compiled module format {libfile.suffix} unrecognized."
+        spec: ModuleSpec | None = util.spec_from_file_location(f"{name}", f"{libfile}")
+        assert spec is not None, f"Couldn't load the module specs from file {libfile}"
+        dynmod = util.module_from_spec(spec)
+        assert spec.loader is not None, f"Couldn't load the module from file {libfile}"
+        spec.loader.exec_module(dynmod)
+        CodeGenerator._dynamic_modules_[hash] = dynmod
+        return dynmod

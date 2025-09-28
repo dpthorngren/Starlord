@@ -1,6 +1,7 @@
 numpy
 scipy
 numba
+cython
 pytest
 flake8
 pytest-cov
