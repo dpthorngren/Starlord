@@ -18,41 +18,91 @@ class CodeGenerator:
 
     _dynamic_modules_: dict = {}
 
+    @property
+    def variables(self):
+        if self._vars_out_of_date:
+            self._update_vars()
+        return self._variables
+
+    @property
+    def params(self):
+        if self._vars_out_of_date:
+            self._update_vars()
+        return self._params
+
+    @property
+    def constants(self):
+        if self._vars_out_of_date:
+            self._update_vars()
+        return self._constants
+
+    @property
+    def blobs(self):
+        if self._vars_out_of_date:
+            self._update_vars()
+        return self._blobs
+
+    @property
+    def locals(self):
+        if self._vars_out_of_date:
+            self._update_vars()
+        return self._locals
+
+    @property
+    def arrays(self):
+        if self._vars_out_of_date:
+            self._update_vars()
+        return self._arrays
+
     def __init__(self, verbose: bool = False):
+        self.verbose: bool = verbose
         self._like_components = []
         self._prior_components = []
-        self.verbose = verbose
+        # Lazily-updated property backers
+        self._vars_out_of_date: bool = True
+        self._variables: set[Symb] = set()
+        self._params: list[Symb] = []
+        self._constants: list[Symb] = []
+        self._blobs: list[Symb] = []
+        self._locals: list[Symb] = []
+        self._arrays: list[Symb] = []
+        self._mapping: dict[str, str] = {}
 
-    def get_variables(self, prior: bool = False) -> dict[str, set[Symb]]:
+    def _update_vars(self):
+        self._variables = set()
         result: dict[str, set[Symb]] = {i: set() for i in 'pcbla'}
-        target: list[Component] = self._prior_components if prior else self._like_components
-        for comp in target:
+        for comp in self._prior_components + self._like_components:
             for sym in comp.requires.union(comp.provides):
                 assert sym.label in 'pcbla'
                 result[sym.label].add(sym)
-        return result
+                self._variables.add(sym)
+        self._params = sorted(list(result['p']))
+        self._constants = sorted(list(result['c']))
+        self._blobs = sorted(list(result['b']))
+        self._locals = sorted(list(result['l']))
+        self._arrays = sorted(list(result['a']))
+        self._vars_out_of_date = False
+
+    def get_mapping(self) -> dict[str, str]:
+        # TODO: Add options based on the type of output
+        mapping: dict[str, str] = {}
+        mapping.update({c: c for c in self.constants})
+        mapping.update({a: a for a in self.arrays})
+        mapping.update({l: l for l in self.locals})
+        mapping.update({name: f"params[{i}]" for i, name in enumerate(self.params)})
+        mapping.update({name: f"blobs[{i}]" for i, name in enumerate(self.blobs)})
+        return mapping
 
     def generate_log_like(self) -> str:
-        # Get all variables
-        variables = self.get_variables()
-        mapping: dict[str, str] = {c: c for c in variables['c']}
-        mapping.update({a: a for a in variables['a']})
-        mapping.update({l: l for l in variables['l']})
-        # Set the sorted order of indexed variables
-        params: list[str] = sorted(list(variables['p']))
-        mapping.update({name: f"params[{i}]" for i, name in enumerate(params)})
-        blobs: list[str] = sorted(list(variables['b']))
-        mapping.update({name: f"blobs[{i}]" for i, name in enumerate(blobs)})
+        mapping = self.get_mapping()
         # Write the function header
-        result = []
-        result.append("@nb.njit")
-        result.append("def log_like(params):")
-        result.append("    logL = 0.")
-        # Check that every variable used is initialized somewhere
         result: list[str] = []
+        result.append("cpdef double log_like(double[:] params):")
+        result.append("    cdef double logL = 0.")
+        # Check that every local and blob used is initialized somewhere
         components = self._like_components.copy()
         initialized = set()
-        for v in variables['l'].union(variables['b']):
+        for v in self.locals + self.blobs:
             for comp in components:
                 if v in comp.provides:
                     break
@@ -75,11 +125,16 @@ class CodeGenerator:
     def summary(self, code: bool = False) -> str:
         result: list[str] = []
         result += ["=== Variables ==="]
-        variables = self.get_variables()
-        for label in ["Params", "Constants", "Blobs", "Locals", "Arrays"]:
-            key = label[0].lower()
-            if len(variables[key]) > 0:
-                result += [(label + ": ").ljust(12) + ", ".join(variables[key])]
+        if self.params:
+            result += ["Params:".ljust(12) + ", ".join([p[2:] for p in self.params])]
+        if self.constants:
+            result += ["Constants:".ljust(12) + ", ".join([c[2:] for c in self.constants])]
+        if self.blobs:
+            result += ["Blobs:".ljust(12) + ", ".join([b[2:] for b in self.blobs])]
+        if self.locals:
+            result += ["Locals:".ljust(12) + ", ".join([l[2:] for l in self.locals])]
+        if self.arrays:
+            result += ["Arrays:".ljust(12) + ", ".join([a[2:] for a in self.arrays])]
         result += ["=== Likelihood ==="]
         result += [i.generate_code() if code else str(i) for i in self._like_components]
         result += ["=== Prior ==="]
@@ -91,10 +146,12 @@ class CodeGenerator:
         automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
         provides = set()
         # Finds assignment blocks like "l.foo = " and "l.bar, l.foo = "
-        assigns = re.findall(r"^\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*=(?!=)", expr)
-        assigns += re.findall(r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr)
+        assigns = re.findall(r"^\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, re.M)
+        assigns += re.findall(
+            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, re.M)
         # Same as above but covers when vars are enclosed by parentheses like "(l.a, l.b) ="
-        assigns += re.findall(r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr)
+        assigns += re.findall(
+            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, re.M)
         for block in assigns:
             # Handles parens, multiple assignments, extra whitespace, and removes the "="
             block = block[:-1].strip(" ()")
@@ -135,8 +192,8 @@ class CodeGenerator:
     def _extract_params_(source: str) -> tuple[str, set[str]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
-        template: str = re.sub(r"(?<!\w)([pcbla])\.(([A-Za-z_]\w*))", r"{\1_\2}", source)
-        variables: set[str] = set(re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template))
+        template: str = re.sub(r"(?<!\w)([pcbla])\.(([A-Za-z_]\w*))", r"{\1_\2}", source, re.M)
+        variables: set[str] = set(re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template, re.M))
         return template, variables
 
     @staticmethod

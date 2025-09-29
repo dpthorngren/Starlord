@@ -16,8 +16,9 @@ def test_expressions():
     assert comp.code.count("l_foo") == 1
     assert comp.code.count("p.stuff") == 0
     assert comp.code.count("p_stuff") == 1
-    v = g.get_variables()
-    for k in "cba":
-        assert v[k] == set()
-    assert v['p'] == {"p_stuff"}
-    assert v['l'] == {"l_foo"}
+    # Check variable aggregation
+    assert g.variables == {"l_foo", "p_stuff"}
+    assert g.params == ["p_stuff"]
+    assert g.locals == ["l_foo"]
+    assert g.constants == []
+    assert g.arrays == []
