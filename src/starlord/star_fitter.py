@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from .code_gen import CodeGenerator
-
+from .sampler import SamplerNested
 
 class StarFitter():
     '''Fits parameters of a stellar grid to observed data'''
@@ -115,8 +115,10 @@ class StarFitter():
     def generate_log_like(self) -> str:
         return self._gen.generate_log_like()
 
-    def run_sampler(self, options: dict) -> dict:
-        if self.verbose:
-            print(self._gen.summary())
-            print("TODO: run sampler with options: ", options)
-        return {}
+    def run_sampler(self, options: dict):
+        # TODO: Move some of this over back into CodeGenerator
+        hash = CodeGenerator._compile_to_module(self._gen.generate())
+        mod = CodeGenerator._load_module(hash)
+        samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {})
+        samp.run({})
+        return samp

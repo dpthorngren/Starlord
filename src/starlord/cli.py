@@ -61,8 +61,7 @@ def main():
     out: dict = {"terminal": False, "file": ""}
     out.update(settings['output'])
     if out['terminal']:
-        print("TODO: print results to terminal.")
-        # results.summary()
+        print(results.summary())
     if out['file'] != "":
         print("TODO: write results to ", out['file'])
         # fitter.write_results()

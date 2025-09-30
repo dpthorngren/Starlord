@@ -93,6 +93,16 @@ class CodeGenerator:
         mapping.update({name: f"blobs[{i}]" for i, name in enumerate(self.blobs)})
         return mapping
 
+    def generate_prior_transform(self) -> str:
+        mapping = self.get_mapping()
+        result: list[str] = []
+        result.append("cpdef double[:] prior_transform(double[:] params):")
+        # TODO: Resolve prior dependencies
+        for comp in self._prior_components:
+            result.append("    " + comp.generate_code(mapping))
+        result.append("    return params\n")
+        return "\n".join(result)
+
     def generate_log_like(self) -> str:
         mapping = self.get_mapping()
         # Write the function header
@@ -119,7 +129,20 @@ class CodeGenerator:
                     break
             else:
                 raise LookupError("Circular dependencies in local / blob variables.")
-        result.append("    return logL if np.isfinite(logL) else -np.inf")
+        result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
+        return "\n".join(result)
+
+    def generate(self, use_class: bool = False, prior: str = "ppf") -> str:
+        # TODO: Other options
+        if use_class:
+            raise NotImplementedError
+        if prior != "ppf":
+            raise NotImplementedError
+        result: list[str] = []
+        # TODO: Generate header
+        result.append("from libc cimport math\n")
+        result.append(self.generate_log_like())
+        result.append(self.generate_prior_transform())
         return "\n".join(result)
 
     def summary(self, code: bool = False) -> str:
@@ -178,8 +201,14 @@ class CodeGenerator:
             print("        Gen TODO: Constraint")
 
     def prior(self, var: str, dist: str, params: list[str]):
-        if self.verbose:
-            print("        Gen TODO: prior assignment")
+        if dist.lower() != "uniform":
+            raise NotImplementedError
+        # TODO: Rewrite with real distribution generation
+        assert len(params) == 2
+        var = Symb(var)
+        pars = [float(p) for p in params]
+        code: str = f"{{{var}}} = {pars[0]} + {pars[1]-pars[0]}*{{{var}}}"
+        self._prior_components.append(Component(set([var]), set([var]), code))
 
     def _add_component(self, req: set[Symb], prov: set[Symb], params: list[Symb], template: str, prior: bool) -> None:
         new_comp: Component = Component(req, prov, template)
