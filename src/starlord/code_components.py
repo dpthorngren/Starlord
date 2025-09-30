@@ -6,6 +6,7 @@ from typing import Union
 
 
 class Symb(str):
+
     def __new__(cls, source: str) -> Symb:
         if re.fullmatch(r"[pcbla][_.][A-Za-z_]\w*", source) is not None:
             source = source.replace(".", "_")
@@ -43,7 +44,8 @@ class Component:
 
 
 class AssignmentComponent(Component):
-    pass
+    def __repr__(self) -> str:
+        return f"{list(self.requires)[0]} = {self.code}"
 
 
 class DistributionComponent(Component):

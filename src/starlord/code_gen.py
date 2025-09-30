@@ -10,7 +10,7 @@ from importlib.machinery import ModuleSpec
 from pathlib import Path
 
 from ._config import config
-from .code_components import Component, Symb
+from .code_components import AssignmentComponent, Component, Symb
 
 
 class CodeGenerator:
@@ -185,13 +185,15 @@ class CodeGenerator:
                 assert var[0] in "lb" and var[1] == ".", var
                 provides.add(Symb(var))
         code, variables = self._extract_params_(expr)
-        requires = {Symb(i) for i in variables} - provides
+        requires = variables - provides
         self._like_components.append(Component(requires, provides, code))
 
     def assign(self, var: str, expr: str) -> None:
-        # If l or b omitted, add l.
-        if self.verbose:
-            print("        Gen TODO: variable assignment")
+        # If l or b is omitted, l is implied
+        var = Symb(var if var[0] in "lb" else f"l.{var}")
+        code, variables = self._extract_params_(expr)
+        code = f"{{{var}}} = {code}"
+        self._like_components.append(AssignmentComponent(variables, {var}, code))
 
     def constraint(self, var: str, dist: str, params: list[str]):
         var = Symb(var)
@@ -218,11 +220,12 @@ class CodeGenerator:
             self._like_components.append(new_comp)
 
     @staticmethod
-    def _extract_params_(source: str) -> tuple[str, set[str]]:
+    def _extract_params_(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
         template: str = re.sub(r"(?<!\w)([pcbla])\.(([A-Za-z_]\w*))", r"{\1_\2}", source, re.M)
-        variables: set[str] = set(re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template, re.M))
+        all_vars: list[str] = re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template, re.M)
+        variables: set[Symb] = {Symb(v) for v in all_vars}
         return template, variables
 
     @staticmethod

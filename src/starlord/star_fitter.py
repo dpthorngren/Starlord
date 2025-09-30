@@ -5,12 +5,13 @@ import re
 from .code_gen import CodeGenerator
 from .sampler import SamplerNested
 
+
 class StarFitter():
     '''Fits parameters of a stellar grid to observed data'''
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
-        self._gen = CodeGenerator()
+        self._gen = CodeGenerator(verbose)
         self._grids = {}
         self._avail_grids = {"mist": None}  # TODO: Real grid loading
 
@@ -72,7 +73,7 @@ class StarFitter():
     def assign(self, var: str, expr: str) -> None:
         if self.verbose:
             print(f"    SF: Assignment({var}, '{expr[:50]}...')")
-        self.expression(f"{var} = {expr}")
+        self._gen.assign(var, expr)
 
     def constraint(self, var: str, dist: str, params: list[str]) -> None:
         '''Adds a constraint to the model, either "var" or "grid.var".'''
@@ -109,7 +110,7 @@ class StarFitter():
             self.constraint(var, dist, spec)
 
     def summary(self, print_code: bool = False) -> None:
-        print(self._grids)
+        print("Grids:", self._grids)
         print(self._gen.summary(print_code))
 
     def generate_log_like(self) -> str:
