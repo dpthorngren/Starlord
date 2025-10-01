@@ -8,13 +8,12 @@ from typing import Union
 class Symb(str):
 
     def __new__(cls, source: str) -> Symb:
-        if re.fullmatch(r"[pcbla][_.][A-Za-z_]\w*", source) is not None:
-            source = source.replace(".", "_")
+        if re.fullmatch(r"[pcbla]\.[A-Za-z_]\w*", source) is not None:
             return super().__new__(cls, source)
         try:
             value: float = float(source)
         except ValueError:
-            raise ValueError(f"Could not interpret {source} as a symbol or literal.")
+            raise ValueError(f'Could not interpret "{source}" as a symbol or literal.') from None
         return super().__new__(cls, str(value))
 
     @property
@@ -24,6 +23,10 @@ class Symb(str):
     @property
     def label(self) -> str:
         return self[0]
+
+    @property
+    def var(self) -> str:
+        return self.label + "_" + self.name
 
 
 @dataclass(frozen=True)

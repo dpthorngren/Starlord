@@ -7,10 +7,20 @@ import re
 import shutil
 from importlib import util
 from importlib.machinery import ModuleSpec
-from pathlib import Path
+from types import SimpleNamespace
 
 from ._config import config
 from .code_components import AssignmentComponent, Component, Symb
+
+
+class Namespace(SimpleNamespace):
+    '''A slightly less simple namespace, allowing for [] and iteration'''
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+    def __iter__(self):
+        return self.__dict__.items().__iter__()
 
 
 class CodeGenerator:
@@ -28,31 +38,31 @@ class CodeGenerator:
     def params(self):
         if self._vars_out_of_date:
             self._update_vars()
-        return self._params
+        return tuple(self._params)
 
     @property
     def constants(self):
         if self._vars_out_of_date:
             self._update_vars()
-        return self._constants
+        return tuple(self._constants)
 
     @property
     def blobs(self):
         if self._vars_out_of_date:
             self._update_vars()
-        return self._blobs
+        return tuple(self._blobs)
 
     @property
     def locals(self):
         if self._vars_out_of_date:
             self._update_vars()
-        return self._locals
+        return tuple(self._locals)
 
     @property
     def arrays(self):
         if self._vars_out_of_date:
             self._update_vars()
-        return self._arrays
+        return tuple(self._arrays)
 
     def __init__(self, verbose: bool = False):
         self.verbose: bool = verbose
@@ -66,7 +76,6 @@ class CodeGenerator:
         self._blobs: list[Symb] = []
         self._locals: list[Symb] = []
         self._arrays: list[Symb] = []
-        self._mapping: dict[str, str] = {}
 
     def _update_vars(self):
         self._variables = set()
@@ -83,14 +92,15 @@ class CodeGenerator:
         self._arrays = sorted(list(result['a']))
         self._vars_out_of_date = False
 
-    def get_mapping(self) -> dict[str, str]:
+    def get_mapping(self) -> dict[str, Namespace]:
         # TODO: Add options based on the type of output
-        mapping: dict[str, str] = {}
-        mapping.update({c: c for c in self.constants})
-        mapping.update({a: a for a in self.arrays})
-        mapping.update({l: l for l in self.locals})
-        mapping.update({name: f"params[{i}]" for i, name in enumerate(self.params)})
-        mapping.update({name: f"blobs[{i}]" for i, name in enumerate(self.blobs)})
+        self._update_vars()
+        mapping: dict[str, Namespace] = {}
+        mapping['c'] = Namespace(**{c.name: c.var for c in self.constants})
+        mapping['a'] = Namespace(**{a.name: a.var for a in self.arrays})
+        mapping['l'] = Namespace(**{l.name: l.var for l in self.locals})
+        mapping['p'] = Namespace(**{n.name: f"params[{i}]" for i, n in enumerate(self.params)})
+        mapping['b'] = Namespace(**{n.name: f"blobs[{i}]" for i, n in enumerate(self.blobs)})
         return mapping
 
     def generate_prior_transform(self) -> str:
@@ -109,6 +119,8 @@ class CodeGenerator:
         result: list[str] = []
         result.append("cpdef double log_like(double[:] params):")
         result.append("    cdef double logL = 0.")
+        for _, loc in mapping['l']:
+            result.append(f"    cdef {loc}")
         # Check that every local and blob used is initialized somewhere
         components = self._like_components.copy()
         initialized = set()
@@ -190,7 +202,7 @@ class CodeGenerator:
 
     def assign(self, var: str, expr: str) -> None:
         # If l or b is omitted, l is implied
-        var = Symb(var if var[0] in "lb" else f"l.{var}")
+        var = Symb(var if re.match(r"^[bl]\.", var) is not None else f"l.{var}")
         code, variables = self._extract_params_(expr)
         code = f"{{{var}}} = {code}"
         self._like_components.append(AssignmentComponent(variables, {var}, code))
@@ -223,8 +235,8 @@ class CodeGenerator:
     def _extract_params_(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
-        template: str = re.sub(r"(?<!\w)([pcbla])\.(([A-Za-z_]\w*))", r"{\1_\2}", source, re.M)
-        all_vars: list[str] = re.findall(r"(?<=\{)[pcbla]_[A-Za-z_]\w*(?=\})", template, re.M)
+        template: str = re.sub(r"(?<!\w)([pcbla]\.[A-Za-z_]\w*)", r"{\1}", source, re.M)
+        all_vars: list[str] = re.findall(r"(?<=\{)[pcbla]\.[A-Za-z_]\w*(?=\})", template, re.M)
         variables: set[Symb] = {Symb(v) for v in all_vars}
         return template, variables
 
