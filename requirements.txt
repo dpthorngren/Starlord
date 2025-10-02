@@ -1,6 +1,5 @@
 numpy
 scipy
-numba
 cython
 dynesty
 pytest

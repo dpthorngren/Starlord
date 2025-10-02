@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "Cython"]
 build-backend = "setuptools.build_meta"
 
 [tool.yapf]
@@ -11,4 +11,4 @@ coalesce_brackets = true
 arithmetic_precedence_indication = true
 
 [tool.pytest.ini_options]
-pythonpath = "src"
+pythonpath="."

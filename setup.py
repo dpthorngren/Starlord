@@ -1,4 +1,10 @@
 #!/usr/bin/env python
-from setuptools import setup
+from setuptools import Extension, setup
+from Cython.Build import cythonize
 
-setup()
+ext = Extension("cystar", ["starlord/cystar.pyx"])
+
+setup(
+    ext_modules=cythonize([ext], include_path=["starlord/"]),
+    package_data={"starlord": ["starlord/cystar.pxd"]}
+)

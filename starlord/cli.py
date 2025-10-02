@@ -2,8 +2,8 @@ import argparse
 import pathlib
 import sys
 
-from ._version import __version__
 from .star_fitter import StarFitter
+from . import __version__
 
 if sys.version_info >= (3, 11):
     import tomllib
