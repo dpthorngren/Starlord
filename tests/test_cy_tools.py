@@ -1,0 +1,39 @@
+import numpy as np
+from pytest import approx, raises
+from scipy import stats
+
+from starlord import cy_tools
+
+
+def test_lpdf():
+    assert cy_tools.uniform_lpdf(3.5, 3.1, 6.6) == approx(-np.log(3.5))
+    assert cy_tools.uniform_lpdf(3.0, 3.1, 6.6) == -np.inf
+    assert cy_tools.uniform_lpdf(6.7, 3.1, 6.6) == -np.inf
+    for x in stats.uniform.rvs(-4, 4, 100):
+        assert stats.norm.logpdf(x, 1., .5) == approx(cy_tools.normal_lpdf(x, 1., .5), rel=1e-12)
+        assert stats.norm.logpdf(x, -10.1, 2.5) == approx(cy_tools.normal_lpdf(x, -10.1, 2.5), rel=1e-12)
+        assert stats.norm.logpdf(x, 1e3, 1e2) == approx(cy_tools.normal_lpdf(x, 1e3, 1e2), rel=1e-12)
+    assert np.isnan(cy_tools.normal_lpdf(5., 2., -1.5))
+    for x in stats.uniform.rvs(0., 1., 100):
+        assert stats.beta.logpdf(x, 15., 20.) == approx(cy_tools.beta_lpdf(x, 15., 20.), rel=1e-12)
+        assert stats.beta.logpdf(x, 500., 300.) == approx(cy_tools.beta_lpdf(x, 500., 300.), rel=1e-12)
+        assert stats.beta.logpdf(x, 53.2, 48.5) == approx(cy_tools.beta_lpdf(x, 53.2, 48.5), rel=1e-12)
+    assert cy_tools.beta_lpdf(0., 5., 2.) == -np.inf
+    assert cy_tools.beta_lpdf(1., 15., 2.3) == -np.inf
+    assert np.isnan(cy_tools.beta_lpdf(1.01, 23., 15.3))
+    assert np.isnan(cy_tools.beta_lpdf(-3., 23., 15.3))
+    for x in stats.uniform.rvs(0., 10., 100):
+        assert stats.gamma.logpdf(x, 15., scale=1. / 20.) == approx(cy_tools.gamma_lpdf(x, 15., 20.), rel=1e-12)
+        assert stats.gamma.logpdf(x, 500., scale=1. / 300.) == approx(cy_tools.gamma_lpdf(x, 500., 300.), rel=1e-12)
+        assert stats.gamma.logpdf(x, 53.2, scale=1. / 48.5) == approx(cy_tools.gamma_lpdf(x, 53.2, 48.5), rel=1e-12)
+
+
+def test_ppf():
+    for x in stats.uniform.rvs(0., 1., 100):
+        assert cy_tools.normal_ppf(x, 1.3e4, 5.2e3) == approx(stats.norm.ppf(x, loc=1.3e4, scale=5.2e3), rel=1e-12)
+        assert cy_tools.normal_ppf(x, -1.2e-3, 5.2e-3) == approx(
+            stats.norm.ppf(x, loc=-1.2e-3, scale=5.2e-3), rel=1e-12)
+        assert cy_tools.beta_ppf(x, 25.3, 12.2) == approx(stats.beta.ppf(x, 25.3, 12.2))
+        assert cy_tools.beta_ppf(x, 230.3, 112.2) == approx(stats.beta.ppf(x, 230.3, 112.2))
+        assert cy_tools.gamma_ppf(x, 25.3, 12.2) == approx(stats.gamma.ppf(x, 25.3, scale=1./12.2))
+        assert cy_tools.gamma_ppf(x, 230.3, 112.2) == approx(stats.gamma.ppf(x, 230.3, scale=1./112.2))
