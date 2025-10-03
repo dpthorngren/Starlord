@@ -181,12 +181,12 @@ class CodeGenerator:
         automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
         provides = set()
         # Finds assignment blocks like "l.foo = " and "l.bar, l.foo = "
-        assigns = re.findall(r"^\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, re.M)
+        assigns = re.findall(r"^\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
         assigns += re.findall(
-            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, re.M)
+            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         # Same as above but covers when vars are enclosed by parentheses like "(l.a, l.b) ="
         assigns += re.findall(
-            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, re.M)
+            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         for block in assigns:
             # Handles parens, multiple assignments, extra whitespace, and removes the "="
             block = block[:-1].strip(" ()")
@@ -235,8 +235,8 @@ class CodeGenerator:
     def _extract_params_(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
-        template: str = re.sub(r"(?<!\w)([pcbla]\.[A-Za-z_]\w*)", r"{\1}", source, re.M)
-        all_vars: list[str] = re.findall(r"(?<=\{)[pcbla]\.[A-Za-z_]\w*(?=\})", template, re.M)
+        template: str = re.sub(r"(?<!\w)([pcbla]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)
+        all_vars: list[str] = re.findall(r"(?<=\{)[pcbla]\.[A-Za-z_]\w*(?=\})", template, flags=re.M)
         variables: set[Symb] = {Symb(v) for v in all_vars}
         return template, variables
 

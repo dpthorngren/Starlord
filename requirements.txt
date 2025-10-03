@@ -1,8 +1,0 @@
-numpy
-scipy
-cython
-dynesty
-pytest
-flake8
-pytest-cov
-genbadge[all]
