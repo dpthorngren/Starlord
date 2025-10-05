@@ -38,6 +38,7 @@ jobs:
       run: |
         genbadge coverage -n Coverage -i coverage.xml -o htmlcov/coverage_badge.svg
         genbadge tests -n Tests -i junit.xml -o htmlcov/tests_badge.svg
+        python -c 'import genbadge; genbadge.Badge("Cython Annotations", "✓", "Green").write_to("htmlcov/cython.svg")'
     - name: Upload Artifacts
       id: deployment
       uses: actions/upload-pages-artifact@v3

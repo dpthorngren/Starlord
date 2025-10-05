@@ -207,11 +207,10 @@ class CodeGenerator:
 
     def assign(self, var: str, expr: str) -> None:
         # If l or b is omitted, l is implied
-        # TODO: Move some of this logic to AssignmentComponent __init__
         var = Symb(var if re.match(r"^[bl]\.", var) is not None else f"l.{var}")
         code, variables = self._extract_params_(expr)
-        code = f"{{{var}}} = {code}"
-        self._like_components.append(AssignmentComponent(variables, {var}, code))
+        comp = AssignmentComponent(var, code, variables-{var})
+        self._like_components.append(comp)
 
     def constraint(self, var: str, dist: str, params: list[str], is_prior=False):
         var = Symb(var)

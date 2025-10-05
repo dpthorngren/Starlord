@@ -55,9 +55,22 @@ class Component:
 
 @dataclass(frozen=True)
 class AssignmentComponent(Component):
+
+    def __init__(self, var: Symb, expr: str, requires: set[Symb]):
+        assert var.label in "lb"
+        object.__setattr__(self, 'provides', set([var]))
+        object.__setattr__(self, 'requires', requires)
+        object.__setattr__(self, "code", expr)
+
     def __repr__(self) -> str:
         return f"{list(self.requires)[0]} = {self.code}"
 
+    def generate_code(self, name_map: Optional[dict] = None, prior_type: Optional[str] = None) -> str:
+        code: str = f"{{{list(self.provides)[0]}}} = {self.code}"
+        if name_map is None:
+            return code
+        else:
+            return code.format_map(name_map)
 
 @dataclass(frozen=True)
 class DistributionComponent(Component):
