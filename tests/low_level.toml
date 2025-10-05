@@ -1,0 +1,12 @@
+[model]
+
+var.A = ["math.exp(p.a)", "normal", "0.5", "0.25"]
+var.B = ["p.b", "normal", "2.5", "1.25"]
+
+prior.a = ["normal", "-5", "5"]
+prior.b = ["normal", "-5", "5"]
+
+[sampling]
+
+[output]
+terminal=true

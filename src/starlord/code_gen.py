@@ -109,7 +109,8 @@ class CodeGenerator:
         result.append("cpdef double[:] prior_transform(double[:] params):")
         # TODO: Resolve prior dependencies
         for comp in self._prior_components:
-            result.append("    " + comp.generate_code(mapping, prior_type))
+            code: str = comp.generate_code(mapping, prior_type)
+            result.append("\n".join("    " + l for l in code.splitlines()))
         result.append("    return params\n")
         return "\n".join(result)
 
@@ -135,7 +136,8 @@ class CodeGenerator:
             for comp in components:
                 reqs = {c for c in comp.requires if c[0] in "bl" and c not in initialized}
                 if len(reqs) == 0:
-                    result.append("    " + comp.generate_code(mapping))
+                    code: str = comp.generate_code(mapping)
+                    result.append("\n".join("    " + l for l in code.splitlines()))
                     components.remove(comp)
                     initialized = initialized.union(comp.provides)
                     break

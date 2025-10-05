@@ -14,6 +14,9 @@ class StarFitter():
         self._gen = CodeGenerator(verbose)
         self._grids = {}
         self._avail_grids = {"mist": None}  # TODO: Real grid loading
+        self._generate = self._gen.generate
+        self._generate_log_like = self._gen.generate_log_like
+        self._generate_prior_transform = self._gen.generate_prior_transform
 
     def set_from_dict(self, model: dict) -> None:
         if self.verbose:
@@ -56,6 +59,8 @@ class StarFitter():
     def expression(self, expr: str) -> None:
         if self.verbose:
             print(f"    SF: Expression('{expr[:50]}...')")
+        # Switch any tabs out for spaces
+        expr = expr.replace("\t", "    ")
         # Identify grids, register required columns
         match = re.findall(r"(?<=[\W])(\w+)\.([A-Za-z_]\w*)", expr)
         if match is not None:
@@ -113,12 +118,9 @@ class StarFitter():
         print("Grids:", self._grids)
         print(self._gen.summary(print_code, prior_type))
 
-    def generate_log_like(self) -> str:
-        return self._gen.generate_log_like()
-
     def run_sampler(self, options: dict):
         # TODO: Move some of this over back into CodeGenerator
-        hash = CodeGenerator._compile_to_module(self._gen.generate())
+        hash = CodeGenerator._compile_to_module(self._generate())
         mod = CodeGenerator._load_module(hash)
         samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {})
         samp.run({})
