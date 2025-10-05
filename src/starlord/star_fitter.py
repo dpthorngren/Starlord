@@ -89,14 +89,14 @@ class StarFitter():
         if self.verbose:
             print(" (Grid Variable)")
         self._register_grid_key(label, name)
-        self._gen.constraint(f"l.{label}_{name}", dist, params)
+        self._gen.constraint(f"{label}_{name}", dist, params)
 
     def prior(self, var: str, dist: str, params: list[str]):
         if self.verbose:
             print(f"    SF: Prior {var} ~ {dist}({params})")
-        self._gen.prior(var, dist, params)
+        self._gen.constraint(var, dist, params, True)
 
-    def _unpack_distribution(self, var: str, spec: list, prior: bool = False) -> None:
+    def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
         the results on to prior(...) if prior=True else constraint(...)'''
         assert type(spec) == list
@@ -104,14 +104,14 @@ class StarFitter():
         dist: str = "normal"
         if type(spec[0]) is str:
             dist = spec.pop(0)
-        if prior:
+        if is_prior:
             self.prior(var, dist, spec)
         else:
             self.constraint(var, dist, spec)
 
-    def summary(self, print_code: bool = False) -> None:
+    def summary(self, print_code: bool = False, prior_type="ppf") -> None:
         print("Grids:", self._grids)
-        print(self._gen.summary(print_code))
+        print(self._gen.summary(print_code, prior_type))
 
     def generate_log_like(self) -> str:
         return self._gen.generate_log_like()

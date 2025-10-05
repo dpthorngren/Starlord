@@ -10,7 +10,7 @@ from importlib.machinery import ModuleSpec
 from types import SimpleNamespace
 
 from ._config import config
-from .code_components import AssignmentComponent, Component, Symb
+from .code_components import (AssignmentComponent, Component, DistributionComponent, Symb)
 
 
 class Namespace(SimpleNamespace):
@@ -82,7 +82,7 @@ class CodeGenerator:
         result: dict[str, set[Symb]] = {i: set() for i in 'pcbla'}
         for comp in self._prior_components + self._like_components:
             for sym in comp.requires.union(comp.provides):
-                assert sym.label in 'pcbla'
+                assert sym.label in 'pcbla', f"Bad symbol name {sym}"
                 result[sym.label].add(sym)
                 self._variables.add(sym)
         self._params = sorted(list(result['p']))
@@ -103,13 +103,13 @@ class CodeGenerator:
         mapping['b'] = Namespace(**{n.name: f"blobs[{i}]" for i, n in enumerate(self.blobs)})
         return mapping
 
-    def generate_prior_transform(self) -> str:
+    def generate_prior_transform(self, prior_type: str = "ppf") -> str:
         mapping = self.get_mapping()
         result: list[str] = []
         result.append("cpdef double[:] prior_transform(double[:] params):")
         # TODO: Resolve prior dependencies
         for comp in self._prior_components:
-            result.append("    " + comp.generate_code(mapping))
+            result.append("    " + comp.generate_code(mapping, prior_type))
         result.append("    return params\n")
         return "\n".join(result)
 
@@ -144,20 +144,19 @@ class CodeGenerator:
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
         return "\n".join(result)
 
-    def generate(self, use_class: bool = False, prior: str = "ppf") -> str:
+    def generate(self, use_class: bool = False, prior_type: str = "ppf") -> str:
         # TODO: Other options
         if use_class:
             raise NotImplementedError
-        if prior != "ppf":
+        if prior_type != "ppf":
             raise NotImplementedError
         result: list[str] = []
-        # TODO: Generate header
-        result.append("from libc cimport math\n")
+        result.append("from starlord.cy_tools cimport *\n")
         result.append(self.generate_log_like())
         result.append(self.generate_prior_transform())
         return "\n".join(result)
 
-    def summary(self, code: bool = False) -> str:
+    def summary(self, code: bool = False, prior_type=None) -> str:
         result: list[str] = []
         result += ["=== Variables ==="]
         if self.params:
@@ -173,7 +172,13 @@ class CodeGenerator:
         result += ["=== Likelihood ==="]
         result += [i.generate_code() if code else str(i) for i in self._like_components]
         result += ["=== Prior ==="]
-        result += [i.generate_code() if code else str(i) for i in self._prior_components]
+        for c in self._prior_components:
+            if code:
+                result += [c.generate_code(prior_type=prior_type)]
+            elif type(c) is DistributionComponent:
+                result += [f"p({c.var}) = {c}"]
+            else:
+                result += [str(c)]
         return "\n".join(result)
 
     def expression(self, expr: str) -> None:
@@ -202,34 +207,21 @@ class CodeGenerator:
 
     def assign(self, var: str, expr: str) -> None:
         # If l or b is omitted, l is implied
+        # TODO: Move some of this logic to AssignmentComponent __init__
         var = Symb(var if re.match(r"^[bl]\.", var) is not None else f"l.{var}")
         code, variables = self._extract_params_(expr)
         code = f"{{{var}}} = {code}"
         self._like_components.append(AssignmentComponent(variables, {var}, code))
 
-    def constraint(self, var: str, dist: str, params: list[str]):
+    def constraint(self, var: str, dist: str, params: list[str], is_prior=False):
         var = Symb(var)
-        # TODO: Check dist name
-        params = [Symb(str(i)) for i in params]
-        if self.verbose:
-            print("        Gen TODO: Constraint")
-
-    def prior(self, var: str, dist: str, params: list[str]):
-        if dist.lower() != "uniform":
-            raise NotImplementedError
-        # TODO: Rewrite with real distribution generation
         assert len(params) == 2
-        var = Symb(var)
-        pars = [float(p) for p in params]
-        code: str = f"{{{var}}} = {pars[0]} + {pars[1]-pars[0]}*{{{var}}}"
-        self._prior_components.append(Component(set([var]), set([var]), code))
-
-    def _add_component(self, req: set[Symb], prov: set[Symb], params: list[Symb], template: str, prior: bool) -> None:
-        new_comp: Component = Component(req, prov, template)
-        if prior:
-            self._prior_components.append(new_comp)
+        pars: list[Symb] = [Symb(i) for i in params]
+        comp = DistributionComponent(var, dist, pars)
+        if is_prior:
+            self._prior_components.append(comp)
         else:
-            self._like_components.append(new_comp)
+            self._like_components.append(comp)
 
     @staticmethod
     def _extract_params_(source: str) -> tuple[str, set[Symb]]:

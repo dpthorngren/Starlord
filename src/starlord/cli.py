@@ -48,7 +48,8 @@ def main():
         print("No model information was specified.")
         return
     if args.code:
-        print(fitter.generate_log_like())
+        # TODO: Set prior type based on sampler type
+        print(fitter._gen.generate())
     if args.dry_run:
         fitter.summary(args.verbose)
         return
