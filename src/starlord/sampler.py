@@ -24,6 +24,10 @@ class _Sampler(ABC):
         pass
 
     @abstractmethod
+    def stats(self) -> np.ndarray:
+        pass
+
+    @abstractmethod
     def summary(self) -> str:
         pass
 
@@ -50,16 +54,20 @@ class SamplerNested(_Sampler):
     def run(self, options: dict):
         self._sampler.run_nested(**options)
 
-    def summary(self) -> str:
-        # TODO: Convergence statistics
+    def stats(self) -> np.ndarray:
         samples = self.results['samples']
         weights = self.results.importance_weights()
-        out = [" Dim" + "Mean".rjust(12) + "Std".rjust(12) + "16".rjust(12) + "50".rjust(12) + "84".rjust(12)]
         mean, cov = dynesty.utils.mean_and_cov(samples, weights)
+        q = [dynesty.utils.quantile(samples[:,i], [0.16, 0.5, 0.84], weights=weights) for i in range(len(mean))]
+        return np.column_stack([mean, np.sqrt(np.diag(cov)), q, cov])
+
+    def summary(self) -> str:
+        # TODO: Convergence statistics
+        stats = self.stats()
+        out = [" Dim" + "Mean".rjust(12) + "Std".rjust(12) + "16".rjust(12) + "50".rjust(12) + "84".rjust(12)]
         for i in range(self.sampler.ndim):
-            line = f"{i:4d} {mean[i]:11.4g} {np.sqrt(cov[i,i]):11.4g}"
-            q = dynesty.utils.quantile(samples[:, i], [0.16, 0.5, 0.84], weights=weights)
-            line += f" {q[0]:11.4g} {q[1]:11.4g} {q[2]:11.4g}"
+            line = f"{i:4d} {stats[i,0]:11.4g} {stats[i,1]:11.4g}"
+            line += f" {stats[i,2]:11.4g} {stats[i,3]:11.4g} {stats[i,4]:11.4g}"
             out += [line]
         return "\n".join(out)
 

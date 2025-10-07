@@ -214,7 +214,7 @@ class CodeGenerator:
         comp = AssignmentComponent(var, code, variables-{var})
         self._like_components.append(comp)
 
-    def constraint(self, var: str, dist: str, params: list[str], is_prior=False):
+    def constraint(self, var: str, dist: str, params: list[str|float], is_prior=False):
         var = Symb(var)
         assert len(params) == 2
         pars: list[Symb] = [Symb(i) for i in params]

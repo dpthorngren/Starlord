@@ -80,25 +80,27 @@ class StarFitter():
             print(f"    SF: Assignment({var}, '{expr[:50]}...')")
         self._gen.assign(var, expr)
 
-    def constraint(self, var: str, dist: str, params: list[str]) -> None:
-        '''Adds a constraint to the model, either "var" or "grid.var".'''
+    def constraint(self, var: str, dist: str, params: list[str|float]) -> None:
+        '''Adds a constraint to the model, either "l.var" or "grid.var".'''
         if self.verbose:
             print(f"    SF: Constraint({dist}({var} | {params})", end="")
         label, name = var.split(".")  # TODO: better exception
-        if label == "l":
+        if label in self._avail_grids.keys():
+            self._register_grid_key(label, name)
             if self.verbose:
-                print(" (Simple Variable)")
-            self._gen.constraint("l." + name, dist, params)
-            return
-        assert label in self._avail_grids.keys(), label
-        if self.verbose:
-            print(" (Grid Variable)")
-        self._register_grid_key(label, name)
-        self._gen.constraint(f"{label}_{name}", dist, params)
+                print(" (Grid Variable)")
+        else:
+            assert label in "lp"
+            if self.verbose:
+                print(" (Normal Variable)")
+        self._gen.constraint(f"{label}.{name}", dist, params)
 
-    def prior(self, var: str, dist: str, params: list[str]):
+    def prior(self, var: str, dist: str, params: list[str|float]):
         if self.verbose:
             print(f"    SF: Prior {var} ~ {dist}({params})")
+        if not var.startswith("p."):
+            assert "." not in var
+            var = "p."+var
         self._gen.constraint(var, dist, params, True)
 
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
