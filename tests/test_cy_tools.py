@@ -1,6 +1,7 @@
 import numpy as np
 from pytest import approx, raises
 from scipy import stats
+from scipy.interpolate import RegularGridInterpolator
 
 from starlord import cy_tools
 
@@ -35,5 +36,21 @@ def test_ppf():
             stats.norm.ppf(x, loc=-1.2e-3, scale=5.2e-3), rel=1e-12)
         assert cy_tools.beta_ppf(x, 25.3, 12.2) == approx(stats.beta.ppf(x, 25.3, 12.2))
         assert cy_tools.beta_ppf(x, 230.3, 112.2) == approx(stats.beta.ppf(x, 230.3, 112.2))
-        assert cy_tools.gamma_ppf(x, 25.3, 12.2) == approx(stats.gamma.ppf(x, 25.3, scale=1./12.2))
-        assert cy_tools.gamma_ppf(x, 230.3, 112.2) == approx(stats.gamma.ppf(x, 230.3, scale=1./112.2))
+        assert cy_tools.gamma_ppf(x, 25.3, 12.2) == approx(stats.gamma.ppf(x, 25.3, scale=1. / 12.2))
+        assert cy_tools.gamma_ppf(x, 230.3, 112.2) == approx(stats.gamma.ppf(x, 230.3, scale=1. / 112.2))
+
+
+def test_gridding():
+    x = np.linspace(0, 10, 100)
+    y = np.logspace(-1, 1, 75)
+    values = np.sin(x[:, None]) + 1.2 * np.cos(.2 * y[None, :])
+    f = cy_tools.GridInterpolator([x, y], values)
+    # Check that we match RegularGridInterpolator
+    g = RegularGridInterpolator([x,y], values)
+    for xt in (0.1+9.9*np.random.rand(2,50)):
+        assert f._interp2d(xt[0], xt[1]) == approx(g(xt)[0], rel=1e-12)
+    # Check bounds handling
+    assert np.isnan(f._interp2d(-5, -5))
+    assert np.isnan(f._interp2d(5, 0.))
+    assert np.isfinite(f._interp2d(10., 0.1))
+    assert np.isfinite(f._interp2d(0., 10.))
