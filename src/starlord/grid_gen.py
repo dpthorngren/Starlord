@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from ._config import config
+from .cy_tools import GridInterpolator
 
 
 class GridGenerator:
@@ -61,6 +62,11 @@ class GridGenerator:
     def build_grid(self, columns: list[str] | str):
         if type(columns) is str:
             columns = [columns]
+        assert len(columns) > 0
         for col in columns:
             assert col in self.outputs
-        print(f"TODO: Output grid {self.name}({', '.join(self.inputs)} -> {', '.join(columns)})")
+        if len(columns) > 1:
+            raise NotImplementedError("TODO: grids with multiple return values.")
+        axes = [self.data[i] for i in self.inputs]
+        value = self.data[columns[0]]
+        return GridInterpolator(axes, value)
