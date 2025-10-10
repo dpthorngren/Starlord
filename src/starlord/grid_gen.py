@@ -58,7 +58,7 @@ class GridGenerator:
         out += ")"
         return out
 
-    def build_grid(self, columns: list[str]|str):
+    def build_grid(self, columns: list[str] | str):
         if type(columns) is str:
             columns = [columns]
         for col in columns:
