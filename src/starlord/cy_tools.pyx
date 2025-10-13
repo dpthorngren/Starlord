@@ -1,4 +1,5 @@
 import numpy as np
+cimport cython
 
 cpdef double uniform_lpdf(double x, double xmin, double xmax):
     if x > xmin and x < xmax:
@@ -75,14 +76,37 @@ cdef class GridInterpolator:
         self.x_stride = self.y_stride * self.y_len
         self.values = self._data[stop:]
 
-    cpdef double interp(self, double x):
-        return x
+    def __call__(self, arr):
+        '''This method is convenient but slow; consider more specialized functions.'''
+        cdef int i
+        cdef double[:] xt1d, rv
+        cdef double[:,:] xt
+        if self.ndim == 1:
+            xt1d = np.array(arr).ravel()
+            result = np.empty(len(xt1d))
+            rv = result
+            for i in range(len(xt1d)):
+                rv[i] = self._interp1d(xt1d[i])
+            return result
+        xt = np.atleast_2d(arr)
+        result = np.empty(xt.shape[0])
+        rv = result
+        for i in range(xt.shape[0]):
+            rv[i] = self.interp(xt[i])
+        return result.squeeze()
+
+    cpdef double interp(self, double[:] x):
+        if self.ndim == 1:
+            return self._interp1d(x[0])
+        elif self.ndim == 2:
+            return self._interp2d(x[0], x[1])
+        return math.NAN
 
     cpdef double _interp1d(self, double point):
         cdef int xi
         cdef double xw
         # Locate on grid and bounds check
-        xi = _locatePoint_(point, self.x_axis, self.x_, &xw)
+        xi = _locatePoint_(point, self.x_axis, self.x_len, &xw)
         if(xi < 0):
             return math.NAN
         # Weighted sum over bounding points

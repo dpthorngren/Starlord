@@ -34,6 +34,6 @@ cdef class GridInterpolator:
     cdef double[:] values
     cdef object _data
 
-    cpdef double interp(self, double x)
+    cpdef double interp(self, double[:] x)
     cpdef double _interp1d(self, double point)
     cpdef double _interp2d(self, double x, double y)

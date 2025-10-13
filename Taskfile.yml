@@ -1,0 +1,38 @@
+version: 3
+
+
+tasks:
+  default:
+    deps: [test]
+
+  devbuild:
+    desc: "Rebuild shared library (if cython files have changed) and reinstall."
+    deps: [lint]
+    sources:
+      - src/starlord/*.pyx
+      - src/starlord/*.pxd
+    generates:
+      - src/starlord/*.so
+    cmds:
+      - rm -rf build starlord.egg-info src/starlord/*.so
+      - pip uninstall starlord --yes
+      - pip install -e .[test]
+
+  lint:
+    desc: "Run flake8 linter"
+    run: once
+    cmds:
+      - flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  test:
+    deps: [lint, devbuild]
+    desc: "Run pytest with coverage"
+    cmds:
+      - pytest --cov=starlord
+
+  experiment:
+    deps: [devbuild]
+    desc: "Build and run experiment.py file for live tests."
+    cmds:
+      - python experiment.py
+
