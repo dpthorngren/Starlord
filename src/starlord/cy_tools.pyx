@@ -75,6 +75,7 @@ cdef class GridInterpolator:
         self.y_stride = self.z_stride * self.z_len
         self.x_stride = self.y_stride * self.y_len
         self.values = self._data[stop:]
+        assert len(self.values) == self.x_stride * self.x_len
 
     def __call__(self, arr):
         '''This method is convenient but slow; consider more specialized functions.'''
@@ -122,17 +123,37 @@ cdef class GridInterpolator:
             return math.NAN
         # Weighted sum over bounding points
         cdef int s = xi*self.x_stride + yi*self.y_stride
-        cdef double out = ((
-                self.values[s]*(1.-yw) +
-                self.values[s+self.y_stride]*yw
-            )*(1.-xw) + (
-                self.values[s+self.x_stride]*(1.-yw) +
-                self.values[s+self.y_stride+self.x_stride]*yw
-            )*xw
-        )
-        return out
+        cdef double a, b
+        a = (1.-yw)*self.values[s] + yw*self.values[s+self.y_stride]
+        s += self.x_stride
+        b = (1.-yw)*self.values[s] + yw*self.values[s+self.y_stride]
+        return (1.-xw)*a + xw*b
 
-cdef inline int _locatePoint_(double point, double[:] axis, int ax_, double* w):
+    cpdef double _interp3d(self, double x, double y, double z):
+        cdef int xi, yi, zi
+        cdef double xw, yw, zw
+        # Locate on grid and bounds check
+        xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
+        yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
+        zi = _locatePoint_(z, self.z_axis, self.z_len, &zw)
+        if (xi < 0) or (yi < 0) or (zi < 0):
+            return math.NAN
+        # Weighted sum over bounding points
+        cdef double zwc = 1.-zw
+        cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride
+        cdef double a, b, c
+        a = zwc*self.values[s] + zw*self.values[s+self.z_stride]
+        s += self.y_stride
+        b = zwc*self.values[s] + zw*self.values[s+self.z_stride]
+        c = (1.-yw)*a + yw*b
+        s += self.x_stride
+        b = zwc*self.values[s] + zw*self.values[s+self.z_stride]
+        s -= self.y_stride
+        a = zwc*self.values[s] + zw*self.values[s+self.z_stride]
+        return (1.-xw)*c + xw*((1.-yw)*a + yw*b)
+
+
+cdef inline int _locatePoint_(double point, double[:] axis, int axLen, double* w):
     if not math.isfinite(point):
         return -1
     cdef int i = 0
@@ -144,7 +165,7 @@ cdef inline int _locatePoint_(double point, double[:] axis, int ax_, double* w):
         # Check that the point is in bounds
         if point == axis[-1]:
             w[0] = 1.
-            return high
+            return axLen-2
         if point < axis[0] or point > axis[-1]:
             return -1
         # Binary search for the correct indices
@@ -159,10 +180,10 @@ cdef inline int _locatePoint_(double point, double[:] axis, int ax_, double* w):
         weight = (point - axis[i]) / (axis[i+1] - axis[i])
     else:
         # Check that the point is in bounds
-        if point == (axis[0] + (ax_-1)/axis[1]):
+        if point == (axis[0] + (axLen-1)/axis[1]):
             w[0] = 1.
-            return high
-        if point < axis[0] or point >= (axis[0] + (ax_-1)/axis[1]):
+            return axLen-2
+        if point < axis[0] or point >= (axis[0] + (axLen-1)/axis[1]):
             return -1
         # Calculate the the index and weight
         weight = (point-axis[0]) * axis[1]

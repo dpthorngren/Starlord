@@ -1,3 +1,8 @@
+# My dev files
+todo.txt
+*experiment.*
+.task
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
