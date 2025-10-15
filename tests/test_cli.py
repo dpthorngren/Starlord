@@ -8,7 +8,7 @@ import pytest
 
 
 def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '--code'])
+    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v'])
     cli.main()
     captured = capsys.readouterr()
     # Basic code outputs
@@ -29,4 +29,3 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
     assert locals == ['A', 'B']
-

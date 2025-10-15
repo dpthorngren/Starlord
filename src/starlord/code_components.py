@@ -63,7 +63,7 @@ class AssignmentComponent(Component):
         object.__setattr__(self, "code", expr)
 
     def __repr__(self) -> str:
-        return f"{list(self.requires)[0]} = {self.code}"
+        return f"{list(self.provides)[0]} = {self.code}"
 
     def generate_code(self, name_map: Optional[dict] = None, prior_type: Optional[str] = None) -> str:
         code: str = f"{{{list(self.provides)[0]}}} = {self.code}"

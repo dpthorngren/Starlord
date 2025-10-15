@@ -101,6 +101,8 @@ cdef class GridInterpolator:
             return self._interp1d(x[0])
         elif self.ndim == 2:
             return self._interp2d(x[0], x[1])
+        elif self.ndim == 3:
+            return self._interp3d(x[0], x[1], x[2])
         return math.NAN
 
     cpdef double _interp1d(self, double point):

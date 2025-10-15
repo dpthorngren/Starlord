@@ -3,6 +3,8 @@ import platform
 from pathlib import Path
 from types import SimpleNamespace
 
+__version__ = "0.1.2"
+
 config = SimpleNamespace(
     system=platform.system(),
     base_dir=Path.home() / ".starlord",

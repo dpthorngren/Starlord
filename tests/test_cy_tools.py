@@ -48,6 +48,7 @@ def test_gridding1d():
     g = RegularGridInterpolator([x], values)
     for xt in 0.9 * np.random.rand(50):
         assert f._interp1d(xt) == approx(g([xt])[0], rel=1e-12)
+    assert f(.25) == approx(g([.25])[0], rel=1e-12)
     # Check bounds handling
     assert f._interp1d(1.) == approx(g([1.])[0], rel=1e-12)
     assert np.isnan(f._interp1d(-2))
@@ -65,6 +66,7 @@ def test_gridding2d():
     g = RegularGridInterpolator([x, y], values)
     for xt in (0.1 + 9.9 * np.random.rand(50, 2)):
         assert f._interp2d(xt[0], xt[1]) == approx(g(xt)[0], rel=1e-12)
+    assert f([4.32, 5.63]) == approx(g([4.32, 5.63])[0], rel=1e-12)
     # Check bounds handling
     assert np.isnan(f._interp2d(-5, -5))
     assert np.isnan(f._interp2d(5, 0.))
@@ -82,6 +84,7 @@ def test_gridding3d():
     g = RegularGridInterpolator([x, y, z], values)
     for xt in (0.1 + 9.9 * np.random.rand(50, 3)):
         assert f._interp3d(xt[0], xt[1], xt[2]) == approx(g(xt)[0], rel=1e-12)
+    assert f([4.32, 5.63, -2.5]) == approx(g([4.32, 5.63, -2.5])[0], rel=1e-12)
     # Check bounds handling
     assert np.isnan(f._interp3d(-5, -5, -5))
     assert np.isnan(f._interp3d(5, 0., 6.))
