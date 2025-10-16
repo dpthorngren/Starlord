@@ -106,7 +106,7 @@ class StarFitter():
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
         the results on to prior(...) if prior=True else constraint(...)'''
-        assert type(spec) == list
+        assert type(spec) is list
         assert len(spec) >= 2
         dist: str = "normal"
         if type(spec[0]) is str:

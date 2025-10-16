@@ -7,7 +7,7 @@ from typing import Optional
 
 class Symb(str):
 
-    def __new__(cls, source: str|float|int) -> Symb:
+    def __new__(cls, source: str | float | int) -> Symb:
         if type(source) is str and re.fullmatch(r"[pcbla]\.[A-Za-z_]\w*", source) is not None:
             return super().__new__(cls, source)
         try:
@@ -32,7 +32,7 @@ class Symb(str):
         try:
             float(self)
             return True
-        except:
+        except TypeError:
             return False
 
 
@@ -71,6 +71,7 @@ class AssignmentComponent(Component):
             return code
         else:
             return code.format_map(name_map)
+
 
 @dataclass(frozen=True)
 class DistributionComponent(Component):

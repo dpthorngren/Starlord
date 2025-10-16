@@ -1,4 +1,4 @@
-from pytest import approx, raises
+from pytest import raises
 
 from starlord import code_components
 

@@ -36,4 +36,5 @@ def _load_config():
     config.grid_dir = config.base_dir / "grids"
     config.grid_dir.mkdir(exist_ok=True)
 
+
 _load_config()

@@ -1,4 +1,3 @@
-import starlord
 import re
 
 from starlord import cli

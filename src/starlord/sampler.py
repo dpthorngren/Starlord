@@ -58,7 +58,7 @@ class SamplerNested(_Sampler):
         samples = self.results['samples']
         weights = self.results.importance_weights()
         mean, cov = dynesty.utils.mean_and_cov(samples, weights)
-        q = [dynesty.utils.quantile(samples[:,i], [0.16, 0.5, 0.84], weights=weights) for i in range(len(mean))]
+        q = [dynesty.utils.quantile(samples[:, i], [0.16, 0.5, 0.84], weights=weights) for i in range(len(mean))]
         return np.column_stack([mean, np.sqrt(np.diag(cov)), q, cov])
 
     def summary(self) -> str:

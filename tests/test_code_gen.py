@@ -4,7 +4,7 @@ import os
 from pytest import approx
 
 from starlord import CodeGenerator
-from starlord._config import config, _load_config
+from starlord._config import _load_config, config
 
 
 def test_expressions():
@@ -43,6 +43,7 @@ def test_compilation():
     hash = CodeGenerator._compile_to_module(code)
     mod = CodeGenerator._load_module(hash)
     assert mod.testFunction(12.) == approx(3.5 * math.sin(12. / 2.))
+
 
 def test_config():
     _load_config()
