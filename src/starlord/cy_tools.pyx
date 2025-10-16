@@ -103,6 +103,8 @@ cdef class GridInterpolator:
             return self._interp2d(x[0], x[1])
         elif self.ndim == 3:
             return self._interp3d(x[0], x[1], x[2])
+        elif self.ndim == 4:
+            return self._interp4d(x[0], x[1], x[2], x[3])
         return math.NAN
 
     cpdef double _interp1d(self, double point):
@@ -141,18 +143,39 @@ cdef class GridInterpolator:
         if (xi < 0) or (yi < 0) or (zi < 0):
             return math.NAN
         # Weighted sum over bounding points
-        cdef double zwc = 1.-zw
         cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride
-        cdef double a, b, c
-        a = zwc*self.values[s] + zw*self.values[s+self.z_stride]
-        s += self.y_stride
-        b = zwc*self.values[s] + zw*self.values[s+self.z_stride]
-        c = (1.-yw)*a + yw*b
+        return _unit_interp3(self.values, s, self.x_stride, self.y_stride, self.z_stride, xw, yw, zw)
+
+    cpdef double _interp4d(self, double x, double y, double z, double u):
+        cdef int xi, yi, zi, ui
+        cdef double xw, yw, zw, uw
+        # Locate on grid and bounds check
+        xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
+        yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
+        zi = _locatePoint_(z, self.z_axis, self.z_len, &zw)
+        ui = _locatePoint_(u, self.u_axis, self.u_len, &uw)
+        if (xi < 0) or (yi < 0) or (zi < 0) or (ui < 0):
+            return math.NAN
+        # Weighted sum over bounding points
+        cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride + ui*self.u_stride
+        cdef double a, b
+        a = _unit_interp3(self.values, s, self.y_stride, self.z_stride, self.u_stride, yw, zw, uw)
         s += self.x_stride
-        b = zwc*self.values[s] + zw*self.values[s+self.z_stride]
-        s -= self.y_stride
-        a = zwc*self.values[s] + zw*self.values[s+self.z_stride]
-        return (1.-xw)*c + xw*((1.-yw)*a + yw*b)
+        b = _unit_interp3(self.values, s, self.y_stride, self.z_stride, self.u_stride, yw, zw, uw)
+        return (1.-xw)*a + xw*b
+
+cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw):
+    cdef double a, b, c
+    cdef double zwc = 1.-zw
+    a = zwc*values[s] + zw*values[s+zs]
+    s += ys
+    b = zwc*values[s] + zw*values[s+zs]
+    c = (1.-yw)*a + yw*b
+    s += xs
+    b = zwc*values[s] + zw*values[s+zs]
+    s -= ys
+    a = zwc*values[s] + zw*values[s+zs]
+    return (1.-xw)*c + xw*((1.-yw)*a + yw*b)
 
 
 cdef inline int _locatePoint_(double point, double[:] axis, int axLen, double* w):

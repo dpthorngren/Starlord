@@ -12,7 +12,8 @@ cpdef double beta_ppf(double p, double alpha, double beta)
 cpdef double gamma_lpdf(double x, double alpha, double lamb)
 cpdef double gamma_ppf(double p, double alpha, double lamb)
 
-cdef inline int _locatePoint_(double point, double[:] axis, int axLen, double* w)
+cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w)
+cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw)
 
 cdef class GridInterpolator:
     cdef int ndim
@@ -38,3 +39,5 @@ cdef class GridInterpolator:
     cpdef double _interp1d(self, double point)
     cpdef double _interp2d(self, double x, double y)
     cpdef double _interp3d(self, double x, double y, double z)
+    cpdef double _interp4d(self, double x, double y, double z, double u)
+    # cpdef double _interp5d(self, double x, double y, double z, double u, double v)
