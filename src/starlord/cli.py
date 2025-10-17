@@ -4,6 +4,7 @@ import sys
 
 from .star_fitter import StarFitter
 from . import __version__
+from .grid_gen import GridGenerator
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -20,7 +21,14 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("-c", "--code", action="store_true", help="Print code upon generation.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
+    parser.add_argument("-l", "--list-grids", action="store_true")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
+    if args.list_grids:
+        print("Available grids:")
+        for g in GridGenerator.grids():
+            print(g.name.ljust(10), g.spec)
+        return
 
     # === Load Settings ===
     # Default initial settings (keep minimal)

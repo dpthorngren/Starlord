@@ -1,9 +1,22 @@
 import re
-
-from starlord import cli
 import sys
 
 import pytest
+# flake8: noqa
+from test_grids import dummy_grid
+from starlord._config import config
+
+from starlord import cli, GridGenerator
+
+
+def test_grid_listing(dummy_grid, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    monkeypatch.setattr(sys, 'argv', ['starlord', '--list-grids'])
+    config.grid_dir = dummy_grid
+    GridGenerator.reload_grids()
+    cli.main()
+    captured = capsys.readouterr()
+    assert "dummy" in captured.out
+    assert GridGenerator.get_grid("dummy").spec in captured.out
 
 
 def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):

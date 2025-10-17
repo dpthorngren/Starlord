@@ -13,7 +13,7 @@ class GridGenerator:
     _grids = {}
 
     @classmethod
-    def register_grid(cls, filename: str):
+    def register_grid(cls, filename: str) -> None:
         grid = np.load(filename)
         if "grid_spec" not in grid.files:
             raise ValueError(f"Not a valid grid file: {filename}")
@@ -22,7 +22,7 @@ class GridGenerator:
         cls._grids[gridname] = GridGenerator(filename)
 
     @classmethod
-    def reload_grids(cls):
+    def reload_grids(cls) -> None:
         cls._grids = {}
         for filename in config.grid_dir.glob("*.npz"):
             try:
@@ -31,7 +31,13 @@ class GridGenerator:
                 pass  # Non-grid file, ignore it
 
     @classmethod
-    def get_grid(cls, grid_name: str):
+    def grids(cls) -> list[GridGenerator]:
+        if not cls._initialized:
+            cls.reload_grids()
+        return list(cls._grids.values())
+
+    @classmethod
+    def get_grid(cls, grid_name: str) -> GridGenerator:
         if not cls._initialized:
             cls.reload_grids()
         return cls._grids[grid_name]
@@ -59,7 +65,7 @@ class GridGenerator:
         out += ")"
         return out
 
-    def build_grid(self, columns: list[str] | str):
+    def build_grid(self, columns: list[str] | str) -> GridInterpolator:
         if type(columns) is str:
             columns = [columns]
         assert len(columns) > 0
