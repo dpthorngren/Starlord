@@ -66,8 +66,8 @@ class SamplerNested(_Sampler):
         stats = self.stats()
         out = [" Dim" + "Mean".rjust(12) + "Std".rjust(12) + "16".rjust(12) + "50".rjust(12) + "84".rjust(12)]
         for i in range(self.sampler.ndim):
-            line = f"{i:4d} {stats[i,0]:11.4g} {stats[i,1]:11.4g}"
-            line += f" {stats[i,2]:11.4g} {stats[i,3]:11.4g} {stats[i,4]:11.4g}"
+            line = f"{i:4d} {stats[i, 0]:11.4g} {stats[i, 1]:11.4g}"
+            line += f" {stats[i, 2]:11.4g} {stats[i, 3]:11.4g} {stats[i, 4]:11.4g}"
             out += [line]
         return "\n".join(out)
 

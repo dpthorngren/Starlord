@@ -105,6 +105,8 @@ cdef class GridInterpolator:
             return self._interp3d(x[0], x[1], x[2])
         elif self.ndim == 4:
             return self._interp4d(x[0], x[1], x[2], x[3])
+        elif self.ndim == 5:
+            return self._interp5d(x[0], x[1], x[2], x[3], x[4])
         return math.NAN
 
     cpdef double _interp1d(self, double point):
@@ -163,6 +165,30 @@ cdef class GridInterpolator:
         s += self.x_stride
         b = _unit_interp3(self.values, s, self.y_stride, self.z_stride, self.u_stride, yw, zw, uw)
         return (1.-xw)*a + xw*b
+
+    cpdef double _interp5d(self, double x, double y, double z, double u, double v):
+        cdef int xi, yi, zi, ui, vi
+        cdef double xw, yw, zw, uw, vw
+        # Locate on grid and bounds check
+        xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
+        yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
+        zi = _locatePoint_(z, self.z_axis, self.z_len, &zw)
+        ui = _locatePoint_(u, self.u_axis, self.u_len, &uw)
+        vi = _locatePoint_(v, self.v_axis, self.v_len, &vw)
+        if (xi < 0) or (yi < 0) or (zi < 0) or (ui < 0) or (vi < 0):
+            return math.NAN
+        # Weighted sum over bounding points
+        cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride + ui*self.u_stride + vi*self.v_stride
+        cdef double a, b, c
+        a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        s += self.y_stride
+        b = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        c = (1.-yw)*a + yw*b
+        s += self.x_stride
+        b = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        s -= self.y_stride
+        a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        return c*(1-xw) + xw*((1.-yw)*a + yw*b)
 
 cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw):
     cdef double a, b, c

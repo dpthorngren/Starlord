@@ -111,3 +111,26 @@ def test_gridding4d():
     assert np.isnan(f._interp4d(5, 1., 6., 50.))
     assert np.isfinite(f._interp4d(10., 0.1, -3, .1))
     assert np.isfinite(f._interp4d(0., 10., 13.5, 10**1.5))
+
+
+def test_gridding5d():
+    x = np.linspace(0, 10, 100)
+    y = np.logspace(-1, 1, 75)
+    z = np.linspace(-3, 13.5, 32)
+    u = np.logspace(-1, 1.5, 21)
+    v = np.sqrt(np.linspace(0, 100, 33))
+    values = (
+        np.sin(x[:, None, None, None, None]) + 1.2 * np.cos(.2 * y[None, :, None, None, None]) +
+        (z[None, None, :, None, None] / 3.)**2 / u[None, None, None, :, None] +
+        np.sin(0.3 + v[None, None, None, None, :]))
+    f = cy_tools.GridInterpolator([x, y, z, u, v], values)
+    # Check that we match RegularGridInterpolator
+    g = RegularGridInterpolator([x, y, z, u, v], values)
+    for xt in (0.1 + 9.9 * np.random.rand(50, 5)):
+        assert f._interp5d(xt[0], xt[1], xt[2], xt[3], xt[4]) == approx(g(xt)[0], rel=1e-12)
+    assert f([4.32, 5.63, -2.5, 13., 7.]) == approx(g([4.32, 5.63, -2.5, 13., 7.])[0], rel=1e-12)
+    # Check bounds handling
+    assert np.isnan(f._interp5d(-5, -5, -5, -5, -5))
+    assert np.isnan(f._interp5d(5, 1., 6., 50., 12.))
+    assert np.isfinite(f._interp5d(10., 0.1, -3, .1, 0.))
+    assert np.isfinite(f._interp5d(0., 10., 13.5, 10**1.5, 10.))
