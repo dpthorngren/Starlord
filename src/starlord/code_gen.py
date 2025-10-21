@@ -6,12 +6,13 @@ import os
 import re
 import shutil
 import sys
-import cython
 from importlib import util
 from importlib.machinery import ModuleSpec
 from types import SimpleNamespace
 
-from ._config import config, __version__
+import cython
+
+from ._config import __version__, config
 from .code_components import (AssignmentComponent, Component, DistributionComponent, Symb)
 
 
@@ -60,12 +61,6 @@ class CodeGenerator:
             self._update_vars()
         return tuple(self._locals)
 
-    @property
-    def arrays(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return tuple(self._arrays)
-
     def __init__(self, verbose: bool = False):
         self.verbose: bool = verbose
         self._like_components = []
@@ -77,21 +72,20 @@ class CodeGenerator:
         self._constants: list[Symb] = []
         self._blobs: list[Symb] = []
         self._locals: list[Symb] = []
-        self._arrays: list[Symb] = []
+        self.constant_types = {}
 
     def _update_vars(self):
         self._variables = set()
-        result: dict[str, set[Symb]] = {i: set() for i in 'pcbla'}
+        result: dict[str, set[Symb]] = {i: set() for i in 'pcbl'}
         for comp in self._prior_components + self._like_components:
             for sym in comp.requires.union(comp.provides):
-                assert sym.label in 'pcbla', f"Bad symbol name {sym}"
+                assert sym.label in 'pcbl', f"Bad symbol name {sym}"
                 result[sym.label].add(sym)
                 self._variables.add(sym)
         self._params = sorted(list(result['p']))
         self._constants = sorted(list(result['c']))
         self._blobs = sorted(list(result['b']))
         self._locals = sorted(list(result['l']))
-        self._arrays = sorted(list(result['a']))
         self._vars_out_of_date = False
 
     def get_mapping(self) -> dict[str, Namespace]:
@@ -99,7 +93,6 @@ class CodeGenerator:
         self._update_vars()
         mapping: dict[str, Namespace] = {}
         mapping['c'] = Namespace(**{c.name: c.var for c in self.constants})
-        mapping['a'] = Namespace(**{a.name: a.var for a in self.arrays})
         mapping['l'] = Namespace(**{loc.name: loc.var for loc in self.locals})
         mapping['p'] = Namespace(**{n.name: f"params[{i}]" for i, n in enumerate(self.params)})
         mapping['b'] = Namespace(**{n.name: f"blobs[{i}]" for i, n in enumerate(self.blobs)})
@@ -118,9 +111,14 @@ class CodeGenerator:
 
     def generate_log_like(self) -> str:
         mapping = self.get_mapping()
+        # Assemble the arguments
+        args = ["double[:] params"]
+        for n, c in mapping['c']:
+            ct = self.constant_types[n] if n in self.constant_types.keys() else "double"
+            args.append(f"{ct} {c}")
         # Write the function header
         result: list[str] = []
-        result.append("cpdef double log_like(double[:] params):")
+        result.append("cpdef double log_like(" + ", ".join(args) + "):")
         result.append("    cdef double logL = 0.")
         for _, loc in mapping['l']:
             result.append(f"    cdef {loc}")
@@ -168,13 +166,17 @@ class CodeGenerator:
         if self.params:
             result += ["Params:".ljust(12) + ", ".join([p[2:] for p in self.params])]
         if self.constants:
-            result += ["Constants:".ljust(12) + ", ".join([c[2:] for c in self.constants])]
+            consts = []
+            for c in self.constants:
+                if c in self.constant_types:
+                    consts.append(c[2:] + " (" + self.constant_types[c] + ")")
+                else:
+                    consts.append(c[2:])
+            result += ["Constants:".ljust(12) + ", ".join(consts)]
         if self.blobs:
             result += ["Blobs:".ljust(12) + ", ".join([b[2:] for b in self.blobs])]
         if self.locals:
             result += ["Locals:".ljust(12) + ", ".join([loc[2:] for loc in self.locals])]
-        if self.arrays:
-            result += ["Arrays:".ljust(12) + ", ".join([a[2:] for a in self.arrays])]
         result += ["=== Likelihood ==="]
         result += [i.generate_code() if code else str(i) for i in self._like_components]
         result += ["=== Prior ==="]
@@ -192,12 +194,12 @@ class CodeGenerator:
         automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
         provides = set()
         # Finds assignment blocks like "l.foo = " and "l.bar, l.foo = "
-        assigns = re.findall(r"^\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
+        assigns = re.findall(r"^\s*[pcbl]\.[A-Za-z_]\w*\s*(?:,\s*[pcbl]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
         assigns += re.findall(
-            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
+            r"^\s*\(\s*[pcbl]\.[A-Za-z_]\w*\s*(?:,\s*[pcbl]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         # Same as above but covers when vars are enclosed by parentheses like "(l.a, l.b) ="
         assigns += re.findall(
-            r"^\s*\(\s*[pcbla]\.[A-Za-z_]\w*\s*(?:,\s*[pcbla]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
+            r"^\s*\(\s*[pcbl]\.[A-Za-z_]\w*\s*(?:,\s*[pcba]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         for block in assigns:
             # Handles parens, multiple assignments, extra whitespace, and removes the "="
             block = block[:-1].strip(" ()")
@@ -232,8 +234,8 @@ class CodeGenerator:
     def _extract_params_(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
-        template: str = re.sub(r"(?<!\w)([pcbla]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)
-        all_vars: list[str] = re.findall(r"(?<=\{)[pcbla]\.[A-Za-z_]\w*(?=\})", template, flags=re.M)
+        template: str = re.sub(r"(?<!\w)([pcbl]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)
+        all_vars: list[str] = re.findall(r"(?<=\{)[pcbl]\.[A-Za-z_]\w*(?=\})", template, flags=re.M)
         variables: set[Symb] = {Symb(v) for v in all_vars}
         return template, variables
 

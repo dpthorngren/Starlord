@@ -25,7 +25,6 @@ def test_expressions():
     assert g.params == ("p.stuff",)
     assert g.locals == ("l.foo",)
     assert g.constants == ()
-    assert g.arrays == ()
     # Check summary function
     s = g.summary().splitlines()
     assert s[1].startswith("Params:")

@@ -31,10 +31,10 @@ class GridGenerator:
                 pass  # Non-grid file, ignore it
 
     @classmethod
-    def grids(cls) -> list[GridGenerator]:
+    def grids(cls) -> dict[str, GridGenerator]:
         if not cls._initialized:
             cls.reload_grids()
-        return list(cls._grids.values())
+        return cls._grids.copy()
 
     @classmethod
     def get_grid(cls, grid_name: str) -> GridGenerator:
@@ -53,6 +53,7 @@ class GridGenerator:
         spec = spec[1].split(";")
         self.outputs: list[str] = [i.strip() for i in spec[0].split(",")]
         self.derived: list[str] = [i.strip() for i in spec[1].split(",")]
+        self.provides = self.outputs + self.derived
         for k in self.inputs + self.outputs:
             assert k in self.data.files
 

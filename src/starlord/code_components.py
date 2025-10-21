@@ -8,7 +8,7 @@ from typing import Optional
 class Symb(str):
 
     def __new__(cls, source: str | float | int) -> Symb:
-        if type(source) is str and re.fullmatch(r"[pcbla]\.[A-Za-z_]\w*", source) is not None:
+        if type(source) is str and re.fullmatch(r"[pcbl]\.[A-Za-z_]\w*", source) is not None:
             return super().__new__(cls, source)
         try:
             value: float = float(source)
@@ -79,6 +79,7 @@ class DistributionComponent(Component):
     var: Symb
 
     def __init__(self, var: Symb, dist: str, params: list[Symb]):
+        dist = dist.lower()
         assert dist in ["normal", "uniform", "beta", "gamma"]
         # Must use object.__setattr__ to init because the type is frozen
         object.__setattr__(self, 'provides', set())

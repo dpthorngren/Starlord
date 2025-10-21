@@ -26,7 +26,7 @@ def main():
 
     if args.list_grids:
         print("Available grids:")
-        for g in GridGenerator.grids():
+        for g in GridGenerator.grids().values():
             print(g.name.ljust(10), g.spec)
         return
 
@@ -57,7 +57,7 @@ def main():
         return
     if args.code:
         # TODO: Set prior type based on sampler type
-        print(fitter._gen.generate())
+        print(fitter.generate())
     if args.dry_run:
         fitter.summary(args.verbose)
         return
