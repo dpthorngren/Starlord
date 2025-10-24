@@ -73,7 +73,7 @@ class StarFitter():
             # TODO Support multiple keys
             key = list(keys)[0]
             grid = self.all_grids[name]
-            self.grids[name] = grid.build_grid(key)
+            self.grids["grid_" + name] = grid.build_grid(key)
             n = len(grid.inputs)
             params = ", ".join([f"p.{p}" for p in grid.inputs])
             grid_var = f"c.grid_{name}"
@@ -146,6 +146,9 @@ class StarFitter():
 
     def run_sampler(self, options: dict, constants: dict = {}):
         mod = self._gen.compile()
+        # constants.update({k: k for k in self.used_grids.keys()})
+        constants.update(self.grids)
+        print(constants)
         consts = [constants[str(c.name)] for c in self._gen.constants]
         samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts)
         samp.run(options)

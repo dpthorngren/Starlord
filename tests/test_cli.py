@@ -4,9 +4,9 @@ import sys
 import pytest
 # flake8: noqa
 from test_grids import dummy_grid
-from starlord._config import config
 
-from starlord import cli, GridGenerator
+from starlord import GridGenerator, cli
+from starlord._config import config
 
 
 def test_grid_listing(dummy_grid, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
