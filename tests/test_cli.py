@@ -23,6 +23,7 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v'])
     cli.main()
     captured = capsys.readouterr()
+    assert "Warning, section erroneous in input file " in captured.out
     # Basic code outputs
     assert "from starlord.cy_tools cimport *\n" in captured.out
     assert "\ncpdef double[:] prior_transform(double[:] params):\n" in captured.out
@@ -40,4 +41,8 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     localSummary = re.search(r"^Locals:\s+(.*)$", captured.out, flags=re.M)
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
-    assert locals == ['A', 'B']
+    assert locals == ['A', 'B', 'temp']
+    constSummary = re.search(r"^Constants:\s+(.*)$", captured.out, flags=re.M)
+    assert constSummary is not None
+    consts = list(map(str.strip, constSummary.group(1).split(",")))
+    assert consts == ['offset']

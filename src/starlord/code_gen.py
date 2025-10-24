@@ -8,7 +8,7 @@ import shutil
 import sys
 from importlib import util
 from importlib.machinery import ModuleSpec
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import cython
 
@@ -114,6 +114,7 @@ class CodeGenerator:
         # Assemble the arguments
         args = ["double[:] params"]
         for n, c in mapping['c']:
+            # TODO: Allow agglomeration of float constants into an array
             ct = self.constant_types[n] if n in self.constant_types.keys() else "double"
             args.append(f"{ct} {c}")
         # Write the function header
@@ -121,7 +122,7 @@ class CodeGenerator:
         result.append("cpdef double log_like(" + ", ".join(args) + "):")
         result.append("    cdef double logL = 0.")
         for _, loc in mapping['l']:
-            result.append(f"    cdef {loc}")
+            result.append(f"    cdef double {loc}")
         # Check that every local and blob used is initialized somewhere
         components = self._like_components.copy()
         initialized = set()
@@ -159,6 +160,10 @@ class CodeGenerator:
         result.append(self.generate_log_like())
         result.append(self.generate_prior_transform())
         return "\n".join(result)
+
+    def compile(self, use_class: bool = False, prior_type: str = "ppf") -> ModuleType:
+        hash = CodeGenerator._compile_to_module(self.generate(use_class, prior_type))
+        return CodeGenerator._load_module(hash)
 
     def summary(self, code: bool = False, prior_type=None) -> str:
         result: list[str] = []

@@ -42,10 +42,10 @@ class GridGenerator:
             cls.reload_grids()
         return cls._grids[grid_name]
 
-    def __init__(self, filename):
+    def __init__(self, filename: str | Path):
         self.file_path = Path(filename)
         self.name = self.file_path.stem
-        self.data = np.load(filename)
+        self.data = np.load(str(filename))
         assert "grid_spec" in self.data.files
         self.spec: str = str(self.data['grid_spec'])
         spec = self.spec.split('->')

@@ -21,7 +21,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     fitter.assign("blah", "p.foo")
     fitter.constraint("l.blah", "beta", [15., 25])
     fitter.prior("foo", "uniform", [0., 1.])
-    fitter.expression("l.stuff = p.bar")
+    fitter.expression("l.stuff = p.bar + c.offset")
     fitter.constraint("l.stuff", "normal", [5., 2])
     fitter.prior("bar", "normal", [0., 10.])
     # Test that the summaries were reasonable
@@ -38,8 +38,8 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
     assert locals == ['blah', 'stuff']
-    # Check that the summary prints properly (largely formats result_stats())
-    results = fitter.run_sampler({})
+    # Check that the summary prints properly (largely formats result.stats())
+    results = fitter.run_sampler({}, {'offset': 1.5})
     summary = results.summary().splitlines()
     assert len(summary) == 3
     assert summary[0].startswith(" Dim")
@@ -49,7 +49,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     stats = results.stats()
     # Normal distribution
     s = 1. / (1. / 2.**2 + 1. / 10.**2)
-    assert stats[0, 0] == pytest.approx(s * (5. / 2.**2 + 0. / 10.**2), rel=.05)
+    assert stats[0, 0] == pytest.approx(-1.5 + s * (5. / 2.**2 + 0. / 10.**2), rel=.05)
     assert stats[0, 1]**2 == pytest.approx(s, rel=.1)
     # Beta distribution
     assert stats[1, 0] == pytest.approx(15. / (15+25.), rel=.05)

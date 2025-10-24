@@ -144,10 +144,9 @@ class StarFitter():
         print("Grids:", self.used_grids)
         print(self._gen.summary(print_code, prior_type))
 
-    def run_sampler(self, options: dict):
-        # TODO: Move some of this over back into CodeGenerator
-        hash = CodeGenerator._compile_to_module(self.generate())
-        mod = CodeGenerator._load_module(hash)
-        samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {})
-        samp.run({})
+    def run_sampler(self, options: dict, constants: dict = {}):
+        mod = self._gen.compile()
+        consts = [constants[str(c.name)] for c in self._gen.constants]
+        samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts)
+        samp.run(options)
         return samp

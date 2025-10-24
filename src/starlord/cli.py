@@ -2,9 +2,9 @@ import argparse
 import pathlib
 import sys
 
-from .star_fitter import StarFitter
 from . import __version__
 from .grid_gen import GridGenerator
+from .star_fitter import StarFitter
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -32,39 +32,43 @@ def main():
 
     # === Load Settings ===
     # Default initial settings (keep minimal)
-    settings = {'output': {'terminal': True, 'file': ""}, "run": {}}
-    if args.verbose:
-        print("Args:", args)
-        print("Settings: ", settings)
+    settings = {'output': {'terminal': True, 'file': ""}, "sampling": {}}
 
     if args.input is not None:
         if args.verbose:
             print(args.input)
         with open(args.input, 'rb') as f:
             settings.update(tomllib.load(f))
-    # Handle syntax errors in the toml file
+    # TODO: Handle syntax errors in the toml file
 
     # Report ignored sections
+    for section in settings.keys():
+        if section not in ['model', 'sampling', 'output']:
+            print(f"Warning, section {section} in input file {args.input} is not used.")
 
-    # Update settings with command line arguments
+    # TODO: Update settings with command line arguments
+
+    if args.verbose:
+        print("Args:", args)
+        print("Settings: ", settings)
 
     # === Setup the fitter ===
-    if "model" in settings.keys():
-        fitter = StarFitter(args.verbose)
-        fitter.set_from_dict(settings['model'])
-    else:
-        print("No model information was specified.")
-        return
+    assert "model" in settings.keys(), "No model information was specified."
+    fitter = StarFitter(args.verbose)
+    fitter.set_from_dict(settings['model'])
     if args.code:
         # TODO: Set prior type based on sampler type
         print(fitter.generate())
     if args.dry_run:
+        # TODO: Check constants
         fitter.summary(args.verbose)
         return
 
     # === Run Sampler ==
-    # Use settings.sampling for config, contents depends on sampler type
-    results = fitter.run_sampler(settings['sampling'])
+    consts = settings['sampling'].get('const', {})
+    if args.verbose:
+        print("Constants:", consts)
+    results = fitter.run_sampler({}, constants=consts)
 
     # === Write Outputs ===
     out: dict = {"terminal": False, "file": ""}
