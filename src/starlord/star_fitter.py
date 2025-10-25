@@ -86,12 +86,10 @@ class StarFitter():
         # Switch any tabs out for spaces
         expr = expr.replace("\t", "    ")
         # Identify grids, register required columns
-        match = re.findall(r"(?<=[\W])(\w+)\.([A-Za-z_]\w*)", expr)
+        match = re.findall(r"([a-z_]\w*)\.([A-Za-z_]\w*)", expr)
         if match is not None:
             for label, name in set(match):
-                if label in 'pcbl':
-                    continue
-                elif label in self.all_grids.keys():
+                if label in self.all_grids.keys():
                     self._register_grid_key(label, name)
                     expr = expr.replace(f"{label}.{name}", f"l.{label}_{name}")
                 # TODO: Check against library names to avoid compilation errors
@@ -100,6 +98,13 @@ class StarFitter():
         self._gen.expression(expr)
 
     def assign(self, var: str, expr: str) -> None:
+        match = re.findall(r"([a-z_]\w*)\.([A-Za-z_]\w*)", expr)
+        if match is not None:
+            for label, name in set(match):
+                if label in self.all_grids.keys():
+                    self._register_grid_key(label, name)
+                    expr = expr.replace(f"{label}.{name}", f"l.{label}_{name}")
+                # TODO: Check against library names to avoid compilation errors
         if self.verbose:
             print(f"    SF: Assignment({var}, '{expr[:50]}...')")
         self._gen.assign(var, expr)
@@ -145,8 +150,9 @@ class StarFitter():
         print(self._gen.summary(print_code, prior_type))
 
     def run_sampler(self, options: dict, constants: dict = {}):
+        if len(self.grids) == 0:  # TODO: Better way to be sure grids are resolved
+            self._resolve_grids()
         mod = self._gen.compile()
-        # constants.update({k: k for k in self.used_grids.keys()})
         constants.update(self.grids)
         print(constants)
         consts = [constants[str(c.name)] for c in self._gen.constants]

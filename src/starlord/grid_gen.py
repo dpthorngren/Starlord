@@ -52,7 +52,9 @@ class GridGenerator:
         self.inputs: list[str] = [i.strip() for i in spec[0].split(",")]
         spec = spec[1].split(";")
         self.outputs: list[str] = [i.strip() for i in spec[0].split(",")]
-        self.derived: list[str] = [i.strip() for i in spec[1].split(",")]
+        self.derived: list[str] = []
+        if len(spec) > 1:
+            self.derived = [i.strip() for i in spec[1].split(",")]
         self.provides = self.outputs + self.derived
         for k in self.inputs + self.outputs:
             assert k in self.data.files
