@@ -106,7 +106,3 @@ class DistributionComponent(Component):
             return result
         else:
             return result.format_map(name_map)
-
-
-class InterpolateComponent(Component):
-    pass

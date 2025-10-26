@@ -214,14 +214,14 @@ class CodeGenerator:
                 # Verify that the result is a local or blob formatted as "l.foo" or "b.bar"
                 assert var[0] in "lb" and var[1] == ".", var
                 provides.add(Symb(var))
-        code, variables = self._extract_params_(expr)
+        code, variables = self._extract_params(expr)
         requires = variables - provides
         self._like_components.append(Component(requires, provides, code))
 
     def assign(self, var: str, expr: str) -> None:
         # If l or b is omitted, l is implied
         var = Symb(var if re.match(r"^[bl]\.", var) is not None else f"l.{var}")
-        code, variables = self._extract_params_(expr)
+        code, variables = self._extract_params(expr)
         comp = AssignmentComponent(var, code, variables - {var})
         self._like_components.append(comp)
 
@@ -236,7 +236,7 @@ class CodeGenerator:
             self._like_components.append(comp)
 
     @staticmethod
-    def _extract_params_(source: str) -> tuple[str, set[Symb]]:
+    def _extract_params(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
         Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".'''
         template: str = re.sub(r"(?<!\w)([pcbl]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)

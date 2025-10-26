@@ -34,7 +34,7 @@ class GridGenerator:
     def grids(cls) -> dict[str, GridGenerator]:
         if not cls._initialized:
             cls.reload_grids()
-        return cls._grids.copy()
+        return cls._grids
 
     @classmethod
     def get_grid(cls, grid_name: str) -> GridGenerator:

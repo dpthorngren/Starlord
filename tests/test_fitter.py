@@ -34,8 +34,10 @@ def test_grid_retrieval(dummy_grid: Path):
     assert fitter._gen.params == ('p.x', 'p.y')
     assert fitter._gen.locals == ('l.dummy_v1', 'l.foo')
     assert fitter._gen.constants == ('c.offset',)
-    results = fitter.run_sampler({}, {'offset': 1.5})
+    # Extra generate to ensure grid removal also works
+    fitter.generate()
     assert fitter._gen.constants == ('c.grid_dummy', 'c.offset')
+    results = fitter.run_sampler({}, {'offset': 1.5})
 
     # Check that the results are reasonable
     stats = results.stats()
