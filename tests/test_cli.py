@@ -45,4 +45,4 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     constSummary = re.search(r"^Constants:\s+(.*)$", captured.out, flags=re.M)
     assert constSummary is not None
     consts = list(map(str.strip, constSummary.group(1).split(",")))
-    assert consts == ['offset']
+    assert consts == ['B_mean', 'offset']
