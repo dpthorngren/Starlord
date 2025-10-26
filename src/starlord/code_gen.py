@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from importlib import util
 from importlib.machinery import ModuleSpec
 from types import ModuleType, SimpleNamespace
@@ -245,16 +246,32 @@ class CodeGenerator:
         return template, variables
 
     @staticmethod
+    def _cleanup_old_modules(exclude: list[str] = [], ignore_below: int = 20, stale_time: float = 7.):
+        module_files = list(config.cache_dir.glob("sl_gen_*.so"))
+        now = time.time()
+        candidates = []
+        for file in module_files:
+            age = (now - file.stat().st_atime)
+            hash = file.name[7:47]
+            if hash not in exclude and age > stale_time * 86400:  # Seconds per day
+                candidates.append((age, hash))
+        candidates.sort()
+        for age, hash in candidates[ignore_below:]:
+            files = list(config.cache_dir.glob(f"sl_gen_{hash}*"))
+            files = [f for f in files if f.suffix in [".pyx", ".so", ".dll", ".dynlib", ".sl"]]
+            for f in files:
+                # A few last checks out of paranoia, then delete
+                assert f.exists() and f.is_file(), "Tried to delete a file that doesn't exist.  What?"
+                assert f.parent == config.cache_dir, "Tried to delete a file out of the cache directory."
+                f.unlink()
+
+    @staticmethod
     def _compile_to_module(code: str) -> str:
         # Get the code hash for file lookup
         hasher = hashlib.shake_128(code.encode())
         hash = base64.b32encode(hasher.digest(25)).decode("utf-8")
         name = f"sl_gen_{hash}"
         pyxfile = config.cache_dir / (name+".pyx")
-        # Clean up old cached files
-        # TODO: If temp files exceeds 100, delete anything not accessed within a week
-        # 		path.stat.st_atime # Verify that this works before using!
-        # 		Don't delete the requested file or a file in use (how to track?)
         # Write the pyx file if needed
         if not pyxfile.exists():
             with pyxfile.open("w") as pxfh:
@@ -263,6 +280,7 @@ class CodeGenerator:
             assert pyxfile.exists(), "Wrote the code to a file, but the file still doesn't exist."
         libfiles = list(config.cache_dir.glob(name + ".*.*"))
         if len(libfiles) == 0:
+            CodeGenerator._cleanup_old_modules([hash])
             os.system(f"cythonize -f -i {pyxfile}")
             cfile = config.cache_dir / (name+".c")
             libfiles = list(config.cache_dir.glob(name + ".*.*"))
