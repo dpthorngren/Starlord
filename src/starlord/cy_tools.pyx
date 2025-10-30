@@ -40,11 +40,11 @@ cdef class GridInterpolator:
             assert np.all(np.diff(ax) > 0.)
             lin = np.linspace(ax[0], ax[-1], len(ax))
             if np.all(np.absolute(ax - lin) <= tol + tol * np.absolute(lin)):
-                processed.append(np.array([ax[0], (len(ax)-1.) / (ax[-1] - ax[0]), 0.]))
+                processed.append(np.array([ax[0], (len(ax)-1.) / (ax[-1] - ax[0]), 0.], dtype=np.float64))
             else:
-                processed.append(ax)
+                processed.append(np.asarray(ax, np.float64))
         processed.append(values.flatten())
-        self._data = np.concatenate(processed)
+        self._data = np.concatenate(processed, dtype=np.float64)
         # Fill in additional data based on dimension
         self.y_len = 1
         self.z_len = 1
