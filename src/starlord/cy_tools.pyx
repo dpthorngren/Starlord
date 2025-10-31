@@ -31,7 +31,7 @@ cpdef double gamma_ppf(double p, double alpha, double lamb):
     
 cdef class GridInterpolator:
 
-    def __init__(self, axes, values, tol=1e-6):
+    def __init__(self, axes, values, inputs=None, outputs=None, derived={}, tol=1e-6):
         self.ndim = len(axes)
         assert self.ndim <= 5
         # Setup data array (axes, values)
@@ -75,6 +75,13 @@ cdef class GridInterpolator:
         self.y_stride = self.z_stride * self.z_len
         self.x_stride = self.y_stride * self.y_len
         self.values = self._data[stop:]
+        self.inputs = ["x","y","z","u","v","w"][:self.ndim]
+        if inputs is not None:
+            self.inputs = list(inputs)[:self.ndim]
+        self.outputs = [f"out_{i}" for i in range(self.ndim)]
+        if outputs is not None:
+            self.outputs = list(outputs)[:self.ndim]
+        self.derived = derived
         assert len(self.values) == self.x_stride * self.x_len
 
     def __call__(self, arr):

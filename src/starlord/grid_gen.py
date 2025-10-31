@@ -78,4 +78,5 @@ class GridGenerator:
             raise NotImplementedError("TODO: grids with multiple return values.")
         axes = [self.data[i] for i in self.inputs]
         value = self.data[columns[0]]
-        return GridInterpolator(axes, value)
+        derived = {k: self.data[k] for k in self.derived}
+        return GridInterpolator(axes, value, inputs=self.inputs, outputs=columns, derived=derived)

@@ -3,7 +3,7 @@ import platform
 from pathlib import Path
 from types import SimpleNamespace
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 config = SimpleNamespace(
     system=platform.system(),

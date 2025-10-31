@@ -14,7 +14,7 @@ def dummy_grid(tmpdir_factory: pytest.TempdirFactory):
     v1 = np.sin(x) + y
     v2 = 25. + np.cos(2.2 * x) / np.sin(y)
     g1 = "2.5*{x} + {v1}"
-    g2 = "5+math.log10(v1)"
+    g2 = "5+math.log10({v1})"
     grid_spec = "x, y -> v1, v2; g1, g2"
     fn = tmpdir_factory.mktemp("grids")
     np.savez_compressed(fn / "dummy.npz", grid_spec=grid_spec, x=x.flat, y=y.flat, v1=v1, v2=v2, g1=g1, g2=g2)
@@ -55,6 +55,9 @@ def test_grid_building(dummy_grid):
     with pytest.raises(AssertionError):
         grid.build_grid("foo")
     f = grid.build_grid("v1")
+    assert f.inputs == ['x', 'y']
+    assert f.outputs == ['v1']
+    assert f.derived == {'g1': "2.5*{x} + {v1}", 'g2': "5+math.log10({v1})"}
     assert f._interp2d(1., 2.5) == pytest.approx(np.sin(1.) + 2.5, .01)
     g = grid.build_grid("v2")
     assert g._interp2d(3., 2.3) == pytest.approx(25. + np.cos(2.2*3.) / np.sin(2.3), .01)
