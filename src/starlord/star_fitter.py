@@ -88,6 +88,7 @@ class StarFitter():
         self._gen.constraint(var, dist, params, True)
 
     def summary(self, print_code: bool = False, prior_type="ppf") -> None:
+        self._resolve_grids()
         print("Grids:", self._used_grids)
         print(self._gen.summary(print_code, prior_type))
 
@@ -133,16 +134,39 @@ class StarFitter():
         # Remove any grids previously resolved
         for name, grid in self._grids.items():
             self._gen.constant_types.pop(name)
-            self._gen._like_components = list(filter(
-                lambda c: type(c) is not AssignmentComponent or not c.code.startswith(f"c.{name}._interp"),
-                self._gen._like_components
-            ))
+            like_components = []
+            for c in self._gen._like_components:
+                if type(c) is AssignmentComponent and list(c.provides)[0].startswith(f"l.{name[5:]}"):
+                    continue
+                like_components.append(c)
+            self._gen._like_components = like_components
         self._grids.clear()
-        # Build the grids and add interpolators to the generator
+
+        # First pass identifies derived parameters and resolves them
+        already_defined = set()
+        while True:
+            for name in self._used_grids.keys():
+                grid = GridGenerator.get_grid(name)
+                # Derived parameters may require new grids or parameters, must reevaluate every loop
+                derived = set(self._used_grids[name]).intersection(grid.derived)
+                derived -= already_defined
+                if len(derived) != 0:
+                    der = derived.pop()
+                    mapping = {k: f"p.{k}" for k in grid.inputs}
+                    mapping.update({k: f"{name}.{k}" for k in grid.provides})
+                    code = str(grid.data[der]).format_map(mapping)
+                    self.assign(f"l.{name}_{der}", code)
+                    already_defined.add(der)
+                    break
+            else:
+                break
+
+        # Second pass builds the grids and add interpolators to the generator
         for name, keys in self._used_grids.items():
+            grid = GridGenerator.get_grid(name)
+            direct_outputs = [k for k in self._used_grids[name] if k not in grid.derived]
             # TODO Support multiple keys
-            key = list(keys)[0]
-            grid = GridGenerator.grids()[name]
+            key = list(direct_outputs)[0]
             self._grids["grid_" + name] = grid.build_grid(key)
             n = len(grid.inputs)
             params = ", ".join([f"p.{p}" for p in grid.inputs])
@@ -154,7 +178,6 @@ class StarFitter():
         self._resolve_grids()
         mod = self._gen.compile()
         constants.update(self._grids)
-        print(constants)
         consts = [constants[str(c.name)] for c in self._gen.constants]
         samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts)
         samp.run(options)

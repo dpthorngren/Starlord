@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import math  # noqa
+import math
 from pathlib import Path
 
 import numpy as np
@@ -81,16 +81,21 @@ class GridGenerator:
             raise NotImplementedError("TODO: grids with multiple return values.")
         axes = [self.data[i] for i in self.inputs]
         value = self.data[columns[0]]
+        # Generate function to compute derived values, if there are any
         derived_map = {k: str(self.data[k]) for k in self.derived}
         get_derived = None
         if len(derived) > 0:
             mapping = {name: f"inputs[{i}]" for i, name in enumerate(self.inputs)}
             mapping.update({name: f"outputs[{i}]" for i, name in enumerate(self.outputs)})
+            mapping.update({name: f"result[{i}]" for i, name in enumerate(self.derived)})
             func = ["def get_derived(inputs, outputs):"]
+            func += ["    inputs = np.atleast_1d(inputs)"]
+            func += ["    outputs = np.atleast_1d(outputs)"]
             func += [f"    result = np.zeros({len(derived)})"]
+            # TODO: Handle derived value inter-dependencies and other grid dependencies.
             for i, d in enumerate(derived):
                 func += [f"    result[{i}] = " + derived_map[d].format_map(mapping)]
-            func += ["    return result"]
+            func += ["    return result.squeeze()"]
             locals = {}
             exec("\n".join(func), {'math': math, 'np': np}, locals)
             get_derived = locals['get_derived']
