@@ -54,16 +54,7 @@ def test_grid_building(dummy_grid):
     grid = starlord.GridGenerator.get_grid("dummy")
     with pytest.raises(AssertionError):
         grid.build_grid("foo")
-    f = grid.build_grid(["v1", "g1", "g2"])
-    assert f.inputs == ['x', 'y']
-    assert f.outputs == ['v1']
-    assert f.derived == {'g1': "2.5*(5+{x}) + {v1}", 'g2': "0.5+math.log10({g1})"}
-    assert f.get_derived is not None
-    xt = [1., 2.5]
-    result = [f._interp2d(xt[0], xt[1])]
-    derived = [2.5 * (5 + xt[0]) + result[0]]
-    derived.append(0.5 + np.log10(derived[0]))
-    assert f.get_derived(xt, result) == pytest.approx(derived)
+    f = grid.build_grid("v1")
     assert f._interp2d(1., 2.5) == pytest.approx(np.sin(1.) + 2.5, .01)
     g = grid.build_grid("v2")
     assert g._interp2d(3., 2.3) == pytest.approx(25. + np.cos(2.2 * 3.) / np.sin(2.3), .01)

@@ -28,17 +28,19 @@ def test_grid_retrieval(dummy_grid: Path):
     fitter.assign("foo", "dummy.v1 + c.offset")
     fitter.constraint("l.foo", "normal", [0.5, 0.1])
     fitter.constraint("dummy.g2", "normal", [0.5, 2.3])
+    fitter.constraint("dummy.v2", "normal", [1.5, 1.3])
     fitter.prior("x", "uniform", [-5., 5.])
     fitter.prior("y", "uniform", [0.1, 10.0])
 
     # Check parameters (grid noted only after running)
     assert fitter._gen.params == ('p.x', 'p.y')
-    assert fitter._gen.locals == ('l.dummy_g2', 'l.dummy_v1', 'l.foo')
+    assert fitter._gen.locals == ('l.dummy_g2', 'l.dummy_v1', 'l.dummy_v2', 'l.foo')
     assert fitter._gen.constants == ('c.offset',)
     # Extra generate to ensure grid removal also works
     fitter.generate()
-    assert fitter._gen.locals == ('l.dummy_g1', 'l.dummy_g2', 'l.dummy_v1', 'l.foo')
-    assert fitter._gen.constants == ('c.grid_dummy', 'c.offset')
+    fitter.summary()
+    assert fitter._gen.locals == ('l.dummy_g1', 'l.dummy_g2', 'l.dummy_v1', 'l.dummy_v2', 'l.foo')
+    assert fitter._gen.constants == ('c.grid_dummy_v1', 'c.grid_dummy_v2', 'c.offset')
     results = fitter.run_sampler({}, {'offset': 1.5})
 
     # Check that the results are reasonable

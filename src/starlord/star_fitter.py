@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import re
 
-from starlord.code_components import AssignmentComponent
-
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
 from .sampler import SamplerNested
@@ -131,48 +129,43 @@ class StarFitter():
     def _resolve_grids(self) -> None:
         '''Add grid interpolator components to the generator object (deleting existing ones)
         and build the required grid objects, storing them in self.grids.'''
-        # Remove any grids previously resolved
-        for name, grid in self._grids.items():
-            self._gen.constant_types.pop(name)
-            like_components = []
-            for c in self._gen._like_components:
-                if type(c) is AssignmentComponent and list(c.provides)[0].startswith(f"l.{name[5:]}"):
-                    continue
-                like_components.append(c)
-            self._gen._like_components = like_components
+        # Remove any grids and derived variables previously resolved
+        to_remove = {f"l.{k[5:]}" if k.startswith("grid") else f"l.{k[8:]}" for k in self._grids.keys()}
+        self._gen.remove_providers(to_remove)
         self._grids.clear()
 
-        # First pass identifies derived parameters and resolves them
-        already_defined = set()
+        # First pass identifies derived grid outputs and resolves them
         while True:
-            for name in self._used_grids.keys():
+            for name, columns in self._used_grids.items():
                 grid = GridGenerator.get_grid(name)
-                # Derived parameters may require new grids or parameters, must reevaluate every loop
-                derived = set(self._used_grids[name]).intersection(grid.derived)
-                derived -= already_defined
+                # Identify desired grid outputs that are derived but not already resolved
+                name_map = {f"derived_{name}_{c}": c for c in columns if c in grid.derived}
+                derived = set(name_map.keys()) - set(self._grids.keys())
                 if len(derived) != 0:
                     der = derived.pop()
+                    # Sub variables into the code needed to calculate the derived grid outputs
                     mapping = {k: f"p.{k}" for k in grid.inputs}
                     mapping.update({k: f"{name}.{k}" for k in grid.provides})
-                    code = str(grid.data[der]).format_map(mapping)
-                    self.assign(f"l.{name}_{der}", code)
-                    already_defined.add(der)
+                    code = str(grid.data[name_map[der]]).format_map(mapping)
+                    # Add the code to _grids for tracking and send the assigment code to GridGenerator
+                    self._grids[der] = code
+                    self.assign("l." + der[8:], code)
+                    # Begin again in case it recursively requires additional grids / vars
                     break
             else:
                 break
 
-        # Second pass builds the grids and add interpolators to the generator
+        # Second pass builds the grids and add interpolators to the code generator
         for name, keys in self._used_grids.items():
             grid = GridGenerator.get_grid(name)
-            direct_outputs = [k for k in self._used_grids[name] if k not in grid.derived]
-            # TODO Support multiple keys
-            key = list(direct_outputs)[0]
-            self._grids["grid_" + name] = grid.build_grid(key)
-            n = len(grid.inputs)
-            params = ", ".join([f"p.{p}" for p in grid.inputs])
-            grid_var = f"c.grid_{name}"
-            self.assign(f"l.{name}_{key}", f"{grid_var}._interp{n}d({params})")
-            self._gen.constant_types[grid_var[2:]] = "GridInterpolator"
+            for key in keys:
+                if key in grid.derived:
+                    continue
+                grid_var = f"grid_{name}_{key}"
+                self._grids[grid_var] = grid.build_grid(key)
+                params = ", ".join([f"p.{p}" for p in grid.inputs])
+                self.assign(f"l.{name}_{key}", f"c.{grid_var}._interp{grid.ndim}d({params})")
+                self._gen.constant_types[grid_var] = "GridInterpolator"
 
     def run_sampler(self, options: dict, constants: dict = {}):
         self._resolve_grids()

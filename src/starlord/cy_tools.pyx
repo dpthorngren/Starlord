@@ -31,7 +31,7 @@ cpdef double gamma_ppf(double p, double alpha, double lamb):
     
 cdef class GridInterpolator:
 
-    def __init__(self, axes, values, inputs=None, outputs=None, derived={}, get_derived=None, tol=1e-6):
+    def __init__(self, axes, values, tol=1e-6):
         self.ndim = len(axes)
         assert self.ndim <= 5
         # Setup data array (axes, values)
@@ -69,20 +69,11 @@ cdef class GridInterpolator:
             start, stop = stop, stop+len(processed[4])
             self.v_len = len(axes[4])
             self.v_axis = self._data[start:stop]
-        self.v_stride = 1
-        self.u_stride = self.v_stride * self.v_len
+        self.u_stride = self.v_len
         self.z_stride = self.u_stride * self.u_len
         self.y_stride = self.z_stride * self.z_len
         self.x_stride = self.y_stride * self.y_len
         self.values = self._data[stop:]
-        self.inputs = ["x","y","z","u","v","w"][:self.ndim]
-        if inputs is not None:
-            self.inputs = list(inputs)[:self.ndim]
-        self.outputs = [f"out_{i}" for i in range(self.ndim)]
-        if outputs is not None:
-            self.outputs = list(outputs)[:self.ndim]
-        self.derived = derived
-        self.get_derived = get_derived
         assert len(self.values) == self.x_stride * self.x_len
 
     def __call__(self, arr):
@@ -186,16 +177,16 @@ cdef class GridInterpolator:
         if (xi < 0) or (yi < 0) or (zi < 0) or (ui < 0) or (vi < 0):
             return math.NAN
         # Weighted sum over bounding points
-        cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride + ui*self.u_stride + vi*self.v_stride
+        cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride + ui*self.u_stride + vi
         cdef double a, b, c
-        a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, 1, zw, uw, vw)
         s += self.y_stride
-        b = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        b = _unit_interp3(self.values, s, self.z_stride, self.u_stride, 1, zw, uw, vw)
         c = (1.-yw)*a + yw*b
         s += self.x_stride
-        b = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        b = _unit_interp3(self.values, s, self.z_stride, self.u_stride, 1, zw, uw, vw)
         s -= self.y_stride
-        a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, self.v_stride, zw, uw, vw)
+        a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, 1, zw, uw, vw)
         return c*(1-xw) + xw*((1.-yw)*a + yw*b)
 
 cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw):
