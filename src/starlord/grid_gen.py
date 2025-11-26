@@ -59,6 +59,11 @@ class GridGenerator:
         self.provides = self.outputs + self.derived
         for k in self.inputs + self.outputs:
             assert k in self.data.files
+        self.param_defaults = {p: f"p.{p}" for p in self.inputs}
+        if 'param_defaults' in self.data.files:
+            for s in str(self.data['param_defaults']).split(";"):
+                key, value = s.split(":")
+                self.param_defaults[key.strip()] = value.strip()
 
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("

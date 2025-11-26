@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 # flake8: noqa
-from test_grids import dummy_grid
+from test_grids import dummy_grids
 
 import starlord
 from starlord._config import config
@@ -20,9 +20,21 @@ def test_starfitter_variables():
     fitter.assign("b.something", "3.5*(p.foo - c.bar)")
 
 
+def test_recursive_grids(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    fitter = starlord.StarFitter()
+    fitter.constraint("rdummy.d", "normal", [10., 1.])
+    # Running to resolve the grids
+    print(fitter.summary())
+    assert fitter._gen.params == ('p.b', 'p.x', 'p.y')
+    assert fitter._gen.locals == ('l.a', 'l.dummy_g1', 'l.dummy_v1', 'l.rdummy_c', 'l.rdummy_d')
+    assert fitter._gen.constants == ('c.grid_dummy_v1', 'c.grid_rdummy_c')
+
+
 @pytest.mark.flaky(reruns=3)
-def test_grid_retrieval(dummy_grid: Path):
-    config.grid_dir = dummy_grid
+def test_grid_retrieval(dummy_grids: Path):
+    config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     fitter = starlord.StarFitter(True)
     fitter.assign("foo", "dummy.v1 + c.offset")

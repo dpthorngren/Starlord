@@ -133,11 +133,23 @@ class StarFitter():
         to_remove = {f"l.{k[5:]}" if k.startswith("grid") else f"l.{k[8:]}" for k in self._grids.keys()}
         self._gen.remove_providers(to_remove)
         self._grids.clear()
+        inputs_processed = set()
 
         # First pass identifies derived grid outputs and resolves them
         while True:
             for name, columns in self._used_grids.items():
                 grid = GridGenerator.get_grid(name)
+                # Ensure default parameters are defined
+                if name not in inputs_processed:
+                    for input in grid.inputs:
+                        # TODO: Allow overriding param defaults (see also line in second pass)
+                        par = grid.param_defaults[input]
+                        if par.startswith("p."):
+                            continue
+                        self.assign(f"l.{input}", par)
+                    inputs_processed.add(name)
+                    break
+
                 # Identify desired grid outputs that are derived but not already resolved
                 name_map = {f"derived_{name}_{c}": c for c in columns if c in grid.derived}
                 derived = set(name_map.keys()) - set(self._grids.keys())
@@ -163,7 +175,7 @@ class StarFitter():
                     continue
                 grid_var = f"grid_{name}_{key}"
                 self._grids[grid_var] = grid.build_grid(key)
-                params = ", ".join([f"p.{p}" for p in grid.inputs])
+                params = ", ".join([grid.param_defaults[p] for p in grid.inputs])
                 self.assign(f"l.{name}_{key}", f"c.{grid_var}._interp{grid.ndim}d({params})")
                 self._gen.constant_types[grid_var] = "GridInterpolator"
 

@@ -3,15 +3,15 @@ import sys
 
 import pytest
 # flake8: noqa
-from test_grids import dummy_grid
+from test_grids import dummy_grids
 
 from starlord import GridGenerator, cli
 from starlord._config import config
 
 
-def test_grid_listing(dummy_grid, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+def test_grid_listing(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     monkeypatch.setattr(sys, 'argv', ['starlord', '--list-grids'])
-    config.grid_dir = dummy_grid
+    config.grid_dir = dummy_grids
     GridGenerator.reload_grids()
     cli.main()
     captured = capsys.readouterr()
