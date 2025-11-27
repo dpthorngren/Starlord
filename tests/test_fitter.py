@@ -32,6 +32,22 @@ def test_recursive_grids(dummy_grids: Path):
     assert fitter._gen.constants == ('c.grid_dummy_v1', 'c.grid_rdummy_c')
 
 
+def test_param_overrides(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    fitter = starlord.StarFitter()
+    fitter.constraint("dummy.v1", "normal", [3., 1.])
+    fitter.override_input("dummy", "y", "5.0 + c.fixed_y")
+    # Running to resolve the grids
+    print(fitter.summary())
+    assert fitter._gen.params == ('p.x',)
+    assert fitter._gen.locals == ('l.dummy_v1', 'l.y')
+    assert fitter._gen.constants == ('c.fixed_y', 'c.grid_dummy_v1')
+    code = fitter.generate()
+    assert "l_y = 5.0 + c_fixed_y" in code
+    assert "params[1]" not in code
+
+
 @pytest.mark.flaky(reruns=3)
 def test_grid_retrieval(dummy_grids: Path):
     config.grid_dir = dummy_grids
