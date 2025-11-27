@@ -68,9 +68,13 @@ class GridGenerator:
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("
         out += ", ".join(self.inputs)
-        out += " -> " + ", ".join(self.outputs)
+        out += " -> " + ", ".join(self.outputs[:8])
+        if len(self.outputs) > 8:
+            out += f", +{len(self.outputs)-8}"
         if len(self.derived) > 0:
-            out += "; " + ", ".join(self.derived)
+            out += "; " + ", ".join(self.derived[:8])
+        if len(self.derived) > 8:
+            out += f", +{len(self.derived)-8}"
         out += ")"
         return out
 

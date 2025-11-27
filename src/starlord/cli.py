@@ -25,9 +25,22 @@ def main():
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     if args.list_grids:
+        if args.input is not None:
+            grid_name = str(args.input)
+            assert grid_name in GridGenerator.grids(), f"Grid {grid_name} not found."
+            g = GridGenerator.get_grid(grid_name)
+            print("Grid:", g.name)
+            print("Inputs:", ", ".join(g.inputs))
+            print("Outputs:")
+            print(*["    " + i for i in g.outputs], sep="\n")
+            if len(g.derived) > 0:
+                print("Derived:")
+                print(*g.derived, sep="\n")
+            return
         print("Available grids:")
         for g in GridGenerator.grids().values():
-            print(g.name.ljust(10), g.spec)
+            # Print short grid info, no need for "Grid_" prefix.
+            print("   ", str(g)[5:])
         return
 
     # === Load Settings ===
