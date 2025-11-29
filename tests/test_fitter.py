@@ -113,7 +113,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     results = fitter.run_sampler({}, {'offset': 1.5})
     summary = results.summary().splitlines()
     assert len(summary) == 3
-    assert summary[0].startswith(" Dim")
+    assert summary[0].startswith("     Name")
     assert summary[1].startswith("   0")
     assert summary[2].startswith("   1")
 

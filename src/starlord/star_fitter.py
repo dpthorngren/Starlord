@@ -213,7 +213,8 @@ class StarFitter():
         self._resolve_grids()
         mod = self._gen.compile()
         constants.update(self._grids)
+        params = [p[2:] for p in self._gen.params]
         consts = [constants[str(c.name)] for c in self._gen.constants]
-        samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts)
+        samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts, params)
         samp.run(options)
         return samp

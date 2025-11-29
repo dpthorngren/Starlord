@@ -39,8 +39,19 @@ class _Sampler(ABC):
 class SamplerNested(_Sampler):
     '''Thin wrapper for the Dynesty NestedSampler'''
 
-    def __init__(self, loglike: Callable, ptform: Callable, ndim: int, config: dict, logl_args=[]) -> None:
-        # TODO: Parameter names
+    def __init__(
+            self,
+            loglike: Callable,
+            ptform: Callable,
+            ndim: int,
+            config: dict,
+            logl_args=[],
+            param_names: list[str] | None = None) -> None:
+        if param_names is not None:
+            assert len(param_names) == ndim
+            self.param_names = param_names
+        else:
+            self.param_names = [""] * ndim
         config.setdefault('logl_args', logl_args)
         self._sampler = dynesty.NestedSampler(loglike, ptform, ndim, **config)
 
@@ -65,9 +76,13 @@ class SamplerNested(_Sampler):
     def summary(self) -> str:
         # TODO: Convergence statistics
         stats = self.stats()
-        out = [" Dim" + "Mean".rjust(12) + "Std".rjust(12) + "16%".rjust(12) + "50%".rjust(12) + "84%".rjust(12)]
+        out = [
+            "     Name".ljust(16) + "Mean".rjust(12) + "Std".rjust(12) + "16%".rjust(12) + "50%".rjust(12) +
+            "84%".rjust(12)
+        ]
         for i in range(self.sampler.ndim):
-            line = f"{i:4d} {stats[i, 0]:11.4g} {stats[i, 1]:11.4g}"
+            line = f"{i:4d} {self.param_names[i]:11}"
+            line += f" {stats[i, 0]:11.4g} {stats[i, 1]:11.4g}"
             line += f" {stats[i, 2]:11.4g} {stats[i, 3]:11.4g} {stats[i, 4]:11.4g}"
             out += [line]
         return "\n".join(out)
