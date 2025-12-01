@@ -48,7 +48,7 @@ def test_default_inputs(dummy_grids):
     grid = starlord.GridGenerator.get_grid("rdummy")
     assert grid.name == "rdummy"
     assert grid.spec == "a, b -> c; d"
-    assert grid.default_inputs == {"a": "dummy.g1", "b": "p.b"}
+    assert grid._default_inputs == {"a": "dummy.g1", "b": "p.b"}
 
 
 def test_grid_parsing(dummy_grids):
@@ -70,7 +70,7 @@ def test_grid_parsing(dummy_grids):
     assert grid.inputs == ["x", "y"]
     assert grid.outputs == ["v1", "v2"]
     assert grid.derived == dict(g1="2.5*(5+{x}) + {v1}", g2="0.5+math.log10({g1})")
-    assert grid.default_inputs == {"x": "p.x", "y": "p.y"}
+    assert grid._default_inputs == {"x": "p.x", "y": "p.y"}
     assert str(grid) == "Grid_dummy(x, y -> v1, v2; g1, g2)"
 
 

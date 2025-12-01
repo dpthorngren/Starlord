@@ -146,24 +146,18 @@ class StarFitter():
         self._gen.remove_generated()
         self._grids.clear()
         self._gen._mark_autogen = True
+        input_maps = {}
 
         try:
-            # First pass identifies derived grid outputs and resolves them
-            inputs_processed = set()
+            # First pass handles derived grid outputs and default parameters that refer to other grids
             while True:
                 for name, columns in self._used_grids.items():
                     grid = GridGenerator.get_grid(name)
-                    # Ensure default parameters are defined
-                    if name not in inputs_processed:
-                        for input in grid.inputs:
-                            input_map = grid.default_inputs.copy()
-                            if name in self._input_overrides:
-                                input_map.update(self._input_overrides[name])
-                            par: str = input_map[input]
-                            if par.startswith("p."):
-                                continue
-                            self.assign(f"l.{input}", par)
-                        inputs_processed.add(name)
+
+                    # Resolve grid inputs that depend on other grids
+                    if name not in input_maps.keys():
+                        in_map = grid.get_input_map(self._input_overrides.get(name, {}))
+                        input_maps[name] = {k: self._extract_grids(v) for k, v in in_map.items()}
                         break
 
                     # Identify desired grid outputs that are derived but not already resolved
@@ -186,21 +180,13 @@ class StarFitter():
             # Second pass builds the grids and add interpolators to the code generator
             for name, keys in self._used_grids.items():
                 grid = GridGenerator.get_grid(name)
-                input_map = grid.default_inputs.copy()
-                if name in self._input_overrides:
-                    input_map.update(self._input_overrides[name])
+                input_map = input_maps[name]
                 for key in keys:
                     if key in grid.derived:
                         continue
                     grid_var = f"grid_{name}_{key}"
                     self._grids[grid_var] = grid.build_grid(key)
-                    params = []
-                    for p in grid.inputs:
-                        if input_map[p].startswith("p."):
-                            params.append("p." + p)
-                        else:
-                            params.append("l." + p)
-                    param_string = ", ".join(params)
+                    param_string = ", ".join([input_map[i] for i in grid.inputs])
                     self.assign(f"l.{name}_{key}", f"c.{grid_var}._interp{grid.ndim}d({param_string})")
                     self._gen.constant_types[grid_var] = "GridInterpolator"
         except Exception as e:

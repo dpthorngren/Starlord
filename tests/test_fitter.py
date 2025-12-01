@@ -28,7 +28,7 @@ def test_recursive_grids(dummy_grids: Path):
     # Running to resolve the grids
     print(fitter.summary())
     assert fitter._gen.params == ('p.b', 'p.x', 'p.y')
-    assert fitter._gen.locals == ('l.a', 'l.dummy_g1', 'l.dummy_v1', 'l.rdummy_c', 'l.rdummy_d')
+    assert fitter._gen.locals == ('l.dummy_g1', 'l.dummy_v1', 'l.rdummy_c', 'l.rdummy_d')
     assert fitter._gen.constants == ('c.grid_dummy_v1', 'c.grid_rdummy_c')
 
 
@@ -42,10 +42,10 @@ def test_param_overrides(dummy_grids: Path):
     # Running to resolve the grids
     print(fitter.summary())
     assert fitter._gen.params == ('p.x',)
-    assert fitter._gen.locals == ('l.dummy_v1', 'l.y')
+    assert fitter._gen.locals == ('l.dummy_v1',)
     assert fitter._gen.constants == ('c.fixed_y', 'c.grid_dummy_v1')
     code = fitter.generate()
-    assert "l_y = 5.0 + c_fixed_y" in code
+    assert "5.0 + c_fixed_y" in code
     assert "params[1]" not in code
 
 

@@ -125,9 +125,9 @@ class GridGenerator:
         self.provides = self.outputs + list(self.derived.keys())
         for k in self.inputs + self.outputs:
             assert k in self.data.files, f"Bad grid: {k} in _grid_spec but was not found."
-        self.default_inputs = {p: f"p.{p}" for p in self.inputs}
+        self._default_inputs = {p: f"p.{p}" for p in self.inputs}
         if '_default_inputs' in self.data.files:
-            self.default_inputs.update(json.loads(str(self.data['_default_inputs'])))
+            self._default_inputs.update(json.loads(str(self.data['_default_inputs'])))
 
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("
@@ -141,6 +141,17 @@ class GridGenerator:
             out += f", +{len(self.derived)-4}"
         out += ")"
         return out
+
+    def get_input_map(self, overrides={}):
+        '''Returns a dict converting grid input names into variables to use
+        in generated code.  In order of decreasing priority these are
+        overrides[input_name], the grid default for that input, or
+        "p.{input_name}" if neither exists.
+        '''
+        overrides = {k: v for k, v in overrides.items() if k in self.inputs}
+        input_map = self._default_inputs.copy()
+        input_map.update(overrides)
+        return input_map
 
     def summary(self, full=False) -> None:
         print(f"=== Grid {self.name} ===")
