@@ -35,7 +35,7 @@ def main():
             print(*["    " + i for i in g.outputs], sep="\n")
             if len(g.derived) > 0:
                 print("Derived:")
-                print(*g.derived, sep="\n")
+                print(*["    " + d for d in g.derived.keys()], sep="\n")
             return
         print("Available grids:")
         for g in GridGenerator.grids().values():

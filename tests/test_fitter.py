@@ -38,6 +38,7 @@ def test_param_overrides(dummy_grids: Path):
     fitter = starlord.StarFitter()
     fitter.constraint("dummy.v1", "normal", [3., 1.])
     fitter.override_input("dummy", "y", "5.0 + c.fixed_y")
+    fitter.prior("p.x", "normal", [2., 5.])
     # Running to resolve the grids
     print(fitter.summary())
     assert fitter._gen.params == ('p.x',)

@@ -80,13 +80,7 @@ class CodeGenerator:
         self.constant_types = {}
 
     def _update_vars(self):
-        self._variables = set()
-        result: dict[str, set[Symb]] = {i: set() for i in 'pcbl'}
-        for comp in self._prior_components + self._like_components:
-            for sym in comp.requires.union(comp.provides):
-                assert sym.label in 'pcbl', f"Bad symbol name {sym}"
-                result[sym.label].add(sym)
-                self._variables.add(sym)
+        self._variables, result = self._collect_vars(self._like_components + self._prior_components)
         self._params = sorted(list(result['p']))
         self._constants = sorted(list(result['c']))
         self._blobs = sorted(list(result['b']))
@@ -107,6 +101,10 @@ class CodeGenerator:
         mapping = self.get_mapping()
         result: list[str] = []
         result.append("cpdef double[:] prior_transform(double[:] params):")
+        params = self._collect_vars(self._like_components)[1]['p']
+        prior_params = {list(c.requires)[0] for c in self._prior_components}
+        assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
+        assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
         # TODO: Resolve prior dependencies
         for comp in self._prior_components:
             code: str = comp.generate_code(prior_type).format_map(mapping)
@@ -145,7 +143,7 @@ class CodeGenerator:
                     code: str = comp.generate_code().format_map(mapping)
                     result.append("\n".join("    " + loc for loc in code.splitlines()))
                     components.remove(comp)
-                    initialized = initialized.union(comp.provides)
+                    initialized = initialized | comp.provides
                     break
             else:
                 raise LookupError("Circular dependencies in local / blob variables.")
@@ -250,6 +248,17 @@ class CodeGenerator:
         self._like_components = [c for c in self._like_components if not (c.provides & vars)]
         self._prior_components = [c for c in self._prior_components if not (c.provides & vars)]
         self._vars_out_of_date = True
+
+    @staticmethod
+    def _collect_vars(target: list[Component]):
+        variables = set()
+        result: dict[str, set[Symb]] = {i: set() for i in 'pcbl'}
+        for comp in target:
+            for sym in comp.requires | comp.provides:
+                assert sym.label in 'pcbl', f"Bad symbol name {sym}"
+                result[sym.label].add(sym)
+                variables.add(sym)
+        return variables, result
 
     @staticmethod
     def _extract_params(source: str) -> tuple[str, set[Symb]]:

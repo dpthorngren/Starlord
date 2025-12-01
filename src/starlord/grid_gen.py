@@ -32,20 +32,20 @@ class GridGenerator:
         assert not outputs.keys() & inputs.keys(), "Outputs and inputs have overlapping names."
         shape = []
         for name, input in inputs.items():
-            assert re.fullmatch(r'[a-zA-Z]\w*', name), f'Input name "{name}" is not valid.'
+            assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Input name "{name}" is not valid.'
             assert input.ndim == 1, f'Input "{name}" is not 1d as required.'
             shape.append(len(input))
             assert np.all(np.diff(input) > 0), f'Input {name} was not strictly increasing as required.'
         shape = tuple(shape)
         for name, output in outputs.items():
-            assert re.fullmatch(r'[a-zA-Z]\w*', name), f'Output name "{name}" is not valid.'
+            assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Output name "{name}" is not valid.'
             assert output.shape == shape, f'Output shape of "{name}" was {output.shape}; expected {shape}.'
             assert np.any(np.isfinite(output)), f'Output "{name}" is entirely bad values (inf, nan, etc).'
         assert type(derived) is dict
         assert not derived.keys() & inputs.keys(), "Derived and inputs have overlapping names."
         assert not derived.keys() & outputs.keys(), "Derived and outputs have overlapping names."
         for name, output in derived.items():
-            assert re.fullmatch(r'[a-zA-Z]\w*', name), f'Derived value name "{name}" is not valid.'
+            assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Derived value name "{name}" is not valid.'
             assert type(output) is str
             # TODO: Validate derived parameter formulas
         assert type(default_inputs) is dict
@@ -131,13 +131,13 @@ class GridGenerator:
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("
         out += ", ".join(self.inputs)
-        out += " -> " + ", ".join(self.outputs[:8])
-        if len(self.outputs) > 8:
-            out += f", +{len(self.outputs)-8}"
+        out += " -> " + ", ".join(self.outputs[:4])
+        if len(self.outputs) > 4:
+            out += f", +{len(self.outputs)-4}"
         if len(self.derived) > 0:
-            out += "; " + ", ".join(list(self.derived.keys())[:8])
-        if len(self.derived) > 8:
-            out += f", +{len(self.derived)-8}"
+            out += "; " + ", ".join(list(self.derived.keys())[:4])
+        if len(self.derived) > 4:
+            out += f", +{len(self.derived)-4}"
         out += ")"
         return out
 
