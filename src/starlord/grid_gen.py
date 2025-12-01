@@ -113,6 +113,7 @@ class GridGenerator:
         assert "_grid_spec" in self.data.files, f"{filename} is not a Starlord grid file."
         self.spec: str = str(self.data['_grid_spec'])
         spec = self.spec.split('->')
+        self.bounds = self.data['_bounds']
         self.inputs: list[str] = [i.strip() for i in spec[0].split(",")]
         self.ndim = len(self.inputs)
         spec = spec[1].split(";")
@@ -140,6 +141,28 @@ class GridGenerator:
             out += f", +{len(self.derived)-4}"
         out += ")"
         return out
+
+    def summary(self, full=False) -> None:
+        print(f"=== Grid {self.name} ===")
+        print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10))
+        for i, name in enumerate(self.inputs):
+            print(
+                f"{i:>3d} {name:<10s}",
+                f"{self.bounds[i,0]:>10.4n}",
+                f"{self.bounds[i,1]:>10.4n}",
+            )
+        print("== Outputs ==")
+        if len(self.outputs) < 12 or full:
+            print(*[f"    {i}" for i in self.outputs], sep="\n")
+        else:
+            print(*[f"    {i}" for i in self.outputs[:12]], sep="\n")
+            print(f"    [+{len(self.outputs)-12} more]")
+        print("== Derived ==")
+        if len(self.derived) < 12 or full:
+            print(*[f"    {i}" for i in self.derived], sep="\n")
+        else:
+            print(*[f"    {i}" for i in self.derived.keys()][:12], sep="\n")
+            print(f"    [+{len(self.derived)-12} more]")
 
     def build_grid(self, column: str) -> GridInterpolator:
         assert column in self.provides
