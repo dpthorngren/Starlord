@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import re
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -13,12 +16,73 @@ class GridGenerator:
     _grids = {}
 
     @classmethod
+    def create_grid(
+            cls,
+            grid_name: str,
+            inputs: OrderedDict[str, np.ndarray],
+            outputs: dict[str, np.ndarray],
+            derived: dict[str, str] = {},
+            default_inputs: dict[str, str] = {}):
+        # General validity checks
+        assert type(grid_name) is str
+        assert type(inputs) is OrderedDict, "Inputs must be type collections.OrderedDict; the order matters."
+        assert type(outputs) is dict
+        assert type(derived) is dict
+        assert type(default_inputs) is dict
+        assert not outputs.keys() & inputs.keys(), "Outputs and inputs have overlapping names."
+        shape = []
+        for name, input in inputs.items():
+            assert re.fullmatch(r'[a-zA-Z]\w*', name), f'Input name "{name}" is not valid.'
+            assert input.ndim == 1, f'Input "{name}" is not 1d as required.'
+            shape.append(len(input))
+            assert np.all(np.diff(input) > 0), f'Input {name} was not strictly increasing as required.'
+        shape = tuple(shape)
+        for name, output in outputs.items():
+            assert re.fullmatch(r'[a-zA-Z]\w*', name), f'Output name "{name}" is not valid.'
+            assert output.shape == shape, f'Output shape of "{name}" was {output.shape}; expected {shape}.'
+            assert np.any(np.isfinite(output)), f'Output "{name}" is entirely bad values (inf, nan, etc).'
+        assert type(derived) is dict
+        assert not derived.keys() & inputs.keys(), "Derived and inputs have overlapping names."
+        assert not derived.keys() & outputs.keys(), "Derived and outputs have overlapping names."
+        for name, output in derived.items():
+            assert re.fullmatch(r'[a-zA-Z]\w*', name), f'Derived value name "{name}" is not valid.'
+            assert type(output) is str
+            # TODO: Validate derived parameter formulas
+        assert type(default_inputs) is dict
+        for name, output in default_inputs.items():
+            assert name in inputs.keys(), f'Input default "{name}" doesn\'t match any actual inputs.'
+            assert type(output) is str
+
+        # Construct metadata
+        grid_spec = ", ".join(inputs.keys())
+        grid_spec += " -> "
+        grid_spec += ", ".join(outputs.keys())
+        if derived:
+            grid_spec += "; "
+            grid_spec += ", ".join(derived.keys())
+        bounds = np.column_stack([
+            [np.min(i) for i in inputs.values()],
+            [np.max(i) for i in inputs.values()],
+        ])
+        inout_arrays = dict(inputs)
+        inout_arrays.update(outputs)
+        filepath = str(config.grid_dir / grid_name) if "/" not in grid_name else grid_name
+        np.savez_compressed(
+            filepath,
+            _grid_spec=grid_spec,
+            _default_inputs=json.dumps(default_inputs),
+            _derived=json.dumps(derived),
+            _bounds=bounds,
+            **inout_arrays,
+        )
+
+    @classmethod
     def register_grid(cls, filename: str) -> None:
         grid = np.load(filename)
-        if "grid_spec" not in grid.files:
+        if "_grid_spec" not in grid.files:
             raise ValueError(f"Not a valid grid file: {filename}")
         gridname = Path(filename).stem
-        assert gridname not in cls._grids.keys()
+        assert gridname not in cls._grids.keys(), "Grid already registered"
         cls._grids[gridname] = GridGenerator(filename)
 
     @classmethod
@@ -46,24 +110,23 @@ class GridGenerator:
         self.file_path = Path(filename)
         self.name = self.file_path.stem
         self.data = np.load(str(filename))
-        assert "grid_spec" in self.data.files
-        self.spec: str = str(self.data['grid_spec'])
+        assert "_grid_spec" in self.data.files, f"{filename} is not a Starlord grid file."
+        self.spec: str = str(self.data['_grid_spec'])
         spec = self.spec.split('->')
         self.inputs: list[str] = [i.strip() for i in spec[0].split(",")]
         self.ndim = len(self.inputs)
         spec = spec[1].split(";")
         self.outputs: list[str] = [i.strip() for i in spec[0].split(",")]
-        self.derived: list[str] = []
-        if len(spec) > 1:
-            self.derived = [i.strip() for i in spec[1].split(",")]
-        self.provides = self.outputs + self.derived
+        if '_derived' in self.data.files:
+            self.derived: dict[str, str] = json.loads(str(self.data['_derived']))
+        else:
+            self.derived = {}
+        self.provides = self.outputs + list(self.derived.keys())
         for k in self.inputs + self.outputs:
-            assert k in self.data.files
-        self.param_defaults = {p: f"p.{p}" for p in self.inputs}
-        if 'param_defaults' in self.data.files:
-            for s in str(self.data['param_defaults']).split(";"):
-                key, value = s.split(":")
-                self.param_defaults[key.strip()] = value.strip()
+            assert k in self.data.files, f"Bad grid: {k} in _grid_spec but was not found."
+        self.default_inputs = {p: f"p.{p}" for p in self.inputs}
+        if '_default_inputs' in self.data.files:
+            self.default_inputs.update(json.loads(str(self.data['_default_inputs'])))
 
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("
@@ -72,7 +135,7 @@ class GridGenerator:
         if len(self.outputs) > 8:
             out += f", +{len(self.outputs)-8}"
         if len(self.derived) > 0:
-            out += "; " + ", ".join(self.derived[:8])
+            out += "; " + ", ".join(list(self.derived.keys())[:8])
         if len(self.derived) > 8:
             out += f", +{len(self.derived)-8}"
         out += ")"

@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -13,38 +14,32 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
     y = np.logspace(-1, 1., 25)[None, :]
     v1 = np.sin(x) + y
     v2 = 25. + np.cos(2.2 * x) / np.sin(y)
-    fn = tmpdir_factory.mktemp("grids")
-    np.savez_compressed(
-        fn / "dummy.npz",
-        grid_spec="x, y -> v1, v2; g1, g2",
-        x=x.flat,
-        y=y.flat,
-        v1=v1,
-        v2=v2,
-        g1="2.5*(5+{x}) + {v1}",
-        g2="0.5+math.log10({g1})",
+    config.grid_dir = Path(tmpdir_factory.mktemp("grids"))
+    starlord.GridGenerator.create_grid(
+        "dummy",
+        inputs=OrderedDict(x=x.flatten(), y=y.flatten()),
+        outputs=dict(v1=v1, v2=v2),
+        derived=dict(g1="2.5*(5+{x}) + {v1}", g2="0.5+math.log10({g1})")
     )
     # Add a grid that recursively depends on the first
     a = np.linspace(-1, 15, 75)[:, None]
     b = np.linspace(-3, 3, 35)[None, :]
     c = a**2 / np.cos(b)
-    np.savez_compressed(
-        fn / "rdummy.npz",
-        grid_spec="a, b -> c; d",
-        a=a.flat,
-        b=b.flat,
-        c=c,
-        d="math.exp({c})",
-        param_defaults="a: dummy.g1",
+    starlord.GridGenerator.create_grid(
+        "rdummy",
+        inputs=OrderedDict(a=a.flatten(), b=b.flatten()),
+        outputs=dict(c=c),
+        derived=dict(d="math.exp({c})"),
+        default_inputs=dict(a="dummy.g1")
     )
     # Add some non-grids to test GridGenerator filtering.
-    nonGrid = fn / "filter_test.txt"
+    nonGrid = config.grid_dir / "filter_test.txt"
     nonGrid.write_text("Filler to make sure the GridGenerator ignores this file.", "utf-8")
-    np.savez_compressed(fn / "nongrid.npz", x=x.flat, y=y.flat)
-    return Path(fn)
+    np.savez_compressed(config.grid_dir / "nongrid.npz", x=x.flat, y=y.flat)
+    return config.grid_dir
 
 
-def test_param_defaults(dummy_grids):
+def test_default_inputs(dummy_grids):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     assert "dummy" in starlord.GridGenerator._grids.keys()
@@ -53,7 +48,7 @@ def test_param_defaults(dummy_grids):
     grid = starlord.GridGenerator.get_grid("rdummy")
     assert grid.name == "rdummy"
     assert grid.spec == "a, b -> c; d"
-    assert grid.param_defaults == {"a": "dummy.g1", "b": "p.b"}
+    assert grid.default_inputs == {"a": "dummy.g1", "b": "p.b"}
 
 
 def test_grid_parsing(dummy_grids):
@@ -74,8 +69,8 @@ def test_grid_parsing(dummy_grids):
     assert grid.spec == "x, y -> v1, v2; g1, g2"
     assert grid.inputs == ["x", "y"]
     assert grid.outputs == ["v1", "v2"]
-    assert grid.derived == ["g1", "g2"]
-    assert grid.param_defaults == {"x": "p.x", "y": "p.y"}
+    assert grid.derived == dict(g1="2.5*(5+{x}) + {v1}", g2="0.5+math.log10({g1})")
+    assert grid.default_inputs == {"x": "p.x", "y": "p.y"}
     assert str(grid) == "Grid_dummy(x, y -> v1, v2; g1, g2)"
 
 

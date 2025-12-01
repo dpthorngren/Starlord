@@ -59,7 +59,7 @@ class StarFitter():
 
     def override_input(self, grid_name: str, input_name: str, value: str):
         grid = GridGenerator.get_grid(grid_name)
-        assert input_name in grid.inputs
+        assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
         self._input_overrides.setdefault(grid_name, {})
         self._input_overrides[grid_name][input_name] = value
 
@@ -156,7 +156,7 @@ class StarFitter():
                     # Ensure default parameters are defined
                     if name not in inputs_processed:
                         for input in grid.inputs:
-                            input_map: dict[str, str] = grid.param_defaults
+                            input_map = grid.default_inputs.copy()
                             if name in self._input_overrides:
                                 input_map.update(self._input_overrides[name])
                             par: str = input_map[input]
@@ -174,7 +174,7 @@ class StarFitter():
                         # Sub variables into the code needed to calculate the derived grid outputs
                         mapping = {k: f"p.{k}" for k in grid.inputs}
                         mapping.update({k: f"{name}.{k}" for k in grid.provides})
-                        code = str(grid.data[name_map[der]]).format_map(mapping)
+                        code = str(grid.derived[name_map[der]]).format_map(mapping)
                         # Add the code to _grids for tracking and send the assigment code to GridGenerator
                         self._grids[der] = code
                         self.assign("l." + der[8:], code)
@@ -186,7 +186,7 @@ class StarFitter():
             # Second pass builds the grids and add interpolators to the code generator
             for name, keys in self._used_grids.items():
                 grid = GridGenerator.get_grid(name)
-                input_map = grid.param_defaults
+                input_map = grid.default_inputs.copy()
                 if name in self._input_overrides:
                     input_map.update(self._input_overrides[name])
                 for key in keys:
@@ -197,9 +197,9 @@ class StarFitter():
                     params = []
                     for p in grid.inputs:
                         if input_map[p].startswith("p."):
-                            params.append("p."+p)
+                            params.append("p." + p)
                         else:
-                            params.append("l."+p)
+                            params.append("l." + p)
                     param_string = ", ".join(params)
                     self.assign(f"l.{name}_{key}", f"c.{grid_var}._interp{grid.ndim}d({param_string})")
                     self._gen.constant_types[grid_var] = "GridInterpolator"
