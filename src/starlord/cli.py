@@ -19,6 +19,7 @@ def main():
         "input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-p", "--plain-text", action="store_true", help="Do not use ANSI codes for terminal output.")
     parser.add_argument("-c", "--code", action="store_true", help="Print code upon generation.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
     parser.add_argument("-l", "--list-grids", action="store_true")
@@ -61,7 +62,7 @@ def main():
 
     # === Setup the fitter ===
     assert "model" in settings.keys(), "No model information was specified."
-    fitter = StarFitter(args.verbose)
+    fitter = StarFitter(args.verbose, not args.plain_text)
     fitter.set_from_dict(settings['model'])
     if args.code:
         # TODO: Set prior type based on sampler type
@@ -81,7 +82,7 @@ def main():
     out: dict = {"terminal": False, "file": ""}
     out.update(settings['output'])
     if out['terminal']:
-        print(results.summary())
+        print(results.summary(out['fancy']))
     if out['file'] != "":
         print("TODO: write results to ", out['file'])
         # fitter.write_results()

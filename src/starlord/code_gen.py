@@ -168,9 +168,10 @@ class CodeGenerator:
         hash = CodeGenerator._compile_to_module(self.generate(use_class, prior_type))
         return CodeGenerator._load_module(hash)
 
-    def summary(self, code: bool = False, prior_type=None) -> str:
+    def summary(self, code: bool = False, prior_type=None, fancy=False) -> str:
+        txt = config.text_format if fancy else config.text_format_off
         result: list[str] = []
-        result += ["=== Variables ==="]
+        result += [f"    {txt.underline}Variables{txt.end}"]
         if self.params:
             result += ["Params:".ljust(12) + ", ".join([p[2:] for p in self.params])]
         if self.constants:
@@ -185,9 +186,9 @@ class CodeGenerator:
             result += ["Blobs:".ljust(12) + ", ".join([b[2:] for b in self.blobs])]
         if self.locals:
             result += ["Locals:".ljust(12) + ", ".join([loc[2:] for loc in self.locals])]
-        result += ["=== Likelihood ==="]
+        result += [f"\n    {txt.underline}Likelihood{txt.end}"]
         result += [i.generate_code() if code else str(i) for i in self._like_components]
-        result += ["=== Prior ==="]
+        result += [f"\n    {txt.underline}Prior{txt.end}"]
         for c in self._prior_components:
             if code:
                 result += [c.generate_code(prior_type=prior_type)]

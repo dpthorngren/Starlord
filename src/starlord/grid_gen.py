@@ -159,8 +159,8 @@ class GridGenerator:
         for i, name in enumerate(self.inputs):
             print(
                 f"{i:>3d} {name:<10s}",
-                f"{self.bounds[i,0]:>10.4n}",
-                f"{self.bounds[i,1]:>10.4n}",
+                f"{self.bounds[i, 0]:>10.4n}",
+                f"{self.bounds[i, 1]:>10.4n}",
             )
         print("== Outputs ==")
         if len(self.outputs) < 12 or full:

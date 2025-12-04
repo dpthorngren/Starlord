@@ -1,15 +1,23 @@
 import os
 import platform
+from collections import namedtuple
 from pathlib import Path
 from types import SimpleNamespace
 
 __version__ = "0.1.6"
+
+_TextFormatCodes_ = namedtuple(
+    "_TextFormatCodes_",
+    ['end', 'bold', 'underline', 'blue', 'yellow', 'red', 'green'],
+)
 
 config = SimpleNamespace(
     system=platform.system(),
     base_dir=Path.home() / ".starlord",
     cache_dir=Path.home() / ".starlord" / "cycache",
     grid_dir=Path.home() / ".starlord" / "grids",
+    text_format=_TextFormatCodes_(*[f"\033[{i}m" for i in [0, 1, 4, 34, 33, 31, 32]]),
+    text_format_off=_TextFormatCodes_("", "", "", "", "", "", ""),
 )
 
 

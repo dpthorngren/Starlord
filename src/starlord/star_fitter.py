@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from ._config import config
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
 from .sampler import SamplerNested
@@ -10,8 +11,9 @@ from .sampler import SamplerNested
 class StarFitter():
     '''Fits parameters of a stellar grid to observed data'''
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, fancy_text=True):
         self.verbose = verbose
+        self.fancy_text = fancy_text
         self._gen = CodeGenerator(verbose)
         self._grids = {}
         self._used_grids = {}
@@ -99,9 +101,15 @@ class StarFitter():
         self._gen.constraint(var, dist, params, True)
 
     def summary(self, print_code: bool = False, prior_type="ppf") -> None:
+        txt = config.text_format if self.fancy_text else config.text_format_off
         self._resolve_grids()
-        print("Grids:", self._used_grids)
-        print(self._gen.summary(print_code, prior_type))
+        print(f"    {txt.underline}Grids{txt.end}")
+        if self._used_grids:
+            for k, v in self._used_grids.items():
+                print(k, v)
+        else:
+            print("None")
+        print('\n' + self._gen.summary(print_code, prior_type, fancy=self.fancy_text))
 
     def generate(self):
         self._resolve_grids()

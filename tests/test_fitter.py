@@ -98,7 +98,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     fitter.summary()
     fitter.summary(True)
     captured = capsys.readouterr()
-    assert "\n=== Variables ===\n" in captured.out
+    assert "Variables" in captured.out
 
     # Check parameters
     paramSummary = re.search(r"^Params:\s+(.*)$", captured.out, flags=re.M)

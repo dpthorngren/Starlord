@@ -32,7 +32,7 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     assert "\n    params[0] = normal_ppf(params[0], -5.0, 5.0)" in captured.out
     assert "\n    l_A = math.exp(params[0])" in captured.out
     # Summary was printed?
-    assert "\n=== Variables ===\n" in captured.out
+    assert "Variables" in captured.out
     # Check that the params match expectations
     paramSummary = re.search(r"^Params:\s+(.*)$", captured.out, flags=re.M)
     assert paramSummary is not None

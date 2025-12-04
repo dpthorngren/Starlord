@@ -32,7 +32,7 @@ def test_expressions():
     assert s[2].startswith("Locals:")
     assert "foo" in s[2]
     # No prior was specified
-    assert "=== Prior ===" == s[-1]
+    assert "Prior" in s[-1]
 
 
 def test_compilation():
