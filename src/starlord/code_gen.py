@@ -196,10 +196,7 @@ class CodeGenerator:
                 result += [str(c)]
         resultStr = "\n".join(result)
         if fancy:
-            resultStr = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", resultStr, flags=re.M)
-            resultStr = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", resultStr, flags=re.M)
-            resultStr = re.sub(r"{([bl]\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", resultStr, flags=re.M)
-            resultStr = re.sub(r"{([+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", resultStr, flags=re.M)
+            resultStr = self._fancy_format(resultStr)
         return resultStr
 
     def expression(self, expr: str) -> None:
@@ -224,13 +221,18 @@ class CodeGenerator:
                 provides.add(Symb(var))
         code, variables = self._extract_params(expr)
         requires = variables - provides
-        self._like_components.append(Component(requires, provides, code, self._mark_autogen))
+        comp = Component(requires, provides, code, self._mark_autogen)
+        if self.verbose:
+            print(self._fancy_format("\n".join(["    " + line for line in str(comp).split("\n")])))
+        self._like_components.append(comp)
 
     def assign(self, var: str, expr: str) -> None:
         # If l or b is omitted, l is implied
         var = Symb(var if re.match(r"^[bl]\.", var) is not None else f"l.{var}")
         code, variables = self._extract_params(expr)
         comp = AssignmentComponent.create(var, code, variables - {var}, self._mark_autogen)
+        if self.verbose:
+            print("    " + self._fancy_format(str(comp)))
         self._like_components.append(comp)
 
     def constraint(self, var: str, dist: str, params: list[str | float], is_prior=False):
@@ -238,6 +240,8 @@ class CodeGenerator:
         assert len(params) == 2
         pars: list[Symb] = [Symb(i) for i in params]
         comp = DistributionComponent.create(var, dist, pars, self._mark_autogen)
+        if self.verbose:
+            print("    " + self._fancy_format(str(comp)))
         if is_prior:
             self._prior_components.append(comp)
         else:
@@ -253,6 +257,16 @@ class CodeGenerator:
         self._like_components = [c for c in self._like_components if not (c.provides & vars)]
         self._prior_components = [c for c in self._prior_components if not (c.provides & vars)]
         self._vars_out_of_date = True
+
+    @staticmethod
+    def _fancy_format(source: str) -> str:
+        '''Finds variables enclosed in curly braces and boldens and colors them based on their type'''
+        txt = config.text_format
+        result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source, flags=re.M)
+        result = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
+        result = re.sub(r"{([bl]\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
+        result = re.sub(r"{([+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
+        return result
 
     @staticmethod
     def _collect_vars(target: list[Component]):
@@ -275,7 +289,7 @@ class CodeGenerator:
         return template, variables
 
     @staticmethod
-    def _cleanup_old_modules(exclude: list[str] = [], ignore_below: int = 20, stale_time: float = 7.):
+    def _cleanup_old_modules(exclude: list[str] = [], ignore_below: int = 20, stale_time: float = 7.) -> None:
         module_files = list(config.cache_dir.glob("sl_gen_*.so"))
         now = time.time()
         candidates = []

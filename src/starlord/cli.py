@@ -3,6 +3,7 @@ import pathlib
 import sys
 
 from . import __version__
+from ._config import config
 from .grid_gen import GridGenerator
 from .star_fitter import StarFitter
 
@@ -25,6 +26,12 @@ def main():
     parser.add_argument("-l", "--list-grids", action="store_true")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
+    txt = config.text_format_off if args.plain_text else config.text_format
+
+    if args.verbose:
+        print(f"    {txt.underline}CLI Arguments{txt.end}")
+        print(args, end='\n\n')
+
     if args.list_grids:
         if args.input is not None:
             grid_name = str(args.input)
@@ -43,8 +50,6 @@ def main():
     settings = {'output': {'terminal': True, 'file': ""}, "sampling": {}}
 
     if args.input is not None:
-        if args.verbose:
-            print(args.input)
         with open(args.input, 'rb') as f:
             settings.update(tomllib.load(f))
     # TODO: Handle syntax errors in the toml file
@@ -57,8 +62,10 @@ def main():
     # TODO: Update settings with command line arguments
 
     if args.verbose:
-        print("Args:", args)
-        print("Settings: ", settings)
+        print(f"    {txt.underline}Settings{txt.end}")
+        for key, value in settings.items():
+            print(key, value, sep=": ")
+        print("")
 
     # === Setup the fitter ===
     assert "model" in settings.keys(), "No model information was specified."
