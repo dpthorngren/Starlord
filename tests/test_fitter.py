@@ -86,7 +86,7 @@ def test_grid_retrieval(dummy_grids: Path):
 
 @pytest.mark.flaky(reruns=3)
 def test_retrieval(capsys: pytest.CaptureFixture):
-    fitter = starlord.StarFitter(True)
+    fitter = starlord.StarFitter(True, False)
     fitter.assign("blah", "p.foo")
     fitter.constraint("l.blah", "beta", [15., 25])
     fitter.prior("foo", "uniform", [0., 1.])
@@ -96,7 +96,6 @@ def test_retrieval(capsys: pytest.CaptureFixture):
 
     # Test that the summaries were reasonable
     fitter.summary()
-    fitter.summary(True)
     captured = capsys.readouterr()
     assert "Variables" in captured.out
 

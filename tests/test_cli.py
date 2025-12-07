@@ -20,7 +20,7 @@ def test_grid_listing(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pyte
 
 
 def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v'])
+    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v', '-p'])
     cli.main()
     captured = capsys.readouterr()
     assert "Warning, section erroneous in input file " in captured.out

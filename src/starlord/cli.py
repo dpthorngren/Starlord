@@ -69,7 +69,7 @@ def main():
         print(fitter.generate())
     if args.dry_run:
         # TODO: Check constants
-        fitter.summary(args.verbose)
+        fitter.summary()
         return
 
     # === Run Sampler ==
@@ -82,7 +82,7 @@ def main():
     out: dict = {"terminal": False, "file": ""}
     out.update(settings['output'])
     if out['terminal']:
-        print(results.summary(out['fancy']))
+        print(results.summary())
     if out['file'] != "":
         print("TODO: write results to ", out['file'])
         # fitter.write_results()

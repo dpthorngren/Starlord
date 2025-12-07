@@ -100,7 +100,7 @@ class StarFitter():
             var = "p." + var
         self._gen.constraint(var, dist, params, True)
 
-    def summary(self, print_code: bool = False, prior_type="ppf") -> None:
+    def summary(self, prior_type="ppf") -> None:
         txt = config.text_format if self.fancy_text else config.text_format_off
         self._resolve_grids()
         print(f"    {txt.underline}Grids{txt.end}")
@@ -109,7 +109,7 @@ class StarFitter():
                 print(k, v)
         else:
             print("None")
-        print('\n' + self._gen.summary(print_code, prior_type, fancy=self.fancy_text))
+        print('\n' + self._gen.summary(prior_type, fancy=self.fancy_text))
 
     def generate(self):
         self._resolve_grids()
@@ -176,7 +176,7 @@ class StarFitter():
                         # Sub variables into the code needed to calculate the derived grid outputs
                         mapping = {k: f"p.{k}" for k in grid.inputs}
                         mapping.update({k: f"{name}.{k}" for k in grid.provides})
-                        code = str(grid.derived[name_map[der]]).format_map(mapping)
+                        code = str(grid.derived[name_map[der]]).format(**mapping)
                         # Add the code to _grids for tracking and send the assigment code to GridGenerator
                         self._grids[der] = code
                         self.assign("l." + der[8:], code)
