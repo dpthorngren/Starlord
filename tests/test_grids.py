@@ -19,8 +19,7 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
         "dummy",
         inputs=OrderedDict(x=x.flatten(), y=y.flatten()),
         outputs=dict(v1=v1, v2=v2),
-        derived=dict(g1="2.5*(5+{x}) + {v1}", g2="0.5+math.log10({g1})")
-    )
+        derived=dict(g1="2.5*(5+{x}) + {v1}", g2="0.5+math.log10({g1})"))
     # Add a grid that recursively depends on the first
     a = np.linspace(-1, 15, 75)[:, None]
     b = np.linspace(-3, 3, 35)[None, :]
@@ -30,8 +29,7 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
         inputs=OrderedDict(a=a.flatten(), b=b.flatten()),
         outputs=dict(c=c),
         derived=dict(d="math.exp({c})"),
-        default_inputs=dict(a="dummy.g1")
-    )
+        default_inputs=dict(a="dummy.g1"))
     # Add some non-grids to test GridGenerator filtering.
     nonGrid = config.grid_dir / "filter_test.txt"
     nonGrid.write_text("Filler to make sure the GridGenerator ignores this file.", "utf-8")
@@ -71,6 +69,11 @@ def test_grid_parsing(dummy_grids):
     assert grid.outputs == ["v1", "v2"]
     assert grid.derived == dict(g1="2.5*(5+{x}) + {v1}", g2="0.5+math.log10({g1})")
     assert grid._default_inputs == {"x": "p.x", "y": "p.y"}
+    assert grid.shape == (75, 25)
+    assert grid.bounds[0, 0] == -5.
+    assert grid.bounds[0, 1] == 5.
+    assert grid.bounds[1, 0] == 0.1
+    assert grid.bounds[1, 1] == 10.
     assert str(grid) == "Grid_dummy(x, y -> v1, v2; g1, g2)"
 
 
@@ -82,6 +85,11 @@ def test_grid_building(dummy_grids):
     with pytest.raises(AssertionError):
         grid.build_grid("foo")
     f = grid.build_grid("v1")
+    assert f.shape == (75, 25)
+    assert f.bounds[0, 0] == -5.
+    assert f.bounds[0, 1] == 5.
+    assert f.bounds[1, 0] == 0.1
+    assert f.bounds[1, 1] == 10.
     assert f._interp2d(1., 2.5) == pytest.approx(np.sin(1.) + 2.5, .01)
     g = grid.build_grid("v2")
     assert g._interp2d(3., 2.3) == pytest.approx(25. + np.cos(2.2 * 3.) / np.sin(2.3), .01)

@@ -33,7 +33,7 @@ cdef class GridInterpolator:
 
     def __init__(self, axes, values, tol=1e-6):
         self.ndim = len(axes)
-        assert self.ndim <= 5
+        assert self.ndim <= 5 and self.ndim > 0
         # Setup data array (axes, values)
         processed = []
         for i, ax in enumerate(axes):
@@ -75,6 +75,11 @@ cdef class GridInterpolator:
         self.x_stride = self.y_stride * self.y_len
         self.values = self._data[stop:]
         assert len(self.values) == self.x_stride * self.x_len
+        # Write grid info for reference (not used for interpolation)
+        self.shape = (self.x_len, self.y_len, self.z_len, self.u_len, self.v_len)[:self.ndim]
+        self.bounds = np.zeros((self.ndim, 2))
+        for i in range(self.ndim):
+            self.bounds[i] = [min(axes[i]), max(axes[i])]
 
     def __call__(self, arr):
         '''This method is convenient but slow; consider more specialized functions.'''

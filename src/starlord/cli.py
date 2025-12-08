@@ -37,7 +37,7 @@ def main():
             grid_name = str(args.input)
             assert grid_name in GridGenerator.grids(), f"Grid {grid_name} not found."
             g = GridGenerator.get_grid(grid_name)
-            g.summary()
+            g.summary(fancy_text=~args.plain_text)
             return
         print("Available grids:")
         for g in GridGenerator.grids().values():

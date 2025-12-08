@@ -73,6 +73,7 @@ class GridGenerator:
             _default_inputs=json.dumps(default_inputs),
             _derived=json.dumps(derived),
             _bounds=bounds,
+            _shape=shape,
             **inout_arrays,
         )
 
@@ -114,6 +115,7 @@ class GridGenerator:
         self.spec: str = str(self.data['_grid_spec'])
         spec = self.spec.split('->')
         self.bounds = self.data['_bounds']
+        self.shape = tuple(self.data['_shape'])
         self.inputs: list[str] = [i.strip() for i in spec[0].split(",")]
         self.ndim = len(self.inputs)
         spec = spec[1].split(";")
@@ -153,22 +155,24 @@ class GridGenerator:
         input_map.update(overrides)
         return input_map
 
-    def summary(self, full=False) -> None:
-        print(f"=== Grid {self.name} ===")
-        print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10))
+    def summary(self, full=False, fancy_text=True) -> None:
+        txt = config.text_format if fancy_text else config.text_format_off
+        print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
+        print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10), "Length".rjust(10))
         for i, name in enumerate(self.inputs):
             print(
-                f"{i:>3d} {name:<10s}",
+                f"{i:>3d} {txt.bold}{name:<10s}{txt.end}",
                 f"{self.bounds[i, 0]:>10.4n}",
                 f"{self.bounds[i, 1]:>10.4n}",
+                f"{self.shape[i]:>10n}",
             )
-        print("== Outputs ==")
+        print(f"{txt.underline}Outputs{txt.end}")
         if len(self.outputs) < 12 or full:
             print(*[f"    {i}" for i in self.outputs], sep="\n")
         else:
             print(*[f"    {i}" for i in self.outputs[:12]], sep="\n")
             print(f"    [+{len(self.outputs)-12} more]")
-        print("== Derived ==")
+        print(f"{txt.underline}Derived{txt.end}")
         if len(self.derived) < 12 or full:
             print(*[f"    {i}" for i in self.derived], sep="\n")
         else:

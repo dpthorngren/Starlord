@@ -16,7 +16,7 @@ cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w)
 cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw)
 
 cdef class GridInterpolator:
-    cdef int ndim
+    cdef readonly int ndim
     cdef int x_len
     cdef int y_len
     cdef int z_len
@@ -33,6 +33,8 @@ cdef class GridInterpolator:
     cdef double[:] v_axis
     cdef double[:] values
     cdef object _data
+    cdef readonly object bounds
+    cdef readonly object shape
 
     cpdef double interp(self, double[:] x)
     cpdef double _interp1d(self, double point)
