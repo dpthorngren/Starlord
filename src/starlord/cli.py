@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+import re
 import sys
 
 from . import __version__
@@ -75,8 +76,12 @@ def main():
     fitter = StarFitter(args.verbose, not args.plain_text)
     fitter.set_from_dict(settings['model'])
     if args.code:
-        # TODO: Set prior type based on sampler type
-        print(fitter.generate())
+        code = fitter.generate()
+        if not args.plain_text:
+            code = re.sub(r"(?<!\w)(l_[a-zA-z]\w*)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", code, flags=re.M)
+            code = re.sub(r"(?<!\w)(c_[a-zA-z]\w*)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", code, flags=re.M)
+            code = re.sub(r"(?<!\w)(params\[\d+\])", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", code, flags=re.M)
+        print(code)
     if args.dry_run:
         fitter.summary()
 
