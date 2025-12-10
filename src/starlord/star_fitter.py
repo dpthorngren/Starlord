@@ -22,7 +22,8 @@ class StarFitter():
 
     def set_from_dict(self, model: dict) -> None:
         txt = config.text_format if self.fancy_text else config.text_format_off
-        print(f"    {txt.underline}Model Processing{txt.end}")
+        if self.verbose:
+            print(f"    {txt.underline}Model Processing{txt.end}")
         if "expr" in model.keys():
             for name, code in model['expr'].items():
                 if self.verbose:
@@ -59,8 +60,6 @@ class StarFitter():
                     print(f"override.{key} = {override}")
                 for input_name, value in override.items():
                     self.override_input(key, input_name, value)
-        if self.verbose:
-            print("")
 
     def override_input(self, grid_name: str, input_name: str, value: str):
         if self.verbose:
@@ -207,10 +206,20 @@ class StarFitter():
             self._gen._mark_autogen = False
             raise e
         self._gen._mark_autogen = False
+        if self.verbose:
+            print("")
 
     def run_sampler(self, options: dict, constants: dict = {}):
+        txt = config.text_format if self.fancy_text else config.text_format_off
         self._resolve_grids()
         mod = self._gen.compile()
+        if self.verbose and constants:
+            # Note: Constants also printed during dry-run by cli.py:main
+            print(f"\n    {txt.underline}Constant Values{txt.end}")
+            for k, v in constants.items():
+                if "c."+k in self._gen.constants:
+                    print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
+            print("")
         constants.update(self._grids)
         params = [p[2:] for p in self._gen.params]
         consts = [constants[str(c.name)] for c in self._gen.constants]

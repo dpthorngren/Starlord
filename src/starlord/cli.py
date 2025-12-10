@@ -18,12 +18,15 @@ def main():
         "starlord", description="Fit stellar observations with starlord from the command line.")
     parser.add_argument(
         "input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print a model summary and exit without running the sampler.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print extra debugging information.")
     parser.add_argument("-p", "--plain-text", action="store_true", help="Do not use ANSI codes for terminal output.")
+    parser.add_argument(
+        "-s", "--set-const", action="append", default=[], help="Set a model constant, e.g. '-s a=3'; repeatable.")
     parser.add_argument("-c", "--code", action="store_true", help="Print code upon generation.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
-    parser.add_argument("-l", "--list-grids", action="store_true")
+    parser.add_argument("-l", "--list-grids", action="store_true", help="List all grids available to Starlord.")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     txt = config.text_format_off if args.plain_text else config.text_format
@@ -75,14 +78,26 @@ def main():
         # TODO: Set prior type based on sampler type
         print(fitter.generate())
     if args.dry_run:
-        # TODO: Check constants
         fitter.summary()
+
+    # Assemble the constants dictionary
+    # TODO: Check constants for validity
+    consts = settings['sampling'].get('const', {})
+    for const_str in args.set_const:
+        key, value = const_str.split("=")
+        if key.startswith("c."):
+            key = key[2:]
+        consts[key] = float(value)
+    if args.dry_run and consts:
+        # Note: Constants also printed during non-dry-run by StarFitter.run_sampler().
+        print(f"\n    {txt.underline}Constant Values{txt.end}")
+        for k, v in consts.items():
+            print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
+    if args.dry_run:
         return
 
     # === Run Sampler ==
-    consts = settings['sampling'].get('const', {})
-    if args.verbose:
-        print("Constants:", consts)
+    # TODO: Get sampler settings
     results = fitter.run_sampler({}, constants=consts)
 
     # === Write Outputs ===

@@ -20,7 +20,8 @@ def test_grid_listing(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pyte
 
 
 def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v', '-p'])
+    monkeypatch.setattr(
+        sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v', '-p', '-s', 'offset=-1.5'])
     cli.main()
     captured = capsys.readouterr()
     assert "Warning, section erroneous in input file " in captured.out
@@ -46,3 +47,7 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     assert constSummary is not None
     consts = list(map(str.strip, constSummary.group(1).split(",")))
     assert consts == ['B_mean', 'offset']
+    # Listed constants prefer CLI to model file?
+    assert "Constant Values" in captured.out
+    assert "c.offset = -1.5" in captured.out
+    assert "c.B_mean = 2.5" in captured.out

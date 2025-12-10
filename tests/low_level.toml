@@ -8,7 +8,7 @@ prior.a = ["normal", "-5", "5"]
 prior.b = ["normal", "-5", "5"]
 
 [sampling]
-const.offset = -1.5
+const.offset = -2.5
 const.B_mean = 2.5
 
 [output]
