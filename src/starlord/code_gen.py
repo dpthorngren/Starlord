@@ -126,27 +126,11 @@ class CodeGenerator:
         result.append("    cdef double logL = 0.")
         for _, loc in mapping['l']:
             result.append(f"    cdef double {loc}")
-        # Check that every local and blob used is initialized somewhere
-        components = self._like_components.copy()
-        initialized = set()
-        for v in self.locals + self.blobs:
-            for comp in components:
-                if v in comp.provides:
-                    break
-            else:
-                raise LookupError(f"Variable {v} is used but never initialized.")
-        # Call components according to their initialization requirements
-        while len(components) > 0:
-            for comp in components:
-                reqs = {c for c in comp.requires if c[0] in "bl" and c not in initialized}
-                if len(reqs) == 0:
-                    code: str = comp.generate_code().format(**mapping)
-                    result.append("\n".join("    " + loc for loc in code.splitlines()))
-                    components.remove(comp)
-                    initialized = initialized | comp.provides
-                    break
-            else:
-                raise LookupError("Circular dependencies in local / blob variables.")
+        # Generate the code for each component, sorted to satisfy their interdependencies
+        components = self._sort_by_dependency(self._like_components)
+        for comp in components:
+            code: str = comp.generate_code().format(**mapping)
+            result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
         return "\n".join(result)
 
@@ -187,7 +171,7 @@ class CodeGenerator:
         if self.locals:
             result += ["Locals:".ljust(12) + ", ".join([txt.green + loc[2:] + txt.end for loc in self.locals])]
         result += [f"\n    {txt.underline}Likelihood{txt.end}"]
-        result += [str(i) for i in self._like_components]
+        result += [str(i) for i in self._sort_by_dependency(self._like_components)]
         result += [f"\n    {txt.underline}Prior{txt.end}"]
         for c in self._prior_components:
             if type(c) is DistributionComponent:
@@ -269,7 +253,36 @@ class CodeGenerator:
         return result
 
     @staticmethod
-    def _collect_vars(target: list[Component]):
+    def _sort_by_dependency(components: list[Component]) -> list[Component]:
+        '''Takes a list of components and returns a new one sorted such that components which provide
+        variables are listed before those that require them. Beyond this the sort is stable
+        (components which could appear in any order appear in the order found in their input list).'''
+        _, vars = CodeGenerator._collect_vars(components)
+        # Check that every local and blob used is initialized somewhere
+        for v in vars['l'] | vars['b']:
+            for comp in components:
+                if v in comp.provides:
+                    break
+            else:
+                raise LookupError(f"Variable {v} is used but never initialized.")
+        # Sort components according to their initialization requirements
+        result = []
+        initialized = set()
+        components = components.copy()
+        while len(components) > 0:
+            for comp in components:
+                reqs = {c for c in comp.requires if c[0] in "bl" and c not in initialized}
+                if len(reqs) == 0:
+                    initialized = initialized | comp.provides
+                    result.append(comp)
+                    components.remove(comp)
+                    break
+            else:
+                raise LookupError(f"Circular dependencies in components {components}")
+        return result
+
+    @staticmethod
+    def _collect_vars(target: list[Component]) -> tuple[set[Symb], dict[str, set[Symb]]]:
         variables = set()
         result: dict[str, set[Symb]] = {i: set() for i in 'pcbl'}
         for comp in target:
