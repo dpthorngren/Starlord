@@ -20,16 +20,22 @@ class GridGenerator:
             cls,
             grid_name: str,
             inputs: OrderedDict[str, np.ndarray],
-            outputs: dict[str, np.ndarray],
-            derived: dict[str, str] = {},
-            default_inputs: dict[str, str] = {}):
+            outputs: dict[str, np.ndarray] | OrderedDict[str, np.ndarray],
+            derived: dict[str, str] | OrderedDict[str, str] = {},
+            default_inputs: dict[str, str] | OrderedDict[str, str] = {}):
         # General validity checks
         assert type(grid_name) is str
         assert type(inputs) is OrderedDict, "Inputs must be type collections.OrderedDict; the order matters."
-        assert type(outputs) is dict
-        assert type(derived) is dict
-        assert type(default_inputs) is dict
+        assert type(outputs) in (dict, OrderedDict)
+        assert type(derived) in (dict, OrderedDict)
+        assert type(default_inputs) in (dict, OrderedDict)
         assert not outputs.keys() & inputs.keys(), "Outputs and inputs have overlapping names."
+        # Sort outputs alphabetically by key
+        outputs = OrderedDict(sorted(outputs.items(), key=lambda i: i[0].lower()))
+        derived = OrderedDict(sorted(derived.items(), key=lambda i: i[0].lower()))
+        default_inputs = OrderedDict(sorted(default_inputs.items(), key=lambda i: i[0].lower()))
+
+        # Check input validity and extract shape
         shape = []
         for name, input in inputs.items():
             assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Input name "{name}" is not valid.'
@@ -37,23 +43,23 @@ class GridGenerator:
             shape.append(len(input))
             assert np.all(np.diff(input) > 0), f'Input {name} was not strictly increasing as required.'
         shape = tuple(shape)
+
+        # Check output validity
         for name, output in outputs.items():
             assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Output name "{name}" is not valid.'
             assert output.shape == shape, f'Output shape of "{name}" was {output.shape}; expected {shape}.'
             assert np.any(np.isfinite(output)), f'Output "{name}" is entirely bad values (inf, nan, etc).'
-        assert type(derived) is dict
         assert not derived.keys() & inputs.keys(), "Derived and inputs have overlapping names."
         assert not derived.keys() & outputs.keys(), "Derived and outputs have overlapping names."
         for name, output in derived.items():
             assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Derived value name "{name}" is not valid.'
             assert type(output) is str
             # TODO: Validate derived parameter formulas
-        assert type(default_inputs) is dict
         for name, output in default_inputs.items():
             assert name in inputs.keys(), f'Input default "{name}" doesn\'t match any actual inputs.'
             assert type(output) is str
 
-        # Construct metadata
+        # Construct metadata and create the grid
         grid_spec = ", ".join(inputs.keys())
         grid_spec += " -> "
         grid_spec += ", ".join(outputs.keys())
