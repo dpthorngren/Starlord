@@ -178,10 +178,7 @@ class CodeGenerator:
                 result += [f"{{{c.var}}} ~ {str(c)}"]
             else:
                 result += [str(c)]
-        resultStr = "\n".join(result)
-        if fancy:
-            resultStr = self._fancy_format(resultStr)
-        return resultStr
+        return self._fancy_format("\n".join(result), fancy)
 
     def expression(self, expr: str) -> None:
         '''Specify a general expression to add to the code.  Assignments and variables used will be
@@ -243,9 +240,9 @@ class CodeGenerator:
         self._vars_out_of_date = True
 
     @staticmethod
-    def _fancy_format(source: str) -> str:
+    def _fancy_format(source: str, fancy=False) -> str:
         '''Finds variables enclosed in curly braces and boldens and colors them based on their type'''
-        txt = config.text_format
+        txt = config.text_format if fancy else config.text_format_off
         result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source, flags=re.M)
         result = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
         result = re.sub(r"{([bl]\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
