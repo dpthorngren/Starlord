@@ -4,6 +4,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 
@@ -185,11 +186,13 @@ class GridGenerator:
             print(*[f"    {i}" for i in self.derived.keys()][:12], sep="\n")
             print(f"    [+{len(self.derived)-12} more]")
 
-    def build_grid(self, column: str) -> GridInterpolator:
+    def build_grid(
+            self, column: str, axis_tf: dict[str, Callable] = {}, value_tf: Callable = lambda x: x) -> GridInterpolator:
         assert column in self.provides
+        assert all([k in self.inputs for k in axis_tf.keys()])
         if column in self.derived:
             # TODO: Handle derived columns in Python
             raise NotImplementedError
-        axes = [self.data[i] for i in self.inputs]
-        values = self.data[column]
+        axes = [axis_tf.get(k, lambda x: x)(self.data[k]) for k in self.inputs]
+        values = value_tf(self.data[column])
         return GridInterpolator(axes, values)

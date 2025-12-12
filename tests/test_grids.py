@@ -93,3 +93,5 @@ def test_grid_building(dummy_grids):
     assert f._interp2d(1., 2.5) == pytest.approx(np.sin(1.) + 2.5, .01)
     g = grid.build_grid("v2")
     assert g._interp2d(3., 2.3) == pytest.approx(25. + np.cos(2.2 * 3.) / np.sin(2.3), .01)
+    h = grid.build_grid("v1", {'y': np.log10}, np.cos)
+    assert h._interp2d(1., np.log10(2.5)) == pytest.approx(np.cos(np.sin(1.) + 2.5), .03)
