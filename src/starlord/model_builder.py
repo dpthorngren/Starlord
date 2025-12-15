@@ -121,7 +121,7 @@ class ModelBuilder():
             var = "p." + var
         if self._verbose:
             print(f"  StarFitter.prior('{var}', '{dist}', {params})")
-        self._gen.constraint(var, dist, params, True)
+        self._gen.prior(var, dist, params)
 
     def summary(self) -> str:
         '''Generates a summary of the model currently defined.
@@ -134,13 +134,13 @@ class ModelBuilder():
         '''
         txt = config.text_format if self._fancy_text else config.text_format_off
         self._resolve_grids()
-        print(f"    {txt.underline}Grids{txt.end}")
+        result = [f"    {txt.underline}Grids{txt.end}"]
         if self._used_grids:
             for k, v in self._used_grids.items():
-                print(k, v)
+                result.append(f"{k} {v}")
         else:
-            print("None")
-        return self._gen.summary(self._fancy_text)
+            result.append("None")
+        return "\n".join(result) + "\n\n" + self._gen.summary(self._fancy_text)
 
     def generate(self) -> str:
         '''Generates the code for the model.

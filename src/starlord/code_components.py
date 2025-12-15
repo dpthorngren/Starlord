@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 
 class Symb(str):
@@ -48,7 +47,7 @@ class Component:
     def __repr__(self) -> str:
         return self.code + " [Expr]"
 
-    def generate_code(self, prior_type: Optional[str] = None) -> str:
+    def generate_code(self) -> str:
         return self.code
 
 
@@ -63,7 +62,7 @@ class AssignmentComponent(Component):
     def __repr__(self) -> str:
         return f"{{{list(self.provides)[0]}}} = {self.code}"
 
-    def generate_code(self, prior_type: Optional[str] = None) -> str:
+    def generate_code(self) -> str:
         code: str = f"{{{list(self.provides)[0]}}} = {self.code}"
         return code
 
@@ -87,13 +86,48 @@ class DistributionComponent(Component):
         params = [p if p.startswith("{") else f"{{{p}}}" for p in self.params]
         return f"{self.code.title()}({{{self.var}}} | {', '.join(params)})"
 
-    def generate_code(self, prior_type: Optional[str] = None) -> str:
-        if prior_type is None:
-            result = f"logL += {self.code}_lpdf({{{self.var}}}, {', '.join(self.params)})"
-        elif prior_type == "pdf":
-            result = f"logP += {self.code}_lpdf({{{self.var}}}, {', '.join(self.params)})"
-        elif prior_type == "ppf":
-            result = f"{{{self.var}}} = {self.code}_ppf({{{self.var}}}, {', '.join(self.params)})"
-        else:
-            raise ValueError(f"Unrecognized prior option {prior_type} -- must be None, 'ppf', or 'pdf'.")
-        return result
+    def generate_code(self) -> str:
+        return f"logL += {self.code}_lpdf({{{self.var}}}, {', '.join(self.params)})"
+
+
+@dataclass(frozen=True)
+class Prior:
+    vars: list[Symb]
+    code_ppf: str
+    code_pdf: str
+    params: list[Symb]
+    distribution: str
+
+    @property
+    def requires(self) -> set[Symb]:
+        return set()
+
+    @property
+    def provides(self) -> set[Symb]:
+        return set(self.vars)
+
+    @classmethod
+    def create(cls, var: Symb, distribution: str, params: list[Symb]):
+        distribution = distribution.lower()
+        assert distribution in ["normal", "uniform", "beta", "gamma"]
+        return Prior(
+            vars=[var],
+            code_ppf="{{{vars[0]}}} = " + distribution + "_ppf({{{vars[0]}}}, {paramStr})",
+            code_pdf="lpdf += " + distribution + "_lpdf({{{vars[0]}}}, {paramStr})",
+            params=params,
+            distribution=distribution,
+        )
+
+    def __repr__(self) -> str:
+        # Literals (strings not starting with "{" need brackets added for formatting.
+        vars = [f"{{{v}}}" for v in self.vars]
+        params = [p if p.startswith("{") else f"{{{p}}}" for p in self.params]
+        return f"{', '.join(vars)} ~ {self.distribution.title()}({', '.join(params)})"
+
+    def generate_ppf(self) -> str:
+        fmt = dict(vars=self.vars, params=self.params, paramStr=", ".join(self.params))
+        return self.code_ppf.format(**fmt)
+
+    def generate_pdf(self) -> str:
+        fmt = dict(vars=self.vars, params=self.params, paramStr=", ".join(self.params))
+        return self.code_pdf.format(**fmt)

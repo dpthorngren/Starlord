@@ -10,6 +10,8 @@ These classes are almost never necessary for users to interact with, but are doc
 
 .. autoclass:: starlord.code_components::DistributionComponent
 
+.. autoclass:: starlord.code_components::Prior
+
 .. autoclass:: starlord.code_components::Symb
 
 .. autoclass:: starlord.code_gen::Namespace

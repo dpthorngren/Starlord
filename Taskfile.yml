@@ -3,7 +3,7 @@ version: 3
 
 tasks:
   default:
-    deps: [test]
+    deps: [test, docsbuild]
 
   devbuild:
     desc: "Rebuild shared library (if cython files have changed) and reinstall."
@@ -42,7 +42,7 @@ tasks:
     sources:
       - src/starlord/*.py
       - docs/*.rst
-      - docs/*.rst
+      - docs/*/*.rst
       - docs/conf.py
     cmds:
       - sphinx-build docs/ docs/build/html/
