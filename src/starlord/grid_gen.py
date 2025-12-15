@@ -13,6 +13,10 @@ from .cy_tools import GridInterpolator
 
 
 class GridGenerator:
+    '''Manages grids and generates grid interpolators.
+
+    Several class methods are used to manage the grids that Starlord is tracking; however,
+    you can also initialize one directly with a path to the grid file if you wish.'''
     _initialized = False
     _grids = {}
 
@@ -21,15 +25,37 @@ class GridGenerator:
             cls,
             grid_name: str,
             inputs: OrderedDict[str, np.ndarray],
-            outputs: dict[str, np.ndarray] | OrderedDict[str, np.ndarray],
-            derived: dict[str, str] | OrderedDict[str, str] = {},
-            default_inputs: dict[str, str] | OrderedDict[str, str] = {}):
+            outputs: dict[str, np.ndarray],
+            derived: dict[str, str] = {},
+            default_inputs: dict[str, str] = {}) -> None:
+        '''Create a new grid and write it to the Starlord grid directory.
+
+        The input, output, and derived names must be unique, valid as Python variable names, and not start with "_".
+        A fair few validity checks are made to ensure that the grid is valid before the grid is written.  Once
+        you have defined a grid with this function, you can use it in your Starlord models or build interpolators
+        using the GridGenerator.get_grid() and build_grid() functions.
+
+        Args:
+            grid_name: A name for your grid, overwrites any existing grid of the same name.
+            inputs: The grid inputs as an OrderedDict of 1-d, strictly-increasing arrays of floats in the same
+                order as the output axes.
+            outputs: The output variables for the grid, a dict of float arrays with a shape corresponding to the
+                inputs provided.
+            derived: Values that may be computed from the grid (the dict keys) and the code required to compute
+                them (the values).  Variables used must be inputs, outputs, or derived keys and enclosed by curly
+                braces.
+            default_inputs: The code to be used for the inputs, by axis (keys must match input keys) if not overridden
+                by the model.  If not specified, this defaults to being a model parameter "p.[input_name]".
+
+        Raises:
+            AssertionError: If any of the validity checks fail -- see the error message for further explanation.
+        '''
         # General validity checks
         assert type(grid_name) is str
         assert type(inputs) is OrderedDict, "Inputs must be type collections.OrderedDict; the order matters."
-        assert type(outputs) in (dict, OrderedDict)
-        assert type(derived) in (dict, OrderedDict)
-        assert type(default_inputs) in (dict, OrderedDict)
+        assert type(outputs) is dict
+        assert type(derived) is dict
+        assert type(default_inputs) is dict
         assert not outputs.keys() & inputs.keys(), "Outputs and inputs have overlapping names."
         # Sort outputs alphabetically by key
         outputs = OrderedDict(sorted(outputs.items(), key=lambda i: i[0].lower()))
@@ -83,6 +109,7 @@ class GridGenerator:
             _shape=shape,
             **inout_arrays,
         )
+        GridGenerator.reload_grids()
 
     @classmethod
     def register_grid(cls, filename: str) -> None:
@@ -151,7 +178,7 @@ class GridGenerator:
         out += ")"
         return out
 
-    def get_input_map(self, overrides={}):
+    def _get_input_map(self, overrides={}):
         '''Returns a dict converting grid input names into variables to use
         in generated code.  In order of decreasing priority these are
         overrides[input_name], the grid default for that input, or
@@ -188,6 +215,17 @@ class GridGenerator:
 
     def build_grid(
             self, column: str, axis_tf: dict[str, Callable] = {}, value_tf: Callable = lambda x: x) -> GridInterpolator:
+        '''Build the grid into an interpolator of the requested column.
+
+        Args:
+            column (str): The output column to interpolate.
+            axis_tf: A dictionary mapping input column names to functions to
+                be applied to them before the interpolator is constructed.
+            value_tf: A function that will be applied to the output column.
+
+        Returns:
+            A GridInterpolator of the requested grid and output.
+        '''
         assert column in self.provides
         assert all([k in self.inputs for k in axis_tf.keys()])
         if column in self.derived:

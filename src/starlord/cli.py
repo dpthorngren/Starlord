@@ -6,7 +6,7 @@ import sys
 from . import __version__
 from ._config import config
 from .grid_gen import GridGenerator
-from .star_fitter import StarFitter
+from .model_builder import ModelBuilder
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -73,7 +73,7 @@ def main():
 
     # === Setup the fitter ===
     assert "model" in settings.keys(), "No model information was specified."
-    fitter = StarFitter(args.verbose, not args.plain_text)
+    fitter = ModelBuilder(args.verbose, not args.plain_text)
     fitter.set_from_dict(settings['model'])
     if args.code:
         code = fitter.generate()
@@ -83,7 +83,7 @@ def main():
             code = re.sub(r"(?<!\w)(params\[\d+\])", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", code, flags=re.M)
         print(code)
     if args.dry_run:
-        fitter.summary()
+        print(fitter.summary())
 
     # Assemble the constants dictionary
     # TODO: Check constants for validity

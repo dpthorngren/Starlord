@@ -9,29 +9,34 @@ from .grid_gen import GridGenerator
 from .sampler import SamplerNested
 
 
-class StarFitter():
-    '''Fits parameters of a stellar grid to observed data'''
+class ModelBuilder():
+    '''Builds and fits a Bayesian model to the given specification.'''
 
     def __init__(self, verbose: bool = False, fancy_text: bool = True):
-        self.verbose: bool = verbose
-        self.fancy_text: bool = fancy_text
+        '''
+        Args:
+            verbose: Print extra debugging info?
+            fancy_text: Color and style terminal output text?
+        '''
+        self._verbose: bool = verbose
+        self._fancy_text: bool = fancy_text
         self._gen = CodeGenerator(verbose)
         self._grids: dict[str, str | GridInterpolator] = {}
         self._used_grids: dict[str, set[str]] = {}
         self._input_overrides: dict[str, dict[str, str]] = {}
 
     def set_from_dict(self, model: dict) -> None:
-        txt = config.text_format if self.fancy_text else config.text_format_off
-        if self.verbose:
+        txt = config.text_format if self._fancy_text else config.text_format_off
+        if self._verbose:
             print(f"    {txt.underline}Model Processing{txt.end}")
         if "expr" in model.keys():
             for name, code in model['expr'].items():
-                if self.verbose:
+                if self._verbose:
                     print(f"expr.{name} = '{code}'")
                 self.expression(code)
         if "var" in model.keys():
             for key, value in model['var'].items():
-                if self.verbose:
+                if self._verbose:
                     print(f"var.{key} = {value}")
                 if type(value) in [str, float, int]:
                     self.assign(key, str(value))
@@ -43,26 +48,26 @@ class StarFitter():
                         self._unpack_distribution("l." + key, value)
         if "prior" in model.keys():
             for key, value in model['prior'].items():
-                if self.verbose:
+                if self._verbose:
                     print(f"prior.{key} = {value}")
                 self._unpack_distribution("p." + key, value, True)
         for grid in GridGenerator.grids().keys():
             if grid in model.keys():
                 for key, value in model[grid].items():
                     assert len(value) in [2, 3]
-                    if self.verbose:
+                    if self._verbose:
                         print(f"{grid}.{key} = {value}")
                     self._register_grid_key(grid, key)
                     self._unpack_distribution(f"l.{grid}_{key}", value)
         if "override" in model.keys():
             for key, override in model['override'].items():
-                if self.verbose:
+                if self._verbose:
                     print(f"override.{key} = {override}")
                 for input_name, value in override.items():
                     self.override_input(key, input_name, value)
 
     def override_input(self, grid_name: str, input_name: str, value: str):
-        if self.verbose:
+        if self._verbose:
             print(f"  StarFitter.override_input('{grid_name}', '{input_name}', '{value}')")
         grid = GridGenerator.get_grid(grid_name)
         assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
@@ -70,7 +75,15 @@ class StarFitter():
         self._input_overrides[grid_name][input_name] = value
 
     def expression(self, expr: str) -> None:
-        if self.verbose:
+        '''Directly insert an expression into the generated code.
+
+        Starlord will identify any variables assigned or used within to ensure the code
+        is sorted properly by dependency (see ModelBuilder docstring).
+
+        Args:
+            expr: The expression to be inserted into the code, as a str.
+        '''
+        if self._verbose:
             expr_str = expr[50:] + "..." if len(expr) > 50 else expr
             print(f"  StarFitter.expression('{expr_str}')")
         # Switch any tabs out for spaces and process any grids
@@ -79,16 +92,22 @@ class StarFitter():
         self._gen.expression(expr)
 
     def assign(self, var: str, expr: str) -> None:
+        '''Assigns a local variable to the given expression.
+
+        Args:
+            var: The variable to be assigned (e.g. "l.varname" or "varname")
+            expr: The value or expression to set the variable to (e.g. "math.log10(p.mass)")
+        '''
         # If l or b is omitted, l is implied
         var = var if re.match(r"^[bl]\.", var) is not None else f"l.{var}"
-        if self.verbose:
+        if self._verbose:
             print(f"  StarFitter.assignment('{var}', {expr})")
         expr = self._extract_grids(expr)
         self._gen.assign(var, expr)
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
         '''Adds a constraint to the model, either "l.var" or "grid.var".'''
-        if self.verbose:
+        if self._verbose:
             print(f"  StarFitter.constraint('{var}', '{dist}', {params})")
         var = self._extract_grids(var)
         assert var.count(".") == 1, 'Variables must be of the form "label.name".'
@@ -100,12 +119,20 @@ class StarFitter():
         if not var.startswith("p."):
             assert "." not in var
             var = "p." + var
-        if self.verbose:
+        if self._verbose:
             print(f"  StarFitter.prior('{var}', '{dist}', {params})")
         self._gen.constraint(var, dist, params, True)
 
-    def summary(self, prior_type="ppf") -> None:
-        txt = config.text_format if self.fancy_text else config.text_format_off
+    def summary(self) -> str:
+        '''Generates a summary of the model currently defined.
+
+        The model does not need to be in a finalized state to be run, so it may help
+        to check this periodically as you build the model.
+
+        Returns:
+            The model summary.
+        '''
+        txt = config.text_format if self._fancy_text else config.text_format_off
         self._resolve_grids()
         print(f"    {txt.underline}Grids{txt.end}")
         if self._used_grids:
@@ -113,9 +140,13 @@ class StarFitter():
                 print(k, v)
         else:
             print("None")
-        print('\n' + self._gen.summary(prior_type, fancy=self.fancy_text))
+        return self._gen.summary(self._fancy_text)
 
-    def generate(self):
+    def generate(self) -> str:
+        '''Generates the code for the model.
+
+        Returns:
+            A string containing the generated Cython code.'''
         self._resolve_grids()
         return self._gen.generate()
 
@@ -168,7 +199,7 @@ class StarFitter():
 
                     # Resolve grid inputs that depend on other grids
                     if name not in input_maps.keys():
-                        in_map = grid.get_input_map(self._input_overrides.get(name, {}))
+                        in_map = grid._get_input_map(self._input_overrides.get(name, {}))
                         input_maps[name] = {k: self._extract_grids(v) for k, v in in_map.items()}
                         break
 
@@ -206,14 +237,14 @@ class StarFitter():
             self._gen._mark_autogen = False
             raise e
         self._gen._mark_autogen = False
-        if self.verbose:
+        if self._verbose:
             print("")
 
     def run_sampler(self, options: dict, constants: dict = {}):
-        txt = config.text_format if self.fancy_text else config.text_format_off
+        txt = config.text_format if self._fancy_text else config.text_format_off
         self._resolve_grids()
         mod = self._gen.compile()
-        if self.verbose and constants:
+        if self._verbose and constants:
             # Note: Constants also printed during dry-run by cli.py:main
             print(f"\n    {txt.underline}Constant Values{txt.end}")
             for k, v in constants.items():

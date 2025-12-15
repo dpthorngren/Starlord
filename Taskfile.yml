@@ -16,7 +16,7 @@ tasks:
     cmds:
       - rm -rf build starlord.egg-info src/starlord/*.so
       - pip uninstall starlord --yes
-      - pip install -e .[test]
+      - pip install -e .[develop]
 
   lint:
     desc: "Run flake8 linter"
@@ -36,3 +36,13 @@ tasks:
     cmds:
       - python experiment.py
 
+  docsbuild:
+    deps: [devbuild, lint]
+    desc: "Build the Starlord documentation with Sphinx."
+    sources:
+      - src/starlord/*.py
+      - docs/*.rst
+      - docs/*.rst
+      - docs/conf.py
+    cmds:
+      - sphinx-build docs/ docs/build/html/

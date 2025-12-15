@@ -24,7 +24,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         mkdir htmlcov
-        python -m pip install .[test]
+        python -m pip install .[develop]
         python -m pip show --files starlord
     - name: Lint with flake8
       run: |
