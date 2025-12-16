@@ -68,7 +68,7 @@ class ModelBuilder():
 
     def override_input(self, grid_name: str, input_name: str, value: str):
         if self._verbose:
-            print(f"  StarFitter.override_input('{grid_name}', '{input_name}', '{value}')")
+            print(f"  ModelBuilder.override_input('{grid_name}', '{input_name}', '{value}')")
         grid = GridGenerator.get_grid(grid_name)
         assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
         self._input_overrides.setdefault(grid_name, {})
@@ -85,7 +85,7 @@ class ModelBuilder():
         '''
         if self._verbose:
             expr_str = expr[50:] + "..." if len(expr) > 50 else expr
-            print(f"  StarFitter.expression('{expr_str}')")
+            print(f"  ModelBuilder.expression('{expr_str}')")
         # Switch any tabs out for spaces and process any grids
         expr = expr.replace("\t", "    ")
         expr = self._extract_grids(expr)
@@ -101,14 +101,14 @@ class ModelBuilder():
         # If l or b is omitted, l is implied
         var = var if re.match(r"^[bl]\.", var) is not None else f"l.{var}"
         if self._verbose:
-            print(f"  StarFitter.assignment('{var}', {expr})")
+            print(f"  ModelBuilder.assignment('{var}', {expr})")
         expr = self._extract_grids(expr)
         self._gen.assign(var, expr)
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
         '''Adds a constraint to the model, either "l.var" or "grid.var".'''
         if self._verbose:
-            print(f"  StarFitter.constraint('{var}', '{dist}', {params})")
+            print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
         var = self._extract_grids(var)
         assert var.count(".") == 1, 'Variables must be of the form "label.name".'
         label, name = var.split(".")
@@ -120,7 +120,7 @@ class ModelBuilder():
             assert "." not in var
             var = "p." + var
         if self._verbose:
-            print(f"  StarFitter.prior('{var}', '{dist}', {params})")
+            print(f"  ModelBuilder.prior('{var}', '{dist}', {params})")
         self._gen.prior(var, dist, params)
 
     def summary(self) -> str:
@@ -240,7 +240,7 @@ class ModelBuilder():
         if self._verbose:
             print("")
 
-    def run_sampler(self, options: dict, constants: dict = {}):
+    def run_sampler(self, constants: dict = {}, **args):
         txt = config.text_format if self._fancy_text else config.text_format_off
         self._resolve_grids()
         mod = self._gen.compile()
@@ -255,5 +255,5 @@ class ModelBuilder():
         params = [p[2:] for p in self._gen.params]
         consts = [constants[str(c.name)] for c in self._gen.constants]
         samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts, params)
-        samp.run(options)
+        samp.run(**args)
         return samp

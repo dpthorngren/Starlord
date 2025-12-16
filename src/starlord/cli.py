@@ -80,7 +80,7 @@ def main():
         if not args.plain_text:
             code = re.sub(r"(?<!\w)(l_[a-zA-z]\w*)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", code, flags=re.M)
             code = re.sub(r"(?<!\w)(c_[a-zA-z]\w*)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", code, flags=re.M)
-            code = re.sub(r"(?<!\w)(params\[\d+\])", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", code, flags=re.M)
+            code = re.sub(r"(?<!\w)(params(\[\d+\])?)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", code, flags=re.M)
         print(code)
     if args.dry_run:
         print(fitter.summary())
@@ -103,7 +103,7 @@ def main():
 
     # === Run Sampler ==
     # TODO: Get sampler settings
-    results = fitter.run_sampler({}, constants=consts)
+    results = fitter.run_sampler(constants=consts)
 
     # === Write Outputs ===
     out: dict = {"terminal": False, "file": ""}
