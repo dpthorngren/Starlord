@@ -98,17 +98,17 @@ class SamplerNested(_Sampler):
         log_like: Callable,
         prior_transform: Callable,
         ndim: int,
-        config: dict,
         logl_args: list[object] = [],
         param_names: list[str] = [],
+        **args,
     ) -> None:
 
         self.ndim = ndim
         self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
-        config.setdefault('logl_args', logl_args)
-        self.sampler = dynesty.NestedSampler(log_like, prior_transform, ndim, **config)
+        args.setdefault('logl_args', logl_args)
+        self.sampler = dynesty.NestedSampler(log_like, prior_transform, ndim, **args)
 
     @property
     def results(self) -> object:

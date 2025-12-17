@@ -6,7 +6,7 @@ from ._config import config
 from .code_gen import CodeGenerator
 from .cy_tools import GridInterpolator
 from .grid_gen import GridGenerator
-from .sampler import SamplerNested
+from .sampler import SamplerNested, SamplerEnsemble
 
 
 class ModelBuilder():
@@ -240,7 +240,7 @@ class ModelBuilder():
         if self._verbose:
             print("")
 
-    def run_sampler(self, constants: dict = {}, **args):
+    def build_sampler(self, sampler_type: str, constants: dict = {}, **args):
         txt = config.text_format if self._fancy_text else config.text_format_off
         self._resolve_grids()
         mod = self._gen.compile()
@@ -248,12 +248,16 @@ class ModelBuilder():
             # Note: Constants also printed during dry-run by cli.py:main
             print(f"\n    {txt.underline}Constant Values{txt.end}")
             for k, v in constants.items():
-                if "c."+k in self._gen.constants:
+                if "c." + k in self._gen.constants:
                     print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
             print("")
         constants.update(self._grids)
-        params = [p[2:] for p in self._gen.params]
         consts = [constants[str(c.name)] for c in self._gen.constants]
-        samp = SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), {}, consts, params)
-        samp.run(**args)
-        return samp
+        params = [p[2:] for p in self._gen.params]
+
+        sampler_type = sampler_type.lower().strip()
+        if sampler_type == "dynesty":
+            return SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), consts, params, **args)
+        elif sampler_type == "emcee":
+            return SamplerEnsemble(mod.log_prob, len(self._gen.params), consts, params, **args)
+        raise ValueError(f"Sampler type '{sampler_type}' was not recognized.")
