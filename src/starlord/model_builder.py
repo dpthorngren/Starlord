@@ -257,7 +257,7 @@ class ModelBuilder():
 
         sampler_type = sampler_type.lower().strip()
         if sampler_type == "dynesty":
-            return SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), consts, params, **args)
+            return SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), consts, params, mod, **args)
         elif sampler_type == "emcee":
-            return SamplerEnsemble(mod.log_prob, len(self._gen.params), consts, params, **args)
+            return SamplerEnsemble(mod.log_prob, len(self._gen.params), consts, params, mod, **args)
         raise ValueError(f"Sampler type '{sampler_type}' was not recognized.")

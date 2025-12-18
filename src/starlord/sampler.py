@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from types import ModuleType
 from typing import Callable
 
 import dynesty
@@ -13,6 +14,7 @@ class _Sampler(ABC):
     '''Abstract class for objects which can sample from probability distributions.'''
     # TODO: Init from CodeGenerator directly.
     ndim: int
+    module: ModuleType | None
     param_names: list[str]
     logl_args: list[object]
 
@@ -56,34 +58,39 @@ class SamplerEnsemble(_Sampler):
         ndim: int,
         logl_args: list[object],
         param_names: list[str] = [],
+        module: ModuleType | None = None,
         **args,
     ) -> None:
-
+        self.module = module
         self.ndim = ndim
         self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
         nwalkers = args.pop('nwalkers', max(100, 5 * ndim))
-        self.sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_prob, args=logl_args, parameter_names=param_names, **args)
+        self.sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob, args=logl_args, **args)
 
     @property
     def results(self) -> object:
-        return self.sampler.flatchain
+        return self.sampler.get_chain(flat=True)
 
     def run(self, **args):
-        # TODO: More default arguments
+        args.setdefault('nsteps', 2500)
+        args.setdefault('progress', True)
+        if "initial_state" not in args:
+            assert self.module is not None, "Must set initial_state or provide a prior_transform."
+            args['initial_state'] = 0.3 + 0.4 * np.random.rand(self.sampler.nwalkers, self.ndim)
+            [self.module.prior_transform(s) for s in args['initial_state']]
         self.sampler.run_mcmc(**args)
 
     def stats(self) -> ResultStats:
-        results = self.sampler.flatchain
+        results = self.sampler.get_chain(flat=True)
         assert type(results) is np.ndarray, "Must run sampler before computing stats!"
         mean = results.mean(axis=0)
         std = results.std(axis=0)
-        cov = np.cov(results)
+        cov = np.cov(results.T)
         std = np.sqrt(np.diag(cov))
         q = np.quantile(results, [.16, .5, .84], axis=0)
-        return ResultStats(mean, cov, std, q[:, 0], q[:, 1], q[:, 2])
+        return ResultStats(mean, cov, std, q[0], q[1], q[2])
 
     def save(self, filename: str):
         print("TODO: Save run data.")
@@ -100,9 +107,11 @@ class SamplerNested(_Sampler):
         ndim: int,
         logl_args: list[object] = [],
         param_names: list[str] = [],
+        module: ModuleType | None = None,
         **args,
     ) -> None:
 
+        self.module = module
         self.ndim = ndim
         self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim

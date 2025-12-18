@@ -71,7 +71,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     assert locals == ['blah', 'stuff']
 
     # Check that the summary prints properly (largely formats result.stats())
-    sampler = builder.build_sampler("dynesty", {'offset': 1.5})
+    sampler = builder.build_sampler("emcee", {'offset': 1.5})
     sampler.run()
     summary = sampler.summary().splitlines()
     assert len(summary) == 3

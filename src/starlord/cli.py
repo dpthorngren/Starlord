@@ -102,7 +102,7 @@ def main():
         return
 
     # === Run Sampler ==
-    sampler_type = settings['sampling'].get('sampler', "dynesty")
+    sampler_type = settings['sampling'].get('sampler', "emcee")
     sampler_args = settings['sampling'].get(sampler_type+"_init", {})
     sampler = builder.build_sampler(sampler_type, constants=consts, **sampler_args)
     sampler_args = settings['sampling'].get(sampler_type+"_run", {})
