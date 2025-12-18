@@ -232,5 +232,6 @@ class GridGenerator:
             # TODO: Handle derived columns in Python
             raise NotImplementedError
         axes = [axis_tf.get(k, lambda x: x)(self.data[k]) for k in self.inputs]
+        assert all([np.all(np.diff(ax) > 0) for ax in axes])
         values = value_tf(self.data[column])
         return GridInterpolator(axes, values)
