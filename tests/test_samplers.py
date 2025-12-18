@@ -32,7 +32,7 @@ def test_grid_retrieval(dummy_grids: Path):
     assert len(re.findall(r"l_dummy_v1 = ", code)) == 1
     assert builder._gen.locals == ('l.dummy_g1', 'l.dummy_g2', 'l.dummy_v1', 'l.dummy_v2', 'l.foo')
     assert builder._gen.constants == ('c.grid_dummy_v1', 'c.grid_dummy_v2', 'c.offset')
-    sampler = builder.build_sampler("dynesty", {'offset': 1.5})
+    sampler = builder.build_sampler("emcee", {'offset': 1.5})
     sampler.run()
 
     # Check that the results are reasonable
@@ -71,7 +71,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     assert locals == ['blah', 'stuff']
 
     # Check that the summary prints properly (largely formats result.stats())
-    sampler = builder.build_sampler("emcee", {'offset': 1.5})
+    sampler = builder.build_sampler("dynesty", {'offset': 1.5})
     sampler.run()
     summary = sampler.summary().splitlines()
     assert len(summary) == 3

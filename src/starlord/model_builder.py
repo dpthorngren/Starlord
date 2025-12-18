@@ -253,11 +253,9 @@ class ModelBuilder():
             print("")
         constants.update(self._grids)
         consts = [constants[str(c.name)] for c in self._gen.constants]
-        params = [p[2:] for p in self._gen.params]
-
         sampler_type = sampler_type.lower().strip()
         if sampler_type == "dynesty":
-            return SamplerNested(mod.log_like, mod.prior_transform, len(self._gen.params), consts, params, mod, **args)
+            return SamplerNested.create_from_module(mod, consts, **args)
         elif sampler_type == "emcee":
-            return SamplerEnsemble(mod.log_prob, len(self._gen.params), consts, params, mod, **args)
+            return SamplerEnsemble.create_from_module(mod, consts, **args)
         raise ValueError(f"Sampler type '{sampler_type}' was not recognized.")

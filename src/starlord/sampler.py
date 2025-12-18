@@ -14,7 +14,6 @@ class _Sampler(ABC):
     '''Abstract class for objects which can sample from probability distributions.'''
     # TODO: Init from CodeGenerator directly.
     ndim: int
-    module: ModuleType | None
     param_names: list[str]
     logl_args: list[object]
 
@@ -51,23 +50,38 @@ class _Sampler(ABC):
 class SamplerEnsemble(_Sampler):
     '''Thin wrapper for EMCEE's EnsembleSampler'''
     sampler: emcee.EnsembleSampler
+    prior_transform: Callable | None
 
     def __init__(
         self,
         log_prob: Callable,
         ndim: int,
-        logl_args: list[object],
+        logl_args: list[object] = [],
         param_names: list[str] = [],
-        module: ModuleType | None = None,
+        prior_transform: Callable | None = None,
         **args,
     ) -> None:
-        self.module = module
         self.ndim = ndim
+        self.prior_transform = prior_transform
         self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
-        nwalkers = args.pop('nwalkers', max(100, 5 * ndim))
-        self.sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob, args=logl_args, **args)
+        args.setdefault('nwalkers', max(100, 5 * ndim))
+        args.setdefault('ndim', ndim)
+        args.setdefault('log_prob_fn', log_prob)
+        args.setdefault('args', logl_args)
+        self.sampler = emcee.EnsembleSampler(**args)
+
+    @classmethod
+    def create_from_module(cls, module: ModuleType, constants: list, **args):
+        return SamplerEnsemble(
+            module.log_prob,
+            len(module.param_names),
+            constants,
+            module.param_names,
+            module.prior_transform,
+            **args,
+        )
 
     @property
     def results(self) -> object:
@@ -77,9 +91,9 @@ class SamplerEnsemble(_Sampler):
         args.setdefault('nsteps', 2500)
         args.setdefault('progress', True)
         if "initial_state" not in args:
-            assert self.module is not None, "Must set initial_state or provide a prior_transform."
+            assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
             args['initial_state'] = 0.3 + 0.4 * np.random.rand(self.sampler.nwalkers, self.ndim)
-            [self.module.prior_transform(s) for s in args['initial_state']]
+            [self.prior_transform(s) for s in args['initial_state']]
         self.sampler.run_mcmc(**args)
 
     def stats(self) -> ResultStats:
@@ -107,17 +121,28 @@ class SamplerNested(_Sampler):
         ndim: int,
         logl_args: list[object] = [],
         param_names: list[str] = [],
-        module: ModuleType | None = None,
         **args,
     ) -> None:
-
-        self.module = module
         self.ndim = ndim
         self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
+        args.setdefault('ndim', ndim)
         args.setdefault('logl_args', logl_args)
-        self.sampler = dynesty.NestedSampler(log_like, prior_transform, ndim, **args)
+        args.setdefault('loglikelihood', log_like)
+        args.setdefault('prior_transform', prior_transform)
+        self.sampler = dynesty.NestedSampler(**args)
+
+    @classmethod
+    def create_from_module(cls, module: ModuleType, constants: list, **args):
+        return SamplerNested(
+            module.log_like,
+            module.prior_transform,
+            len(module.param_names),
+            constants,
+            module.param_names,
+            **args,
+        )
 
     @property
     def results(self) -> object:
