@@ -273,7 +273,9 @@ class ModelBuilder():
         try:
             # First pass handles derived grid outputs and default parameters that refer to other grids
             while True:
-                for name, columns in self._used_grids.items():
+                # Sort the grids to make code generation deterministic
+                for name in sorted(self._used_grids.keys()):
+                    columns = sorted(self._used_grids[name])
                     grid = GridGenerator.get_grid(name)
 
                     # Resolve grid inputs that depend on other grids
@@ -300,10 +302,10 @@ class ModelBuilder():
                     break
 
             # Second pass builds the grids and add interpolators to the code generator
-            for name, keys in self._used_grids.items():
+            for name in sorted(self._used_grids.keys()):
                 grid = GridGenerator.get_grid(name)
                 input_map = input_maps[name]
-                for key in keys:
+                for key in sorted(self._used_grids[name]):
                     if key in grid.derived:
                         continue
                     grid_var = f"grid_{name}_{key}"
