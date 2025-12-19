@@ -1,12 +1,12 @@
-from .model_builder import ModelBuilder
-from .code_gen import CodeGenerator
-from ._config import _load_config, __version__
-from .sampler import SamplerNested
-from .grid_gen import GridGenerator
-from .cy_tools import GridInterpolator
 from . import cy_tools
+from ._config import __version__, _load_config
+from .code_gen import CodeGenerator
+from .cy_tools import GridInterpolator
+from .grid_gen import GridGenerator
+from .model_builder import ModelBuilder
+from .sampler import SamplerEnsemble, SamplerNested
 
 __all__ = [
     "__version__", "ModelBuilder", "CodeGenerator", "_load_config", "SamplerNested", "cy_tools", "GridGenerator",
-    "GridInterpolator"
+    "GridInterpolator", "SamplerEnsemble"
 ]

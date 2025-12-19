@@ -32,8 +32,8 @@ class GridGenerator:
 
         The input, output, and derived names must be unique, valid as Python variable names, and not start with "_".
         A fair few validity checks are made to ensure that the grid is valid before the grid is written.  Once
-        you have defined a grid with this function, you can use it in your Starlord models or build interpolators
-        using the GridGenerator.get_grid() and build_grid() functions.
+        you make a grid with this function, you can use it in your Starlord models or build interpolators
+        using :func:`get_grid` and :func:`build_grid`.
 
         Args:
             grid_name: A name for your grid, overwrites any existing grid of the same name.
@@ -113,6 +113,16 @@ class GridGenerator:
 
     @classmethod
     def register_grid(cls, filename: str) -> None:
+        '''Add a grid by filename to the GridGenerator tracked list for e.g. :func:`get_grid`.
+
+        The file does not need to be in the Starlord grid directory.
+
+        Args:
+            filename: The npz file to load the grid from
+
+        Raises:
+            AssertionError: if the grid is not a proper StarlordGrid from :func:`create_grid`
+        '''
         grid = np.load(filename)
         if "_grid_spec" not in grid.files:
             raise ValueError(f"Not a valid grid file: {filename}")
@@ -122,6 +132,11 @@ class GridGenerator:
 
     @classmethod
     def reload_grids(cls) -> None:
+        '''Clear the grids and load them again from the grid directory.
+
+        Note that this removes any grids added with :func:`register_grid` which are not in
+        that directory.
+        '''
         cls._grids = {}
         for filename in config.grid_dir.glob("*.npz"):
             try:
@@ -131,12 +146,18 @@ class GridGenerator:
 
     @classmethod
     def grids(cls) -> dict[str, GridGenerator]:
+        '''Gets a dict of the grids known to Starlord.'''
         if not cls._initialized:
             cls.reload_grids()
-        return cls._grids
+        return cls._grids.copy()
 
     @classmethod
     def get_grid(cls, grid_name: str) -> GridGenerator:
+        '''Gets a specific grid from the dict of known grids.
+
+        Raises:
+            KeyError: if grid_name is not registered with Starlord.
+        '''
         if not cls._initialized:
             cls.reload_grids()
         return cls._grids[grid_name]
@@ -189,7 +210,14 @@ class GridGenerator:
         input_map.update(overrides)
         return input_map
 
-    def summary(self, full=False, fancy_text=True) -> None:
+    def summary(self, full: bool = False, fancy_text: bool = True) -> None:
+        '''Prints basic information about the grid.
+
+        Args:
+            full: if False, only print the first few outputs and derived outputs,
+                otherwise print them all.
+            fancy_text: whether to style the output with colors and bolding.
+        '''
         txt = config.text_format if fancy_text else config.text_format_off
         print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
         print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10), "Length".rjust(10))
@@ -220,11 +248,16 @@ class GridGenerator:
         Args:
             column (str): The output column to interpolate.
             axis_tf: A dictionary mapping input column names to functions to
-                be applied to them before the interpolator is constructed.
+                be applied to them before the interpolator is constructed.  Note
+                that the transformed axis must still be in strictly-increasing order.
             value_tf: A function that will be applied to the output column.
 
         Returns:
             A GridInterpolator of the requested grid and output.
+
+        Raises:
+            AssertionError: if the column is not a grid output, the grid itself
+                is malformed, or if an axis transform un-sorted the axis.
         '''
         assert column in self.provides
         assert all([k in self.inputs for k in axis_tf.keys()])

@@ -16,8 +16,8 @@ class ModelBuilder():
     def __init__(self, verbose: bool = False, fancy_text: bool = True):
         '''
         Args:
-            verbose: Print extra debugging info?
-            fancy_text: Color and style terminal output text?
+            verbose: If True, print extra debugging info
+            fancy_text: If True, color and style terminal output text
         '''
         self._verbose: bool = verbose
         self._fancy_text: bool = fancy_text
@@ -27,6 +27,18 @@ class ModelBuilder():
         self._input_overrides: dict[str, dict[str, str]] = {}
 
     def set_from_dict(self, model: dict) -> None:
+        '''Load model description from a dict following the TOML input spec.
+
+        Args:
+            model: The model dict to be loaded, it should only have the keys
+                'expr', 'var', 'prior', 'override', or the name of a grid.
+
+        Example:
+            Loading the model from a TOML file to be used within the Python API::
+
+                model = tomllib.load("mymodel.toml")['model']
+                builder = ModelBuilder().set_from_dict(model)
+        '''
         txt = config.text_format if self._fancy_text else config.text_format_off
         if self._verbose:
             print(f"    {txt.underline}Model Processing{txt.end}")
@@ -68,6 +80,32 @@ class ModelBuilder():
                     self.override_input(key, input_name, value)
 
     def override_input(self, grid_name: str, input_name: str, value: str):
+        '''Sets the value or symbol to use for the given grid input.
+
+        This can be used to fix grid axes to a particular value, or make them depend on some
+        additional grid output or calculation.  Grid inputs are set by default according to
+        the their entry in the `_default_inputs` grid metadata.  If there is no entry then they
+        default to being a parameter named "p.{input_name}".
+
+        Args:
+            grid_name: The grid to set the input of
+            input_name: Which input to set
+            value: What to set the input to
+
+        Examples:
+            Suppose you are fitting a stellar model and wish to lock the metallicity to solar.
+            If you're using the mist grid, you could do this with::
+
+                builder.override_input("mist", "feh", "0")
+
+            In the same circumstance, if you wanted to set logG to 2% higher than
+            what the evolution tracks output (as a sensitivity test, perhaps), you could use::
+
+                builder.override_input("mist", "logG", "1.02*mistTracks.logG")
+
+            Note that this uses another grid.  Starlord will detect and handle this without
+            issue.  In fact, the default input refers to mistTracks.logG already.
+        '''
         if self._verbose:
             print(f"  ModelBuilder.override_input('{grid_name}', '{input_name}', '{value}')")
         grid = GridGenerator.get_grid(grid_name)
@@ -79,7 +117,10 @@ class ModelBuilder():
         '''Directly insert an expression into the generated code.
 
         Starlord will identify any variables assigned or used within to ensure the code
-        is sorted properly by dependency (see ModelBuilder docstring).
+        is sorted properly by dependency (see ModelBuilder docstring).  Most of the time
+        you can use :func:`assign` or :func:`constraint` instead, but this gives you the flexibility
+        to add more complicated log-likelihood calculations.  For now this is the only way
+        to implement a for loop.
 
         Args:
             expr: The expression to be inserted into the code, as a str.
@@ -93,11 +134,23 @@ class ModelBuilder():
         self._gen.expression(expr)
 
     def assign(self, var: str, expr: str) -> None:
-        '''Assigns a local variable to the given expression.
+        '''Adds a likelihood component that sets a local variable to the given expression.
 
         Args:
-            var: The variable to be assigned (e.g. "l.varname" or "varname")
-            expr: The value or expression to set the variable to (e.g. "math.log10(p.mass)")
+            var: The variable to be assigned (e.g. `l.varname`)
+            expr: The value or expression to set the variable to (e.g. `math.log10(p.mass)`)
+
+        Example:
+            Suppose a grid you wish to use named `foo` outputs `bar`, but you have measured
+            the sqrt(bar).  Rather than propagating uncertainties (an approximation),
+            you could instead use::
+
+                builder.assign("l.sqrt_bar", "math.sqrt(foo.bar)")
+                builder.constraint("l.sqrt_bar", "normal", ["c.sqrt_bar_mu", "c.sqrt_bar_sigma"])
+
+            Grid names are resolved in expr as usual.  I've written the mean and uncertainty
+            as (arbitrarily-named) constants to set later, but you can use literals instead
+            if you want to.
         '''
         # If l or b is omitted, l is implied
         var = var if re.match(r"^[bl]\.", var) is not None else f"l.{var}"
@@ -107,7 +160,20 @@ class ModelBuilder():
         self._gen.assign(var, expr)
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
-        '''Adds a constraint to the model, either "l.var" or "grid.var".'''
+        '''Adds a constraint term to the log-likelihood for the given distribution and variable.
+
+        Args:
+            var: The variable to which the distribution applies
+            dist: The distribution to be used -- should be one of "uniform", "normal", "gamma",
+                or "beta".
+            params: The parameters of the distribution.
+
+        Example:
+            Suppose you are fitting a stellar model and the `2MASS_H` magnitude is 6.5 +/- 0.05.
+            If you're using the `MIST` grid, you could add this constraint to the model with::
+
+                builder.constraint("mist.2MASS_H", "normal", [6.5, 0.05])
+        '''
         if self._verbose:
             print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
         var = self._extract_grids(var)
@@ -116,13 +182,21 @@ class ModelBuilder():
         assert label in "pbl", "Variable label must be a grid name, p, b, or l."
         self._gen.constraint(f"{label}.{name}", dist, params)
 
-    def prior(self, var: str, dist: str, params: list[str | float]):
-        if not var.startswith("p."):
-            assert "." not in var
-            var = "p." + var
+    def prior(self, param: str, dist: str, params: list[str | float]) -> None:
+        '''Sets the prior for a model parameter.  All parameters must have a prior.
+
+        Args:
+            param: The name of the parameter to set, e.g. `p.some_param`
+            dist: The distribution to be used -- should be one of "uniform", "normal", "gamma",
+                or "beta".
+            params: The parameters of the distribution.
+        '''
+        if not param.startswith("p."):
+            assert "." not in param
+            param = "p." + param
         if self._verbose:
-            print(f"  ModelBuilder.prior('{var}', '{dist}', {params})")
-        self._gen.prior(var, dist, params)
+            print(f"  ModelBuilder.prior('{param}', '{dist}', {params})")
+        self._gen.prior(param, dist, params)
 
     def summary(self) -> str:
         '''Generates a summary of the model currently defined.
@@ -147,13 +221,17 @@ class ModelBuilder():
         '''Generates the code for the model.
 
         Returns:
-            A string containing the generated Cython code.'''
+            A string containing the generated Cython code.
+
+        Raises:
+            AssertionError: if one of the various consistency checks fails.
+        '''
         self._resolve_grids()
         return self._gen.generate()
 
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
-        the results on to prior(...) if prior=True else constraint(...)'''
+        the results on to :func:`prior` if prior=True else :func:`constraint`'''
         assert type(spec) is list
         assert len(spec) >= 2
         dist: str = "normal"
@@ -242,6 +320,17 @@ class ModelBuilder():
             print("")
 
     def validate_constants(self, constants: dict, print_summary: bool = False) -> Tuple[set[str], set[str]]:
+        '''Check that the constants provided match those that were expected.
+
+        Args:
+            constants: a dict of the constant names and values (without the 'c.') to test.
+            print_summary: if True, print a list of the constants and values, noting extra
+                or missing constants.
+
+        Returns:
+            A set() of any missing constant names
+            A set() of any extra constant names that weren't expected
+        '''
         txt = config.text_format if self._fancy_text else config.text_format_off
         expected = {c.name for c in self._gen.constants}
         missing = expected - set(constants.keys())
@@ -261,10 +350,25 @@ class ModelBuilder():
         return missing, extra
 
     def build_sampler(self, sampler_type: str, constants: dict = {}, **args):
+        '''Construct an MCMC sampler for the model.
+
+        Args:
+            sampler_type: selects the sampler, should be "dynesty" or "emcee"
+            constants: a dict of constant names and the values they should take
+
+        Returns:
+            A properly-initialized :class:`SamplerNested` if sampler_type is "dynesty"
+            or a :class:`SamplerEnsemble` if it is "emcee"
+
+        Raises:
+            KeyError: if a required constant was not provided in constants
+            ValueError: if the `sampler_type` was not one of "dynesty" or "emcee"
+        '''
         self._resolve_grids()
         mod = self._gen.compile()
         missing, _ = self.validate_constants(constants, self._verbose)
-        assert not missing, "Missing values for constant(s): " + ", ".join(missing)
+        if missing:
+            raise KeyError("Missing values for constant(s): " + ", ".join(missing))
         constants.update(self._grids)
         consts = [constants[str(c.name)] for c in self._gen.constants]
         sampler_type = sampler_type.lower().strip()

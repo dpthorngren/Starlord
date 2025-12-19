@@ -17,6 +17,7 @@ exclude_patterns = []
 autodoc_typehints = 'description'
 autoclass_content = 'class'
 autodoc_class_signature = "separated"
+napoleon_use_admonition_for_examples = True
 autodoc_default_options = {
     'members': True,
     'undoc-members': True,
