@@ -41,7 +41,7 @@ def main():
             grid_name = str(args.input)
             assert grid_name in GridGenerator.grids(), f"Grid {grid_name} not found."
             g = GridGenerator.get_grid(grid_name)
-            g.summary(True, fancy_text=~args.plain_text)
+            g.summary(True, fancy_text=not args.plain_text)
             return
         print("Available grids:")
         for g in GridGenerator.grids().values():
@@ -94,7 +94,7 @@ def main():
             key = key[2:]
         consts[key] = float(value)
     if args.dry_run and consts:
-        # Note: Constants also printed during non-dry-run by ModelBuilder.run_sampler().
+        # Note: Constants also printed during non-dry-run by ModelBuilder.build_sampler().
         print(f"\n    {txt.underline}Constant Values{txt.end}")
         for k, v in consts.items():
             print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
@@ -103,9 +103,9 @@ def main():
 
     # === Run Sampler ==
     sampler_type = settings['sampling'].get('sampler', "emcee")
-    sampler_args = settings['sampling'].get(sampler_type+"_init", {})
+    sampler_args = settings['sampling'].get(sampler_type + "_init", {})
     sampler = builder.build_sampler(sampler_type, constants=consts, **sampler_args)
-    sampler_args = settings['sampling'].get(sampler_type+"_run", {})
+    sampler_args = settings['sampling'].get(sampler_type + "_run", {})
     sampler.run(**sampler_args)
 
     # === Write Outputs ===

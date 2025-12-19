@@ -19,9 +19,25 @@ def test_grid_listing(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pyte
     assert GridGenerator.get_grid("dummy").spec in captured.out
 
 
-def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+def test_grid_summary(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    monkeypatch.setattr(sys, 'argv', ['starlord', '--list-grids', 'dummy', '-p'])
+    config.grid_dir = dummy_grids
+    GridGenerator.reload_grids()
+    cli.main()
+    captured = capsys.readouterr()
+    assert captured.out.startswith("Grid dummy")
+    grid = GridGenerator.get_grid("dummy")
+    for i, grid_input in enumerate(grid.inputs):
+        assert f"  {i} {grid_input}" in captured.out
+    for out in grid.outputs:
+        assert out in captured.out
+
+
+def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     monkeypatch.setattr(
-        sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v', '-p', '-s', 'offset=-1.5'])
+        sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v', '-p', '-s', 'c.offset=-1.5'])
+    config.grid_dir = dummy_grids
+    GridGenerator.reload_grids()
     cli.main()
     captured = capsys.readouterr()
     assert "Warning, section erroneous in input file " in captured.out
@@ -38,15 +54,15 @@ def test_dryrun(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     paramSummary = re.search(r"^Params:\s+(.*)$", captured.out, flags=re.M)
     assert paramSummary is not None
     params = list(map(str.strip, paramSummary.group(1).split(",")))
-    assert params == ['a', 'b']
+    assert params == ['a', 'b', 'y']
     localSummary = re.search(r"^Locals:\s+(.*)$", captured.out, flags=re.M)
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
-    assert locals == ['A', 'B', 'temp']
+    assert locals == ['A', 'B', 'dummy_v1', 'temp']
     constSummary = re.search(r"^Constants:\s+(.*)$", captured.out, flags=re.M)
     assert constSummary is not None
     consts = list(map(str.strip, constSummary.group(1).split(",")))
-    assert consts == ['B_mean', 'offset']
+    assert consts == ['B_mean', 'grid_dummy_v1', 'offset']
     # Listed constants prefer CLI to model file?
     assert "Constant Values" in captured.out
     assert "c.offset = -1.5" in captured.out

@@ -6,13 +6,13 @@ from typing import Callable
 import dynesty
 import emcee
 import numpy as np
+from dynesty.results import Results as DynestyResults
 
 ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
 
 
 class _Sampler(ABC):
     '''Abstract class for objects which can sample from probability distributions.'''
-    # TODO: Init from CodeGenerator directly.
     ndim: int
     param_names: list[str]
     logl_args: list[object]
@@ -97,7 +97,7 @@ class SamplerEnsemble(_Sampler):
         self.sampler.run_mcmc(**args)
 
     def stats(self) -> ResultStats:
-        results = self.sampler.get_chain(flat=True)
+        results = self.results
         assert type(results) is np.ndarray, "Must run sampler before computing stats!"
         mean = results.mean(axis=0)
         std = results.std(axis=0)
@@ -145,14 +145,14 @@ class SamplerNested(_Sampler):
         )
 
     @property
-    def results(self) -> object:
+    def results(self) -> DynestyResults:
         return self.sampler.results
 
     def run(self, **args):
         self.sampler.run_nested(**args)
 
     def stats(self) -> ResultStats:
-        samples = self.sampler.results['samples']
+        samples = self.results['samples']
         weights = self.sampler.results.importance_weights()
         mean, cov = dynesty.utils.mean_and_cov(samples, weights)
         std = np.sqrt(np.diag(cov))

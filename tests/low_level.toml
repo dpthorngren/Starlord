@@ -3,9 +3,13 @@
 var.A = ["math.exp(p.a)", "normal", "0.5", "0.25"] # Even if inline
 expr.temp = "l.temp = 2.*c.offset"
 var.B = ["p.b + temp", "normal", "c.B_mean", "1.25"]
+dummy.v1 = [5.0, 1.0]
 
 prior.a = ["normal", "-5", "5"]
 prior.b = ["normal", "-5", "5"]
+prior.y = ["uniform", "3.0", "5.0"]
+
+override.dummy.x = "3.0"
 
 [sampling]
 const.offset = -2.5

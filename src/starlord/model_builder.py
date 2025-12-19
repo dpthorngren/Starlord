@@ -137,7 +137,7 @@ class ModelBuilder():
         result = [f"    {txt.underline}Grids{txt.end}"]
         if self._used_grids:
             for k, v in self._used_grids.items():
-                result.append(f"{k} {v}")
+                result.append(k + " " + ", ".join(v))
         else:
             result.append("None")
         return "\n".join(result) + "\n\n" + self._gen.summary(self._fancy_text)
