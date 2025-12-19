@@ -1,35 +1,36 @@
 import numpy as np
 cimport cython
 
-cpdef double uniform_lpdf(double x, double xmin, double xmax):
+cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept:
     if x > xmin and x < xmax:
         return -math.log(xmax - xmin)
     return -math.INFINITY
 
-cpdef double uniform_ppf(double x, double xmin, double xmax):
+cpdef double uniform_ppf(double x, double xmin, double xmax) noexcept:
     return xmin + x * (xmax - xmin)
 
-cpdef double normal_lpdf(double x, double mean, double sigma):
+cpdef double normal_lpdf(double x, double mean, double sigma) noexcept:
     if sigma <= 0:
         return math.NAN
     return -(x-mean)**2/(2*sigma*sigma) - .5*math.log(2*math.M_PI*sigma*sigma)
 
-cpdef double normal_ppf(double p, double mean, double sigma):
+cpdef double normal_ppf(double p, double mean, double sigma) noexcept:
     return -math.sqrt(2.) * special.erfcinv(2.*p)*sigma + mean
 
-cpdef double beta_lpdf(double x, double alpha, double beta):
+cpdef double beta_lpdf(double x, double alpha, double beta) noexcept:
     return (alpha-1.)*math.log(x) + (beta-1.)*math.log(1-x) - special.betaln(alpha, beta)
 
-cpdef double beta_ppf(double p, double alpha, double beta):
+cpdef double beta_ppf(double p, double alpha, double beta) noexcept:
     return special.betaincinv(alpha, beta, p)
 
-cpdef double gamma_lpdf(double x, double alpha, double lamb):
+cpdef double gamma_lpdf(double x, double alpha, double lamb) noexcept:
     return (alpha-1.)*math.log(x*lamb) + math.log(lamb) - lamb*x - special.gammaln(alpha)
 
-cpdef double gamma_ppf(double p, double alpha, double lamb):
+cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept:
     return special.gammaincinv(alpha, p)/lamb
     
 cdef class GridInterpolator:
+    '''An interpolator for gridded data, optimized for use in Cython.'''
 
     def __init__(self, axes, values, tol=1e-6):
         self.ndim = len(axes)
@@ -82,7 +83,6 @@ cdef class GridInterpolator:
             self.bounds[i] = [min(axes[i]), max(axes[i])]
 
     def __call__(self, arr):
-        '''This method is convenient but slow; consider more specialized functions.'''
         cdef int i
         cdef double[:] xt1d, rv
         cdef double[:,:] xt
@@ -113,7 +113,7 @@ cdef class GridInterpolator:
             return self._interp5d(x[0], x[1], x[2], x[3], x[4])
         return math.NAN
 
-    cpdef double _interp1d(self, double point):
+    cpdef double _interp1d(self, double point) noexcept:
         cdef int xi
         cdef double xw
         # Locate on grid and bounds check
@@ -123,9 +123,11 @@ cdef class GridInterpolator:
         # Weighted sum over bounding points
         return self.values[xi]*(1.-xw) + xw * self.values[xi+1]
 
-    cpdef double _interp2d(self, double x, double y):
+    cpdef double _interp2d(self, double x, double y) noexcept:
         cdef int xi, yi
         cdef double xw, yw
+        if self.ndim < 2:
+            return math.NAN
         # Locate on grid and bounds check
         xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
         yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
@@ -139,9 +141,11 @@ cdef class GridInterpolator:
         b = (1.-yw)*self.values[s] + yw*self.values[s+self.y_stride]
         return (1.-xw)*a + xw*b
 
-    cpdef double _interp3d(self, double x, double y, double z):
+    cpdef double _interp3d(self, double x, double y, double z) noexcept:
         cdef int xi, yi, zi
         cdef double xw, yw, zw
+        if self.ndim < 3:
+            return math.NAN
         # Locate on grid and bounds check
         xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
         yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
@@ -152,9 +156,11 @@ cdef class GridInterpolator:
         cdef int s = xi*self.x_stride + yi*self.y_stride + zi*self.z_stride
         return _unit_interp3(self.values, s, self.x_stride, self.y_stride, self.z_stride, xw, yw, zw)
 
-    cpdef double _interp4d(self, double x, double y, double z, double u):
+    cpdef double _interp4d(self, double x, double y, double z, double u) noexcept:
         cdef int xi, yi, zi, ui
         cdef double xw, yw, zw, uw
+        if self.ndim < 4:
+            return math.NAN
         # Locate on grid and bounds check
         xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
         yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
@@ -170,9 +176,11 @@ cdef class GridInterpolator:
         b = _unit_interp3(self.values, s, self.y_stride, self.z_stride, self.u_stride, yw, zw, uw)
         return (1.-xw)*a + xw*b
 
-    cpdef double _interp5d(self, double x, double y, double z, double u, double v):
+    cpdef double _interp5d(self, double x, double y, double z, double u, double v) noexcept:
         cdef int xi, yi, zi, ui, vi
         cdef double xw, yw, zw, uw, vw
+        if self.ndim < 5:
+            return math.NAN
         # Locate on grid and bounds check
         xi = _locatePoint_(x, self.x_axis, self.x_len, &xw)
         yi = _locatePoint_(y, self.y_axis, self.y_len, &yw)
@@ -194,7 +202,7 @@ cdef class GridInterpolator:
         a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, 1, zw, uw, vw)
         return c*(1-xw) + xw*((1.-yw)*a + yw*b)
 
-cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw):
+cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept:
     cdef double a, b, c
     cdef double zwc = 1.-zw
     a = zwc*values[s] + zw*values[s+zs]
@@ -208,7 +216,7 @@ cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs
     return (1.-xw)*c + xw*((1.-yw)*a + yw*b)
 
 
-cdef inline int _locatePoint_(double point, double[:] axis, int axLen, double* w):
+cdef inline int _locatePoint_(double point, double[:] axis, int axLen, double* w) noexcept:
     if not math.isfinite(point):
         return -1
     cdef int i = 0

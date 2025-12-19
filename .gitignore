@@ -4,6 +4,7 @@ old/
 grids/
 *experiment.*
 .task
+src/starlord/cy_tools.html
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -8,6 +8,7 @@ tasks:
   devbuild:
     desc: "Rebuild shared library (if cython files have changed) and reinstall."
     deps: [lint]
+    run: once
     sources:
       - src/starlord/*.pyx
       - src/starlord/*.pxd
@@ -15,6 +16,7 @@ tasks:
       - src/starlord/*.so
     cmds:
       - rm -rf build starlord.egg-info src/starlord/*.so
+      - rm -rf docs/build/html/
       - pip uninstall starlord --yes
       - pip install -e .[develop]
 
@@ -41,8 +43,12 @@ tasks:
     desc: "Build the Starlord documentation with Sphinx."
     sources:
       - src/starlord/*.py
+      - src/starlord/*.pyx
+      - src/starlord/*.pxd
       - docs/*.rst
       - docs/*/*.rst
       - docs/conf.py
+    generates:
+      - docs/build/html/index.html
     cmds:
       - sphinx-build docs/ docs/build/html/

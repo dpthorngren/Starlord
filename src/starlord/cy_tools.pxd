@@ -3,17 +3,17 @@ cimport scipy.linalg.cython_lapack as lapack
 cimport scipy.linalg.cython_blas as blas
 from libc cimport math
 
-cpdef double uniform_lpdf(double x, double xmin, double xmax)
-cpdef double uniform_ppf(double x, double xmin, double xmax)
-cpdef double normal_lpdf(double x, double mean, double sigma)
-cpdef double normal_ppf(double p, double mean, double sigma)
-cpdef double beta_lpdf(double x, double alpha, double beta)
-cpdef double beta_ppf(double p, double alpha, double beta)
-cpdef double gamma_lpdf(double x, double alpha, double lamb)
-cpdef double gamma_ppf(double p, double alpha, double lamb)
+cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept
+cpdef double uniform_ppf(double x, double xmin, double xmax) noexcept
+cpdef double normal_lpdf(double x, double mean, double sigma) noexcept
+cpdef double normal_ppf(double p, double mean, double sigma) noexcept
+cpdef double beta_lpdf(double x, double alpha, double beta) noexcept
+cpdef double beta_ppf(double p, double alpha, double beta) noexcept
+cpdef double gamma_lpdf(double x, double alpha, double lamb) noexcept
+cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept
 
-cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w)
-cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw)
+cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w) noexcept
+cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept
 
 cdef class GridInterpolator:
     cdef readonly int ndim
@@ -37,8 +37,8 @@ cdef class GridInterpolator:
     cdef readonly object shape
 
     cpdef double interp(self, double[:] x)
-    cpdef double _interp1d(self, double point)
-    cpdef double _interp2d(self, double x, double y)
-    cpdef double _interp3d(self, double x, double y, double z)
-    cpdef double _interp4d(self, double x, double y, double z, double u)
-    cpdef double _interp5d(self, double x, double y, double z, double u, double v)
+    cpdef double _interp1d(self, double point) noexcept
+    cpdef double _interp2d(self, double x, double y) noexcept
+    cpdef double _interp3d(self, double x, double y, double z) noexcept
+    cpdef double _interp4d(self, double x, double y, double z, double u) noexcept
+    cpdef double _interp5d(self, double x, double y, double z, double u, double v) noexcept
