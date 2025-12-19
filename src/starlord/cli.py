@@ -86,19 +86,14 @@ def main():
         print(builder.summary())
 
     # Assemble the constants dictionary
-    # TODO: Check constants for validity
     consts = settings['sampling'].get('const', {})
     for const_str in args.set_const:
         key, value = const_str.split("=")
         if key.startswith("c."):
             key = key[2:]
         consts[key] = float(value)
-    if args.dry_run and consts:
-        # Note: Constants also printed during non-dry-run by ModelBuilder.build_sampler().
-        print(f"\n    {txt.underline}Constant Values{txt.end}")
-        for k, v in consts.items():
-            print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
     if args.dry_run:
+        builder.validate_constants(consts, True)
         return
 
     # === Run Sampler ==

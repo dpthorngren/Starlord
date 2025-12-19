@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
+from typing import Tuple
 
 from ._config import config
 from .code_gen import CodeGenerator
 from .cy_tools import GridInterpolator
 from .grid_gen import GridGenerator
-from .sampler import SamplerNested, SamplerEnsemble
+from .sampler import SamplerEnsemble, SamplerNested
 
 
 class ModelBuilder():
@@ -240,17 +241,30 @@ class ModelBuilder():
         if self._verbose:
             print("")
 
-    def build_sampler(self, sampler_type: str, constants: dict = {}, **args):
+    def validate_constants(self, constants: dict, print_summary: bool = False) -> Tuple[set[str], set[str]]:
         txt = config.text_format if self._fancy_text else config.text_format_off
-        self._resolve_grids()
-        mod = self._gen.compile()
-        if self._verbose and constants:
-            # Note: Constants also printed during dry-run by cli.py:main
+        expected = {c.name for c in self._gen.constants}
+        missing = expected - set(constants.keys())
+        missing -= set(self._grids.keys())
+        extra = set(constants.keys()) - expected
+        if print_summary:
             print(f"\n    {txt.underline}Constant Values{txt.end}")
+            for k in missing:
+                print(f"{txt.blue}{txt.bold}c.{k}{txt.end} is not set")
             for k, v in constants.items():
-                if "c." + k in self._gen.constants:
+                if k in extra:
+                    print(f"{txt.blue}{txt.bold}c.{k}{txt.end} is set but not used")
+                elif k in expected:
+                    # Excludes grid variables, which are managed internally by Starlord
                     print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
             print("")
+        return missing, extra
+
+    def build_sampler(self, sampler_type: str, constants: dict = {}, **args):
+        self._resolve_grids()
+        mod = self._gen.compile()
+        missing, _ = self.validate_constants(constants, self._verbose)
+        assert not missing, "Missing values for constant(s): " + ", ".join(missing)
         constants.update(self._grids)
         consts = [constants[str(c.name)] for c in self._gen.constants]
         sampler_type = sampler_type.lower().strip()
