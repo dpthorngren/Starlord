@@ -220,13 +220,15 @@ class GridGenerator:
         '''
         txt = config.text_format if fancy_text else config.text_format_off
         print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
-        print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10), "Length".rjust(10))
+        print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10), end=" ")
+        print("Length".rjust(10), "    Default Mapping")
         for i, name in enumerate(self.inputs):
             print(
                 f"{i:>3d} {txt.bold}{name:<10s}{txt.end}",
                 f"{self.bounds[i, 0]:>10.4n}",
                 f"{self.bounds[i, 1]:>10.4n}",
-                f"{self.shape[i]:>10n}",
+                f"{self.shape[i]:>10n}    ",
+                f"{self._default_inputs[name]}",
             )
         print(f"{txt.underline}Outputs{txt.end}")
         if len(self.outputs) < 12 or full:
