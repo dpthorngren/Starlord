@@ -7,4 +7,5 @@ Starlord Documentation
    quickstart
    models
    grids
+   sampling
    ref/index
