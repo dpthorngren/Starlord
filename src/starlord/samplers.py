@@ -31,7 +31,7 @@ class _Sampler(ABC):
         pass
 
     @abstractmethod
-    def save(self, filename: str) -> None:
+    def save_results(self, filename: str) -> None:
         pass
 
     def summary(self) -> str:
@@ -51,6 +51,8 @@ class SamplerEnsemble(_Sampler):
     '''Thin wrapper for EMCEE's EnsembleSampler'''
     sampler: emcee.EnsembleSampler
     prior_transform: Callable | None
+    burn_in: int
+    thin: int
 
     def __init__(
         self,
@@ -59,12 +61,17 @@ class SamplerEnsemble(_Sampler):
         logl_args: list[object] = [],
         param_names: list[str] = [],
         prior_transform: Callable | None = None,
+        burn_in: int = 500,
+        thin: int = 1,
+        pool: int = 1,
         **args,
     ) -> None:
         self.ndim = ndim
         self.prior_transform = prior_transform
         self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
+        self.burn_in = burn_in
+        self.thin = thin
         assert len(param_names) == ndim
         args.setdefault('nwalkers', max(100, 5 * ndim))
         args.setdefault('ndim', ndim)
@@ -85,7 +92,7 @@ class SamplerEnsemble(_Sampler):
 
     @property
     def results(self) -> object:
-        return self.sampler.get_chain(flat=True)
+        return self.sampler.get_chain(flat=True, discard=self.burn_in, thin=self.thin)
 
     def run(self, **args):
         args.setdefault('nsteps', 2500)
@@ -94,6 +101,7 @@ class SamplerEnsemble(_Sampler):
             assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
             args['initial_state'] = 0.3 + 0.4 * np.random.rand(self.sampler.nwalkers, self.ndim)
             [self.prior_transform(s) for s in args['initial_state']]
+        args['nsteps'] += self.burn_in
         self.sampler.run_mcmc(**args)
 
     def stats(self) -> ResultStats:
@@ -106,8 +114,8 @@ class SamplerEnsemble(_Sampler):
         q = np.quantile(results, [.16, .5, .84], axis=0)
         return ResultStats(mean, cov, std, q[0], q[1], q[2])
 
-    def save(self, filename: str):
-        print("TODO: Save run data.")
+    def save_results(self, filename: str):
+        np.savez_compressed(filename, samples=self.results)
 
 
 class SamplerNested(_Sampler):
@@ -161,6 +169,10 @@ class SamplerNested(_Sampler):
         ])
         return ResultStats(mean, cov, std, q[:, 0], q[:, 1], q[:, 2])
 
-    def save(self, filename: str):
-        # NOTE: Remember to include citation info.
-        print("TODO: Save run data.")
+    def save_results(self, filename: str):
+        # TODO: Citation info.
+        np.savez_compressed(
+            filename,
+            samples=self.results['samples'],
+            weights=self.sampler.results.importance_weights(),
+        )

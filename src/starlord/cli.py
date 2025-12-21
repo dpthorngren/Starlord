@@ -109,5 +109,4 @@ def main():
     if out['terminal']:
         print(sampler.summary())
     if out['file'] != "":
-        print("TODO: write results to ", out['file'])
-        # builder.write_results()
+        sampler.save_results(out['file'])

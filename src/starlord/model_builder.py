@@ -7,7 +7,7 @@ from ._config import config
 from .code_gen import CodeGenerator
 from .cy_tools import GridInterpolator
 from .grid_gen import GridGenerator
-from .sampler import SamplerEnsemble, SamplerNested
+from .samplers import SamplerEnsemble, SamplerNested
 
 
 class ModelBuilder():
