@@ -9,7 +9,7 @@ It's generally good practice to install this sort of tool in its own virtual env
 
 .. code-block:: console
 
-    $ pip install git+https://github.com/dpthorngren/Starlord.git#egg=starlord
+    pip install git+https://github.com/dpthorngren/Starlord.git#egg=starlord
 
 Alternatively, if you'd like to download the git repository somewhere specific, you can go to that directory and use:
 

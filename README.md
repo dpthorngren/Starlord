@@ -40,9 +40,9 @@ Roadmap
 This is a list of features I'd like to add, roughly grouped by priority and definitely subject to change.
 
 <ins>**Alpha Release Goals**</ins>
-1. **Core documentation** -- I need to write up the basic documentation on what Starlord is and to use it.  This will probably use Sphinx and be hosted on Github pages (since I'm already using that for dev tools).
-2. **Prior rework** -- The current prior system is largely a placeholder awkwardly borrowing from the likelihood class.  Desired features include truncated distributions, priors on transformed parameters, and a clearer summary system.
-3. **EMCEE support** -- Currently only Dynesty is supported as a sampler, but nested sampling has a lot of peculiarities that make having a more traditional sampler strongly desirable.
+1. **Core documentation** -- (Updated) Writing in progress.
+2. **Prior rework** -- (Updated) Mostly implemented, still need truncated distributions and priors on transformed parameters.
+3. **EMCEE support** -- Complete.
 
 <ins>**Beta Release Goals**</ins>
 1. **Data Structure for Constants** -- Currently, all constants are passed as arguments to the logLikelihood function, which works for generated code but makes the function extremely awkward to call directly by the user.  It probably adds overhead to the function calls from Python as well.  I need to build a data structure Cython understands to agglomerate these.
