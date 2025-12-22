@@ -11,7 +11,31 @@ from .samplers import SamplerEnsemble, SamplerNested
 
 
 class ModelBuilder():
-    '''Builds and fits a Bayesian model to the given specification.'''
+    '''Builds and fits a Bayesian model to the given specification.
+
+    Variables are defined implicitly -- if you use a variable, the ModelBuilder
+    will handle declaring them based on their category, which is determined by
+    a prefix (e.g. ``p.foo`` is a parameter named foo).  The categories of
+    variable are:
+
+    :Parameters: ``p.[name]``, these are model parameters to be sampled from.
+    :Constants: ``c.[name]``, these are set when the sampler is run and don't
+       change.
+    :Local Variables: ``l.[name]`` these are calculated for each log likelihood call
+       but not recorded
+    :Grid Variables: ``[grid_name].[output_name]``, these indicate the grid
+       should be interpolated to get the value, which will often result in more
+       parameters being implicitly defined.
+
+    Typically, you initialize the builder (there are no significant options at
+    init) and use :meth:`constraint`, :meth:`assign`, and sometimes
+    :meth:`expression` to define the model's likelihood.  Then you can look at
+    how the model is set up with :meth:`summary`; using grid variables often
+    automatically defines new parameters for their inputs.  If you don't like
+    the default inputs, you can override them with `override_input`.  Finally,
+    you must define priors with :meth:`prior` before you can get a sampler for
+    the model with :meth:`build_sampler`.
+    '''
 
     def __init__(self, verbose: bool = False, fancy_text: bool = True):
         '''

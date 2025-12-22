@@ -15,8 +15,14 @@ from .cy_tools import GridInterpolator
 class GridGenerator:
     '''Manages grids and generates grid interpolators.
 
-    Several class methods are used to manage the grids that Starlord is tracking; however,
-    you can also initialize one directly with a path to the grid file if you wish.'''
+    You can use :meth:`create_grid` to make a new grid. Starlord uses the class
+    methods :meth:`reload_grids` :meth:`register_grid`, :meth:`grids`, and
+    :meth:`get_grid` to manage the grids available to it. These are all optional
+    for the user -- you can initialize a GridGenerator directly on a file path.
+    Once you have a GridGenerator ready, you can use :meth:`build_grid` to make
+    an interpolator in the desired output.
+    '''
+
     _initialized = False
     _grids = {}
 
@@ -36,7 +42,8 @@ class GridGenerator:
         using :func:`get_grid` and :func:`build_grid`.
 
         Args:
-            grid_name: A name for your grid, overwrites any existing grid of the same name.
+            grid_name: A name for your grid, overwrites any existing grid of the same name. If the name does not include
+                a directory, the file will be saved in the Starlord grid storage.
             inputs: The grid inputs as an OrderedDict of 1-d, strictly-increasing arrays of floats in the same
                 order as the output axes.
             outputs: The output variables for the grid, a dict of float arrays with a shape corresponding to the

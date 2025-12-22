@@ -8,6 +8,7 @@ TODO:
 1. Describe variable and grid system.
 2. Component system and sorting.
 3. Parameter overrides
+4. Move example to its own page, reference from here
 
 .. Notice that we can directly refer to the grid and variable; organizing the grid interpolation and required input parameters are one of the major conveniences offered by Starlord.
 
