@@ -313,11 +313,8 @@ class ModelBuilder():
                     derived = set(name_map.keys()) - set(self._grids.keys())
                     if len(derived) != 0:
                         der = derived.pop()
-                        # Sub variables into the code needed to calculate the derived grid outputs
-                        mapping = {k: f"p.{k}" for k in grid.inputs}
-                        mapping.update({k: f"{name}.{k}" for k in grid.provides})
-                        code = str(grid.derived[name_map[der]]).format(**mapping)
                         # Add the code to _grids for tracking and send the assigment code to GridGenerator
+                        code = grid.derived[name_map[der]]
                         self._grids[der] = code
                         self.assign("l." + der[8:], code)
                         # Begin again in case it recursively requires additional grids / vars
