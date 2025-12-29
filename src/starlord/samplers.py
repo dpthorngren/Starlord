@@ -15,6 +15,7 @@ class _Sampler(ABC):
     '''Abstract class for objects which can sample from probability distributions.'''
     ndim: int
     param_names: list[str]
+    model: object
 
     @property
     @abstractmethod
@@ -71,6 +72,7 @@ class SamplerEnsemble(_Sampler):
         self.param_names = param_names if param_names else [""] * ndim
         self.burn_in = burn_in
         self.thin = thin
+        self.model = model
         assert len(param_names) == ndim
         args.setdefault('nwalkers', max(100, 5 * ndim))
         args.setdefault('ndim', ndim)
@@ -133,6 +135,7 @@ class SamplerNested(_Sampler):
         self.ndim = ndim
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
+        self.model = model
         args.setdefault('ndim', ndim)
         args.setdefault('loglikelihood', log_like)
         args.setdefault('prior_transform', prior_transform)

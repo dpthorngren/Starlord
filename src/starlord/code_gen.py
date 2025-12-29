@@ -77,6 +77,7 @@ class CodeGenerator:
             "from starlord.cy_tools cimport *",
             "from starlord import GridGenerator",
         ]
+        self.auto_constants = {}
         # Lazily-updated property backers
         self._vars_out_of_date: bool = True
         self._variables: set[Symb] = set()
@@ -189,8 +190,15 @@ class CodeGenerator:
         definitions = []
         for n, c in mapping['c']:
             ct = self.constant_types.get(n, "double")
-            args.append(f"{ct} {c[5:]}")
-            definitions.append(f"    {c} = {c[5:]}")
+            if n in self.auto_constants:
+                definitions.append(f"    if '{n}' in args:")
+                definitions.append(f"        {c} = args['{n}']")
+                definitions.append("    else:")
+                definitions.append(f"        {c} = {self.auto_constants[n]}")
+            else:
+                args.append(f"{ct} {c[5:]}")
+                definitions.append(f"    {c} = {c[5:]}")
+        args.append("**args")
         args = ", ".join(args)
         # Write the function
         result.append(f"def __init__({args}):")
