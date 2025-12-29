@@ -43,11 +43,11 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     assert "Warning, section erroneous in input file " in captured.out
     # Basic code outputs
     assert "from starlord.cy_tools cimport *\n" in captured.out
-    assert "\ncpdef double[:] prior_transform(double[:] params):\n" in captured.out
+    assert "\n    cpdef double[:] prior_transform(self, double[:] params):\n" in captured.out
     # Key terms in the output present?
-    assert "\n    logL += normal_lpdf(l_A, 0.5, 0.25)\n" in captured.out
-    assert "\n    params[0] = normal_ppf(params[0], -5.0, 5.0)" in captured.out
-    assert "\n    l_A = math.exp(params[0])" in captured.out
+    assert "\n        logL += normal_lpdf(self.l_A, 0.5, 0.25)\n" in captured.out
+    assert "\n        params[0] = normal_ppf(params[0], -5.0, 5.0)" in captured.out
+    assert "\n        self.l_A = math.exp(params[0])" in captured.out
     # Summary was printed?
     assert "Variables" in captured.out
     # Check that the params match expectations

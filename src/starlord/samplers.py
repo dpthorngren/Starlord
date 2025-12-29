@@ -15,7 +15,6 @@ class _Sampler(ABC):
     '''Abstract class for objects which can sample from probability distributions.'''
     ndim: int
     param_names: list[str]
-    logl_args: list[object]
 
     @property
     @abstractmethod
@@ -50,6 +49,7 @@ class _Sampler(ABC):
 class SamplerEnsemble(_Sampler):
     '''Thin wrapper for EMCEE's EnsembleSampler'''
     sampler: emcee.EnsembleSampler
+    model: object
     prior_transform: Callable | None
     burn_in: int
     thin: int
@@ -58,17 +58,16 @@ class SamplerEnsemble(_Sampler):
         self,
         log_prob: Callable,
         ndim: int,
-        logl_args: list[object] = [],
         param_names: list[str] = [],
         prior_transform: Callable | None = None,
         burn_in: int = 500,
         thin: int = 1,
         pool: int = 1,
+        model: object = None,
         **args,
     ) -> None:
         self.ndim = ndim
         self.prior_transform = prior_transform
-        self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
         self.burn_in = burn_in
         self.thin = thin
@@ -76,17 +75,17 @@ class SamplerEnsemble(_Sampler):
         args.setdefault('nwalkers', max(100, 5 * ndim))
         args.setdefault('ndim', ndim)
         args.setdefault('log_prob_fn', log_prob)
-        args.setdefault('args', logl_args)
         self.sampler = emcee.EnsembleSampler(**args)
 
     @classmethod
     def create_from_module(cls, module: ModuleType, constants: list, **args):
+        model = module.Model(*constants)
         return SamplerEnsemble(
-            module.log_prob,
-            len(module.param_names),
-            constants,
-            module.param_names,
-            module.prior_transform,
+            model.log_prob,
+            len(model.param_names),
+            model.param_names,
+            model.prior_transform,
+            model=model,
             **args,
         )
 
@@ -127,28 +126,27 @@ class SamplerNested(_Sampler):
         log_like: Callable,
         prior_transform: Callable,
         ndim: int,
-        logl_args: list[object] = [],
         param_names: list[str] = [],
+        model: object = None,
         **args,
     ) -> None:
         self.ndim = ndim
-        self.logl_args = logl_args
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
         args.setdefault('ndim', ndim)
-        args.setdefault('logl_args', logl_args)
         args.setdefault('loglikelihood', log_like)
         args.setdefault('prior_transform', prior_transform)
         self.sampler = dynesty.NestedSampler(**args)
 
     @classmethod
     def create_from_module(cls, module: ModuleType, constants: list, **args):
+        model = module.Model(*constants)
         return SamplerNested(
-            module.log_like,
-            module.prior_transform,
-            len(module.param_names),
-            constants,
-            module.param_names,
+            model.log_like,
+            model.prior_transform,
+            len(model.param_names),
+            model.param_names,
+            model=model,
             **args,
         )
 

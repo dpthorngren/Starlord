@@ -42,5 +42,5 @@ def test_param_overrides(dummy_grids: Path):
     assert fitter._gen.locals == ('l.dummy_v1',)
     assert fitter._gen.constants == ('c.fixed_y', 'c.grid_dummy_v1')
     code = fitter.generate()
-    assert "5.0 + c_fixed_y" in code
+    assert "5.0 + self.c_fixed_y" in code
     assert "params[1]" not in code

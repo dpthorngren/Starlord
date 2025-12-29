@@ -26,6 +26,12 @@ class Namespace(SimpleNamespace):
     def __iter__(self):
         return self.__dict__.items().__iter__()
 
+    def keys(self):
+        return self.__dict__.keys()
+
+    def values(self):
+        return self.__dict__.values()
+
 
 class CodeGenerator:
     '''A class for generated log_likelihood, log_prior, and prior_ppf functions for use in MCMC fitting.'''
@@ -69,6 +75,7 @@ class CodeGenerator:
         self._mark_autogen: bool = False
         self.imports: list[str] = [
             "from starlord.cy_tools cimport *",
+            "from starlord import GridGenerator",
         ]
         # Lazily-updated property backers
         self._vars_out_of_date: bool = True
@@ -87,97 +94,138 @@ class CodeGenerator:
         self._locals = sorted(list(result['l']))
         self._vars_out_of_date = False
 
-    def get_mapping(self) -> dict[str, Namespace]:
-        # TODO: Add options based on the type of output
+    def get_mapping(self, prepend_self=False) -> dict[str, Namespace]:
         self._update_vars()
+        p = "self." if prepend_self else ""
         mapping: dict[str, Namespace] = {}
-        mapping['c'] = Namespace(**{c.name: c.var for c in self.constants})
-        mapping['l'] = Namespace(**{loc.name: loc.var for loc in self.locals})
+        mapping['c'] = Namespace(**{c.name: p + c.var for c in self.constants})
+        mapping['l'] = Namespace(**{loc.name: p + loc.var for loc in self.locals})
         mapping['p'] = Namespace(**{n.name: f"params[{i}]" for i, n in enumerate(self.params)})
-        mapping['b'] = Namespace(**{n.name: f"blobs[{i}]" for i, n in enumerate(self.blobs)})
+        if self.blobs:
+            raise NotImplementedError
         return mapping
 
     def generate_prior_ppf(self) -> str:
-        mapping = self.get_mapping()
+        mapping = self.get_mapping(True)
         result: list[str] = []
-        result.append("cpdef double[:] prior_transform(double[:] params):")
+        result.append("cpdef double[:] prior_transform(self, double[:] params):")
         params = self._collect_vars(self._like_components)[1]['p']
         prior_params = {list(c.vars)[0] for c in self._prior_components}
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
-        # TODO: Resolve prior dependencies
         for comp in self._prior_components:
             code: str = comp.generate_ppf().format(**mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return params\n")
+        result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate_prior_lpdf(self) -> str:
-        mapping = self.get_mapping()
+        mapping = self.get_mapping(True)
         result: list[str] = []
-        result.append("cpdef double prior_lpdf(double[:] params):")
+        result.append("cpdef double prior_lpdf(self, double[:] params):")
         result.append("    cdef double lpdf = 0.")
         params = self._collect_vars(self._like_components)[1]['p']
         prior_params = {list(c.vars)[0] for c in self._prior_components}
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
-        # TODO: Resolve prior dependencies
         for comp in self._prior_components:
             code: str = comp.generate_pdf().format(**mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
-        result.append("    return lpdf\n")
+        result = ["    " + r for r in result]
         return "\n".join(result)
 
-    def generate_log_like(self) -> str:
-        mapping = self.get_mapping()
-        # Assemble the arguments
-        args = ["double[:] params"]
-        for n, c in mapping['c']:
-            # TODO: Allow agglomeration of float constants into an array
-            ct = self.constant_types[n] if n in self.constant_types.keys() else "double"
-            args.append(f"{ct} {c}")
+    def generate_forward_model(self) -> str:
+        mapping = self.get_mapping(True)
         # Write the function header
         result: list[str] = []
-        result.append("cpdef double log_like(" + ", ".join(args) + "):")
-        result.append("    cdef double logL = 0.")
-        for _, loc in mapping['l']:
-            result.append(f"    cdef double {loc}")
+        result.append("cdef void _forward_model(self, double[:] params):")
         # Generate the code for each component, sorted to satisfy their interdependencies
-        components = self._sort_by_dependency(self._like_components)
+        components = [c for c in self._like_components if type(c) is not DistributionComponent]
+        components = self._sort_by_dependency(components)
         for comp in components:
             code: str = comp.generate_code().format(**mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
+        result[-1] = result[-1] + "\n"
+        result.append("cpdef dict forward_model(self, double[:] params):")
+        result.append("    self._forward_model(params)")
+        ret_locals = ", ".join([f"{k}={v}" for k, v in mapping['l'].__dict__.items()])
+        result.append(f"    return dict({ret_locals})\n")
+        result = ["    " + r for r in result]
+        return "\n".join(result)
+
+    def generate_log_like(self) -> str:
+        mapping = self.get_mapping(True)
+        # Write the function header
+        result: list[str] = []
+        result.append("cdef double _log_like(self, double[:] params):")
+        result.append("    cdef double logL = 0.")
+        for comp in self._like_components:
+            if type(comp) is DistributionComponent:
+                code: str = comp.generate_code().format(**mapping)
+                result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
+        # Generate the user-facing wrapper function
+        result.append("cpdef double log_like(self, double[:] params):")
+        result.append("    self._forward_model(params)")
+        result.append("    return self._log_like(params)\n")
+        result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate_log_prob(self) -> str:
-        mapping = self.get_mapping()
-        # Assemble the arguments
-        args = ["double[:] params"]
-        args_out = ["params"]
-        for n, c in mapping['c']:
-            ct = self.constant_types[n] if n in self.constant_types.keys() else "double"
-            args.append(f"{ct} {c}")
-            args_out.append(c)
-        # Write the function header
         result: list[str] = []
-        result.append("cpdef double log_prob(" + ", ".join(args) + "):")
-        result.append("    cdef double logP = prior_lpdf(params)")
-        result.append("    logP += log_like(" + ", ".join(args_out) + ")")
+        result.append("cpdef double log_prob(self, double[:] params):")
+        result.append("    cdef double logP = self.prior_lpdf(params)")
+        result.append("    logP += self.log_like(params)")
         result.append("    return logP\n")
+        result = ["    " + r for r in result]
+        return "\n".join(result)
+
+    def generate_init(self) -> str:
+        mapping = self.get_mapping(True)
+        result: list[str] = []
+        # Organize function arguments and constants to be set
+        args = ['self']
+        definitions = []
+        for n, c in mapping['c']:
+            ct = self.constant_types.get(n, "double")
+            args.append(f"{ct} {c[5:]}")
+            definitions.append(f"    {c} = {c[5:]}")
+        args = ", ".join(args)
+        # Write the function
+        result.append(f"def __init__({args}):")
+        param_names = list(mapping['p'].__dict__.keys())
+        result.append(f"    self.param_names = {param_names}")
+        result += definitions
+        result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate(self) -> str:
+        mapping = self.get_mapping()
         result: list[str] = []
         result.append("# Generated by Starlord.  Versions:")
         result.append(f"# Starlord {__version__}, Cython {cython.__version__}, Python {sys.version}")
         result.append("\n".join(self.imports) + "\n")
-        param_names = ','.join([f"'{p[2:]}'" for p in self.params])
-        result.append(f"param_names = {param_names}")
+
+        # Class and constant declarations
+        result.append("cdef class Model:")
+        result.append("    cdef public object param_names")
+        for n, c in mapping['c']:
+            ct = self.constant_types.get(n, "double")
+            result.append(f"    cdef public {ct} {c}")
+        result.append("")
+
+        # Local vairable declarations
+        for n, l in mapping['l']:
+            result.append(f"    cdef public double {l}")
+        result.append("")
+
+        result.append(self.generate_forward_model())
         result.append(self.generate_log_like())
         result.append(self.generate_prior_ppf())
         result.append(self.generate_prior_lpdf())
         result.append(self.generate_log_prob())
+        result.append(self.generate_init())
         return "\n".join(result)
 
     def compile(self) -> ModuleType:
@@ -264,12 +312,6 @@ class CodeGenerator:
 
     def remove_generated(self):
         self._like_components = [c for c in self._like_components if not c.autogenerated]
-        self._vars_out_of_date = True
-
-    def remove_providers(self, vars: set[str]):
-        vars = {Symb(v) for v in vars}
-        self._like_components = [c for c in self._like_components if not (c.provides & vars)]
-        self._prior_components = [c for c in self._prior_components if not (c.provides & vars)]
         self._vars_out_of_date = True
 
     @staticmethod
