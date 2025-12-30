@@ -121,11 +121,11 @@ class CodeGenerator:
         result = ["    " + r for r in result]
         return "\n".join(result)
 
-    def generate_prior_lpdf(self) -> str:
+    def generate_log_prior(self) -> str:
         mapping = self.get_mapping(True)
         result: list[str] = []
-        result.append("cpdef double prior_lpdf(self, double[:] params):")
-        result.append("    cdef double lpdf = 0.")
+        result.append("cpdef double log_prior(self, double[:] params):")
+        result.append("    cdef double logP = 0.")
         params = self._collect_vars(self._like_components)[1]['p']
         prior_params = {list(c.vars)[0] for c in self._prior_components}
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
@@ -133,6 +133,7 @@ class CodeGenerator:
         for comp in self._prior_components:
             code: str = comp.generate_pdf().format(**mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
+        result.append("    return logP")
         result = ["    " + r for r in result]
         return "\n".join(result)
 
@@ -176,7 +177,7 @@ class CodeGenerator:
     def generate_log_prob(self) -> str:
         result: list[str] = []
         result.append("cpdef double log_prob(self, double[:] params):")
-        result.append("    cdef double logP = self.prior_lpdf(params)")
+        result.append("    cdef double logP = self.log_prior(params)")
         result.append("    logP += self.log_like(params)")
         result.append("    return logP\n")
         result = ["    " + r for r in result]
@@ -231,7 +232,7 @@ class CodeGenerator:
         result.append(self.generate_forward_model())
         result.append(self.generate_log_like())
         result.append(self.generate_prior_ppf())
-        result.append(self.generate_prior_lpdf())
+        result.append(self.generate_log_prior())
         result.append(self.generate_log_prob())
         result.append(self.generate_init())
         return "\n".join(result)

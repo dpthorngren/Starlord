@@ -10,7 +10,7 @@ from starlord._config import config
 
 
 def test_grid_listing(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    monkeypatch.setattr(sys, 'argv', ['starlord', '--list-grids'])
+    monkeypatch.setattr(sys, 'argv', ['starlord', '-g'])
     config.grid_dir = dummy_grids
     GridGenerator.reload_grids()
     cli.main()
@@ -20,7 +20,7 @@ def test_grid_listing(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pyte
 
 
 def test_grid_summary(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    monkeypatch.setattr(sys, 'argv', ['starlord', '--list-grids', 'dummy', '-p'])
+    monkeypatch.setattr(sys, 'argv', ['starlord', '--grid', 'dummy', '-p'])
     config.grid_dir = dummy_grids
     GridGenerator.reload_grids()
     cli.main()
@@ -34,8 +34,7 @@ def test_grid_summary(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pyte
 
 
 def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
-    monkeypatch.setattr(
-        sys, 'argv', ['starlord', 'tests/low_level.toml', '--dry-run', '-c', '-v', '-p', '-s', 'c.offset=-1.5'])
+    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '-cvpda', '-s', 'c.offset=-1.5'])
     config.grid_dir = dummy_grids
     GridGenerator.reload_grids()
     cli.main()

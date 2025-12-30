@@ -113,7 +113,7 @@ class Prior:
         return Prior(
             vars=[var],
             code_ppf="{{{vars[0]}}} = " + distribution + "_ppf({{{vars[0]}}}, {paramStr})",
-            code_pdf="lpdf += " + distribution + "_lpdf({{{vars[0]}}}, {paramStr})",
+            code_pdf="logP += " + distribution + "_lpdf({{{vars[0]}}}, {paramStr})",
             params=params,
             distribution=distribution,
         )

@@ -2,7 +2,7 @@
 # Making sure comments don't break anything.
 var.A = ["math.exp(p.a)", "normal", "0.5", "0.25"] # Even if inline
 expr.temp = "l.temp = 2.*c.offset"
-var.B = ["p.b + temp", "normal", "c.B_mean", "1.25"]
+var.B = ["p.b + l.temp", "normal", "c.B_mean", "1.25"]
 dummy.v1 = [5.0, 1.0]
 
 prior.a = ["normal", "-5", "5"]

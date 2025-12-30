@@ -9,13 +9,14 @@ import numpy as np
 from dynesty.results import Results as DynestyResults
 
 ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
+_dummyModel = namedtuple("DummyModel", ['param_names', 'forward_model', 'log_like', 'prior_transform', 'log_prior'])
 
 
 class _Sampler(ABC):
     '''Abstract class for objects which can sample from probability distributions.'''
     ndim: int
     param_names: list[str]
-    model: object
+    model: _dummyModel
 
     @property
     @abstractmethod
@@ -50,7 +51,6 @@ class _Sampler(ABC):
 class SamplerEnsemble(_Sampler):
     '''Thin wrapper for EMCEE's EnsembleSampler'''
     sampler: emcee.EnsembleSampler
-    model: object
     prior_transform: Callable | None
     burn_in: int
     thin: int
@@ -72,7 +72,7 @@ class SamplerEnsemble(_Sampler):
         self.param_names = param_names if param_names else [""] * ndim
         self.burn_in = burn_in
         self.thin = thin
-        self.model = model
+        self.model = model  # type: ignore
         assert len(param_names) == ndim
         args.setdefault('nwalkers', max(100, 5 * ndim))
         args.setdefault('ndim', ndim)
@@ -116,7 +116,7 @@ class SamplerEnsemble(_Sampler):
         return ResultStats(mean, cov, std, q[0], q[1], q[2])
 
     def save_results(self, filename: str):
-        np.savez_compressed(filename, samples=self.results)
+        np.savez_compressed(filename, samples=self.results)  # type: ignore
 
 
 class SamplerNested(_Sampler):
@@ -135,7 +135,7 @@ class SamplerNested(_Sampler):
         self.ndim = ndim
         self.param_names = param_names if param_names else [""] * ndim
         assert len(param_names) == ndim
-        self.model = model
+        self.model = model  # type: ignore
         args.setdefault('ndim', ndim)
         args.setdefault('loglikelihood', log_like)
         args.setdefault('prior_transform', prior_transform)
