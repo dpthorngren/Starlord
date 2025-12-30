@@ -122,7 +122,7 @@ class Prior:
         # Literals (strings not starting with "{" need brackets added for formatting.
         vars = [f"{{{v}}}" for v in self.vars]
         params = [p if p.startswith("{") else f"{{{p}}}" for p in self.params]
-        return f"{', '.join(vars)} ~ {self.distribution.title()}({', '.join(params)})"
+        return f"{self.distribution.title()}({', '.join(vars)} | {', '.join(params)})"
 
     def generate_ppf(self) -> str:
         fmt = dict(vars=self.vars, params=self.params, paramStr=", ".join(self.params))

@@ -361,6 +361,8 @@ class ModelBuilder():
         extra = set(constants.keys()) - expected
         if print_summary:
             print(f"\n    {txt.underline}Constant Values{txt.end}")
+            if not missing and not constants.items():
+                print("[None]")
             for k in missing:
                 print(f"{txt.blue}{txt.bold}c.{k}{txt.end} is not set")
             for k, v in constants.items():

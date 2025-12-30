@@ -133,7 +133,7 @@ class CodeGenerator:
         for comp in self._prior_components:
             code: str = comp.generate_pdf().format(**mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
-        result.append("    return logP")
+        result.append("    return logP\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
 
@@ -235,7 +235,7 @@ class CodeGenerator:
         result.append(self.generate_log_prior())
         result.append(self.generate_log_prob())
         result.append(self.generate_init())
-        return "\n".join(result)
+        return "\n".join(result) + "\n"
 
     def compile(self) -> ModuleType:
         hash = CodeGenerator._compile_to_module(self.generate())
@@ -259,10 +259,18 @@ class CodeGenerator:
             result += ["Blobs:".ljust(12) + ", ".join([txt.green + b[2:] + txt.end for b in self.blobs])]
         if self.locals:
             result += ["Locals:".ljust(12) + ", ".join([txt.green + loc[2:] + txt.end for loc in self.locals])]
+        result += [f"\n    {txt.underline}Forward Model{txt.end}"]
+        likelihood = []
+        for comp in self._sort_by_dependency(self._like_components):
+            if type(comp) is DistributionComponent:
+                likelihood.append(str(comp))
+            else:
+                result.append(str(comp))
         result += [f"\n    {txt.underline}Likelihood{txt.end}"]
-        result += [str(i) for i in self._sort_by_dependency(self._like_components)]
+        result += [str(i) for i in likelihood]
         result += [f"\n    {txt.underline}Prior{txt.end}"]
-        result += [str(c) for c in self._prior_components]
+        prior_comps = sorted(self._prior_components, key=lambda c: "_".join(sorted(c.vars)))
+        result += [str(c) for c in prior_comps]
         return self._fancy_format("\n".join(result), fancy)
 
     def expression(self, expr: str) -> None:

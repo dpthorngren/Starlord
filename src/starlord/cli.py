@@ -97,6 +97,9 @@ def main():
     assert "model" in settings.keys(), "No model information was specified."
     builder = ModelBuilder(args.verbose, not args.plain_text)
     builder.set_from_dict(settings['model'])
+    if args.analyze:
+        print(builder.summary())
+        builder.validate_constants(consts, True)
     if args.code:
         code = builder.generate()
         if not args.plain_text:
@@ -104,9 +107,8 @@ def main():
             code = re.sub(r"(?<!\w)(c_[a-zA-z]\w*)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", code, flags=re.M)
             code = re.sub(r"(?<!\w)(params(\[\d+\])?)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", code, flags=re.M)
         print(code)
-    if args.analyze:
-        print(builder.summary())
-        builder.validate_constants(consts, True)
+    if args.dry_run and not args.test_case:
+        return
 
     # === Run Sampler ==
     sampler_type = settings['sampling'].get('sampler', "emcee")
@@ -117,6 +119,7 @@ def main():
         assert len(test_case) == len(sampler.param_names)
         out = sampler.model.forward_model(test_case)
         padding = max(len(i) for i in set(sampler.param_names) | set(out.keys()))
+        print(f"    {txt.underline}Test Case{txt.end}")
         for name, value in zip(sampler.param_names, test_case):
             print(f"p.{name:<{padding}}  {value:.6}")
         for name, value in out.items():
