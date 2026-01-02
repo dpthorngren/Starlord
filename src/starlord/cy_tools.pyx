@@ -2,7 +2,7 @@ import numpy as np
 cimport cython
 
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept:
-    if x > xmin and x < xmax:
+    if x >= xmin and x <= xmax:
         return -math.log(xmax - xmin)
     return -math.INFINITY
 

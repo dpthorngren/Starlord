@@ -1,5 +1,10 @@
 Sampling
 ====================
+
+.. warning::
+
+   This page is not yet finished.
+
 Starlord uses thin wrapper classes around samplers provided by other libraries.  This is to allow Starlord to automatically initialize and run the codes while still flexibly passing settings to the samplers themselves.
 
 Settings can be passed to the samplers in the ``[sampling]`` section of the TOML files.  ``[sampler_name_init].[option]`` entries are passed to the sampler initializer, and ``[sampler_name]_run.[option]`` entries are passed to the run command. If you are calling Starlord from within Python, you have the additional option to retrieve and use the underlying sampler ``sampler``, if you wish.
@@ -22,7 +27,7 @@ The `Emcee sampler <https://emcee.readthedocs.io/en/stable/>`_ is a popular MCMC
 
 Dynesty Sampler
 --------------------
-The `Dynesty sampler <https://dynesty.readthedocs.io/en/v3.0.0/>`_ 
+The `Dynesty sampler <https://dynesty.readthedocs.io/en/v3.0.0/>`_.
 
 **Initialization Parameters**
 

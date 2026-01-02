@@ -47,6 +47,8 @@ tasks:
       - src/starlord/*.pxd
       - docs/*.rst
       - docs/*/*.rst
+      - docs/*/*.py
+      - docs/*/*.toml
       - docs/conf.py
     generates:
       - docs/build/html/index.html
