@@ -16,34 +16,44 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
         python-version: "3.10"
+
     - name: Install
       run: |
         python -m pip install --upgrade pip
-        mkdir htmlcov
         python -m pip install .[develop]
         python -m pip show --files starlord
+
     - name: Lint with flake8
       run: |
         flake8 . --count --show-source --statistics
+
+    - name: Build Docs
+      run: |
+        sphinx-build docs/ htmldocs/
+
     - name: Pytest
       run: |
         pytest --cov=starlord --junitxml=junit.xml --cov-report='xml' --cov-report='term' --cov-report="html"
+        mv htmlcov htmldocs/htmlcov
         cython --annotate-coverage coverage.xml src/starlord/*.pyx
-        mv src/starlord/*.html htmlcov/
+        mv src/starlord/*.html htmldocs/htmlcov/
+
     - name: badges
       run: |
-        genbadge coverage -n Coverage -i coverage.xml -o htmlcov/coverage_badge.svg
-        genbadge tests -n Tests -i junit.xml -o htmlcov/tests_badge.svg
-        python -c 'import genbadge; genbadge.Badge("Cython Annotations", "✓", "Green").write_to("htmlcov/cython.svg")'
+        genbadge coverage -n Coverage -i coverage.xml -o htmldocs/htmlcov/coverage_badge.svg
+        genbadge tests -n Tests -i junit.xml -o htmldocs/htmlcov/tests_badge.svg
+        python -c 'import genbadge; genbadge.Badge("Cython Annotations", "✓", "Green").write_to("htmldocs/htmlcov/cython.svg")'
+
     - name: Upload Artifacts
       id: deployment
       uses: actions/upload-pages-artifact@v3
       with:
-        path: htmlcov/
+        path: htmldocs/
 
   deploy:
     needs: test
