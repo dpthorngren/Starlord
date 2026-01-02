@@ -427,7 +427,7 @@ class CodeGenerator:
         libfiles = list(config.cache_dir.glob(name + ".*.*"))
         if len(libfiles) == 0:
             CodeGenerator._cleanup_old_modules([hash])
-            os.system(f"cythonize -f -i {pyxfile}")
+            assert os.system(f"cythonize -f -i {pyxfile}") == 0, "Compilation failed (see error message)"
             cfile = config.cache_dir / (name+".c")
             libfiles = list(config.cache_dir.glob(name + ".*.*"))
             assert len(libfiles) >= 1, "Compiled but failed to produce an object file to import."

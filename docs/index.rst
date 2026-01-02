@@ -5,8 +5,8 @@ Starlord Documentation
    :maxdepth: 2
 
    quickstart
-   models
    grids
+   models
    sampling
    stars
    bayes
