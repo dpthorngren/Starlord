@@ -9,7 +9,7 @@ Starlord
 
 A Python library for Bayesian fits of models with gridded functions to data, with an emphasis on very flexible stellar model fitting.
 
-This project is approaching an alpha release -- see the [roadmap](#roadmap).
+This project has reached an alpha release.  There are many missing features (see roadmap](#roadmap)) and very likely some bugs.  Please let me know if you find any.
 
 Installation
 --------------------
@@ -23,20 +23,15 @@ git clone git@github.com:dpthorngren/Starlord.git
 cd Starlord
 pip install .
 ```
-Once installed, starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
+Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
 
 Roadmap
 --------------------
 This is a list of features I'd like to add, roughly grouped by priority and definitely subject to change.
 
-<ins>**Alpha Release Goals**</ins>
-1. **Core documentation** -- (Updated) Writing in progress.
-2. **Prior rework** -- (Updated) Mostly implemented, still need truncated distributions and priors on transformed parameters.
-3. **EMCEE support** -- Complete.
-
 <ins>**Beta Release Goals**</ins>
 1. **Data Structure for Constants** -- Complete.
-2. **Builtin Sampler** -- Emcee is working pretty well, so maybe this isn't necessary.
+2. **Prior Features** -- Truncated distributions and priors on transformed parameters.
 3. **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
 
 <ins>**Subsequent Goals**</ins>

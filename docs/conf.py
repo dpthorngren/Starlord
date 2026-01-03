@@ -3,7 +3,7 @@
 project = 'Starlord'
 copyright = '2025, Daniel Thorngren'
 author = 'Daniel Thorngren'
-release = '0.1.6'
+release = '0.2.0'
 
 # General Configuration
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
