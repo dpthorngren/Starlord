@@ -8,7 +8,13 @@ The grids used by Starlord are designed for linear interpolation in up to 5 dime
 :outputs:       The values to be interpolated as arrays with each dimension matching the length of the associated input.
 :derived:       Values that can be calculated from the outputs; the npz file stores the Cython code to generate each value in terms of the grid's outputs and inputs, or even those of other grids.  For :class:`~starlord.ModelBuilder` inputs, these can be treated the same as outputs.
 :design:        Describes how the grid is structured as a string containing the inputs, outputs, and derived value names.  E.g. ``x, y, z -> A, B, C; Derived1, Derived2``
-:mappings:      During code generation, these determine what is used for each input into the interpolator (e.g. what to sub in for ``x``, ``y``, and ``z``).
+:input_mappings:      During code generation, these determine what is used for each input into the interpolator (e.g. what to sub in for ``x``, ``y``, and ``z``).
+
+Grid Creation
+--------------------
+You can create your own grids with :func:`starlord.GridGenerator.create_grid`.  The name, inputs, and outputs are required, but the others may be omitted if you aren't going to use them.  The function will check its inputs for validity and then generate the metadata for you.  Here's an example of how you can generate a grid:
+
+.. literalinclude:: /examples/demo_grid.py
 
 Usage
 --------------------
@@ -30,8 +36,3 @@ Usage
 .. note::
    A :class:`starlord.GridGenerator` will build :class:`starlord.GridInterpolator` objects.  These are *much* faster than scipy.interpolate options, but are less flexible -- they do not support Numpy-style array broadcasting.  This was an intentional trade-off to achieve maximum sampling speeds.
 
-Grid Creation
---------------------
-You can create your own grids with :func:`starlord.GridGenerator.create_grid`.  The name, inputs, and outputs are required, but the others may be omitted if you aren't going to use them.  The function will check its inputs for validity and then generate the metadata for you.  Here's an example of how you can generate a grid:
-
-.. literalinclude:: /examples/demo_grid.py

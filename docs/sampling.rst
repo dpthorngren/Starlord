@@ -1,7 +1,8 @@
 Sampling
 ====================
-
 Starlord uses thin wrapper classes around samplers provided by other libraries.  This is to allow Starlord to automatically initialize and run the codes while still flexibly passing settings to the samplers themselves. Settings can be passed to the samplers in the ``[sampling]`` section of the TOML files.  ``[sampler_name_init].[option]`` entries are passed to the sampler initializer, and ``[sampler_name]_run.[option]`` entries are passed to the run command. If you are calling Starlord from within Python, you have the additional option to retrieve and use the underlying sampler ``sampler``, if you wish.
+
+The ``[sampling]`` is also where you may set the values of any constants you used during model specification.  The syntax is just ``const.constant_name = value``, where value is a float.  The :doc:`stars` page has an example of this.  However, note that constants may *also* be set at the command line via the repeatable argument ``-s constant_name=value``; if a constant is specified in both places, the CLI argument gets priority.
 
 This page lists some common sampling parameters you may wish to set; however, it is not an exhaustive list of the sampler options.
 

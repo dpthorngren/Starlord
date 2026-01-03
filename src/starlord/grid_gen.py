@@ -33,7 +33,7 @@ class GridGenerator:
             inputs: OrderedDict[str, np.ndarray],
             outputs: dict[str, np.ndarray],
             derived: dict[str, str] = {},
-            default_inputs: dict[str, str] = {}) -> None:
+            input_mappings: dict[str, str] = {}) -> None:
         '''Create a new grid and write it to the Starlord grid directory.
 
         The input, output, and derived names must be unique, valid as Python variable names, and not start with "_".
@@ -51,7 +51,7 @@ class GridGenerator:
             derived: Values that may be computed from the grid (the dict keys) and the code required to compute
                 them (the values).  Variables used must be inputs, outputs, or derived keys and enclosed by curly
                 braces.
-            default_inputs: The code to be used for the inputs, by axis (keys must match input keys) if not overridden
+            input_mappings: The code to be used for the inputs, by axis (keys must match input keys) if not overridden
                 by the model.  If not specified, this defaults to being a model parameter "p.[input_name]".
 
         Raises:
@@ -62,12 +62,12 @@ class GridGenerator:
         assert type(inputs) is OrderedDict, "Inputs must be type collections.OrderedDict; the order matters."
         assert type(outputs) is dict
         assert type(derived) is dict
-        assert type(default_inputs) is dict
+        assert type(input_mappings) is dict
         assert not outputs.keys() & inputs.keys(), "Outputs and inputs have overlapping names."
         # Sort outputs alphabetically by key
         outputs = OrderedDict(sorted(outputs.items(), key=lambda i: i[0].lower()))
         derived = OrderedDict(sorted(derived.items(), key=lambda i: i[0].lower()))
-        default_inputs = OrderedDict(sorted(default_inputs.items(), key=lambda i: i[0].lower()))
+        input_mappings = OrderedDict(sorted(input_mappings.items(), key=lambda i: i[0].lower()))
 
         # Check input validity and extract shape
         shape = []
@@ -89,7 +89,7 @@ class GridGenerator:
             assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Derived value name "{name}" is not valid.'
             assert type(output) is str
             # TODO: Validate derived parameter formulas
-        for name, output in default_inputs.items():
+        for name, output in input_mappings.items():
             assert name in inputs.keys(), f'Input default "{name}" doesn\'t match any actual inputs.'
             assert type(output) is str
 
@@ -110,7 +110,7 @@ class GridGenerator:
         np.savez_compressed(
             filepath,
             _grid_spec=grid_spec,
-            _default_inputs=json.dumps(default_inputs),
+            _input_mappings=json.dumps(input_mappings),
             _derived=json.dumps(derived),
             _bounds=bounds,
             _shape=shape,
@@ -189,9 +189,9 @@ class GridGenerator:
         self.provides = self.outputs + list(self.derived.keys())
         for k in self.inputs + self.outputs:
             assert k in self.data.files, f"Bad grid: {k} in _grid_spec but was not found."
-        self._default_inputs = {p: f"p.{p}" for p in self.inputs}
-        if '_default_inputs' in self.data.files:
-            self._default_inputs.update(json.loads(str(self.data['_default_inputs'])))
+        self._input_mappings = {p: f"p.{p}" for p in self.inputs}
+        if '_input_mappings' in self.data.files:
+            self._input_mappings.update(json.loads(str(self.data['_input_mappings'])))
 
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("
@@ -213,7 +213,7 @@ class GridGenerator:
         "p.{input_name}" if neither exists.
         '''
         overrides = {k: v for k, v in overrides.items() if k in self.inputs}
-        input_map = self._default_inputs.copy()
+        input_map = self._input_mappings.copy()
         input_map.update(overrides)
         return input_map
 
@@ -235,7 +235,7 @@ class GridGenerator:
                 f"{self.bounds[i, 0]:>10.4n}",
                 f"{self.bounds[i, 1]:>10.4n}",
                 f"{self.shape[i]:>10n}    ",
-                f"{self._default_inputs[name]}",
+                f"{self._input_mappings[name]}",
             )
         print(f"{txt.underline}Outputs{txt.end}")
         if len(self.outputs) < 12 or full:

@@ -106,7 +106,7 @@ class ModelBuilder():
 
         This can be used to fix grid axes to a particular value, or make them depend on some
         additional grid output or calculation.  Grid inputs are set by default according to
-        the their entry in the `_default_inputs` grid metadata.  If there is no entry then they
+        the their entry in the `input_mappings` grid metadata.  If there is no entry then they
         default to being a parameter named "p.{input_name}".
 
         Args:

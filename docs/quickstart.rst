@@ -26,10 +26,11 @@ If you'd like to run the tests, install the test dependencies with ``pip install
 
 TOML Input Files
 --------------------
-There are two ways to use Starlord: importing it in Python and using the API, or defining a model in a TOML file and passing it to Starlord on the command line.  The latter is an easier place to start.  Here's a minimal example:
+There are two ways to use Starlord: importing it in Python and using the API, or defining a model in a TOML file and passing it to Starlord on the command line.  The latter is an easier place to start.  Here's a minimal example using the demo grid (created in :doc:`grids`):
 
-.. warning::
-   todo example
+.. literalinclude:: /examples/demo.toml
+   :language: toml
+
 
 Notice that it has three sections: ``model``, ``sampling``, and ``output``.  The first sets up the statistical model to be fitted, including any likelihood terms, priors, and intermediate variable definitions (see :doc:`models`). The next section, ``sampling`` lets you select the sampler and the options for it, as well as run-time constants (see :doc:`sampling`). Finally, the ``output`` section defines what Starlord should actually do with the data.  For now this is quite minimal -- you can set terminal output on or off and select a file to write the results to in the `npz format <https://numpy.org/doc/stable/reference/generated/numpy.load.html>`_.  If you omit this, no output file is written.
 

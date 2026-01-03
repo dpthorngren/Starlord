@@ -1,0 +1,23 @@
+[model]
+# Starting with the likelihood terms, based on demo grid outputs
+# The demo grid is defined in Grid Management docs, but it's just:
+# x, y -> out1, out2; ratio
+demo_grid.out1 = ["normal", 30.5, 3.0]
+demo_grid.ratio = ["normal", 0.3, 0.05]
+# grid.output_name = [distribution name, the parameters]
+
+# This implicitly defined x and y (the demogrid params),
+# so we must set their priors:
+prior.x = ["uniform", 0, 10.0]
+prior.y = [5.0, 2.0]
+# (An omitted distribution name implies "normal")
+
+[sampling]
+# Picking a sampler and settings its options
+sampler = "emcee"
+emcee_run.nsteps = 1000
+
+[output]
+# Print a summary to the terminal and write the samples to "demo.npz"
+terminal = true
+file = "demo.npz"

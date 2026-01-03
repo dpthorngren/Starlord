@@ -3,6 +3,7 @@ Fitting Stars
 The primary purpose of Starlord is to flexibly fit stellar models to observations, so this merits a worked example.  We'll use HD 80606 data straight from the `NASA Exoplanet Archive <https://exoplanetarchive.ipac.caltech.edu/overview/HD%2080606>`_ for simplicity.
 
 .. literalinclude:: /examples/hd80606.toml
+   :language: toml
 
 We have two examples of fixing grid input parameters, both simplifying approximations. First, we fix the extinction parameter to 0, and second, we set the initial metallicity (for the stellar evolution grid) to the present-day photospheric metallicity. We set a normal prior for the parallax (from the observations), and uniform priors for the remaining parameters.
 

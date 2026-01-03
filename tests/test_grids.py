@@ -29,7 +29,7 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
         inputs=OrderedDict(a=a.flatten(), b=b.flatten()),
         outputs=dict(c=c),
         derived=dict(d="math.exp(rdummy.c)"),
-        default_inputs=dict(a="dummy.g1"))
+        input_mappings=dict(a="dummy.g1"))
     # Add some non-grids to test GridGenerator filtering.
     nonGrid = config.grid_dir / "filter_test.txt"
     nonGrid.write_text("Filler to make sure the GridGenerator ignores this file.", "utf-8")
@@ -37,7 +37,7 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
     return config.grid_dir
 
 
-def test_default_inputs(dummy_grids):
+def test_input_mappings(dummy_grids):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     assert "dummy" in starlord.GridGenerator._grids.keys()
@@ -46,7 +46,7 @@ def test_default_inputs(dummy_grids):
     grid = starlord.GridGenerator.get_grid("rdummy")
     assert grid.name == "rdummy"
     assert grid.spec == "a, b -> c; d"
-    assert grid._default_inputs == {"a": "dummy.g1", "b": "p.b"}
+    assert grid._input_mappings == {"a": "dummy.g1", "b": "p.b"}
 
 
 def test_grid_parsing(dummy_grids):
@@ -68,7 +68,7 @@ def test_grid_parsing(dummy_grids):
     assert grid.inputs == ["x", "y"]
     assert grid.outputs == ["v1", "v2"]
     assert grid.derived == dict(g1="2.5*(5+p.x) + dummy.v1", g2="0.5+math.log10(dummy.g1)")
-    assert grid._default_inputs == {"x": "p.x", "y": "p.y"}
+    assert grid._input_mappings == {"x": "p.x", "y": "p.y"}
     assert grid.shape == (75, 25)
     assert grid.bounds[0, 0] == -5.
     assert grid.bounds[0, 1] == 5.
