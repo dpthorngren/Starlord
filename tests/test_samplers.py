@@ -33,9 +33,23 @@ def test_grid_retrieval(dummy_grids: Path):
     assert builder._gen.locals == ('l.dummy_g1', 'l.dummy_g2', 'l.dummy_v1', 'l.dummy_v2', 'l.foo')
     assert builder._gen.constants == ('c.grid_dummy_v1', 'c.grid_dummy_v2', 'c.offset')
     sampler = builder.build_sampler("emcee", {'offset': 1.5})
-    sampler.run()
+
+    # Check the forward model works as expected (see test_grids.dummy_grids)
+    out = sampler.model.forward_model(np.array([1.5, 4.5]))
+    print(out)
+    v1 = np.sin(1.5) + 4.5
+    assert out['dummy_v1'] == pytest.approx(v1, rel=.01)
+    v2 = 25. + np.cos(2.2*1.5) / np.sin(4.5)
+    assert out['dummy_v2'] == pytest.approx(v2, rel=.01)
+    g1 = 2.5*(5+1.5) + v1
+    assert out['dummy_g1'] == pytest.approx(g1, rel=.01)
+    g2 = 0.5 + np.log10(g1)
+    assert out['dummy_g2'] == pytest.approx(g2, rel=.01)
+    foo = v1 + 1.5
+    assert out['foo'] == pytest.approx(foo, rel=.01)
 
     # Check that the results are reasonable
+    sampler.run()
     stats = sampler.stats()
     assert np.all(np.isfinite(stats.cov))
     for s in [stats.mean, stats.p16, stats.p50, stats.p84]:
@@ -43,6 +57,13 @@ def test_grid_retrieval(dummy_grids: Path):
         assert 0.1 <= s[1] <= 10.
     assert 0. < stats.std[0] <= 10.
     assert 0 <= stats.std[1] <= 10.
+
+    # Check output writing is working
+    outfile = dummy_grids / "test_grid_retrieval_samples.npz"
+    sampler.save_results(str(outfile))
+    saved_data = np.load(outfile)
+    assert "samples" in saved_data.files
+    assert np.all(saved_data['samples'] == sampler.results)
 
 
 @pytest.mark.flaky(reruns=3)
