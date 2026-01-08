@@ -40,7 +40,6 @@ jobs:
       run: |
         pytest --cov=starlord --junitxml=junit.xml --cov-report='xml' --cov-report='term' --cov-report="html"
         mv htmlcov htmldocs/htmlcov
-        cython --annotate-coverage coverage.xml src/starlord/*.pyx
         mv src/starlord/*.html htmldocs/htmlcov/
 
     - name: badges
