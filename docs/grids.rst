@@ -16,6 +16,9 @@ You can create your own grids with :func:`starlord.GridGenerator.create_grid`.  
 
 .. literalinclude:: /examples/demo_grid.py
 
+.. note::
+    In astronomy, grids are sometimes stored as a list of grid points (often in csv files), where the input axes are one set of columns and the output values are another.  So long as these are proper regular grids, they can be converted into a set of input axes and output nd-arrays with :func:`starlord.GridGenerator.restructure_grid`.
+
 Usage
 --------------------
 

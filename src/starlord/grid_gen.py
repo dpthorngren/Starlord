@@ -169,6 +169,41 @@ class GridGenerator:
             cls.reload_grids()
         return cls._grids[grid_name]
 
+    @staticmethod
+    def restructure_grid(arr, inputDims, outputDims):
+        '''Transforms an array from a list of points to input and output arrays.
+
+        Args:
+            arr: The array containing the input and output data as specific columns
+                and individual grid points as rows.
+            inputDims: a tuple of the independant variables' column indicies.
+            outputDims: a tuple of the dependant variables' column indices.
+
+        Returns:
+            The input axes as a list of 1-d arrays and the output variables as a
+            list of n-d arrays where n is the number of inputs.'''
+        # Extract data. nParam is the number of parameters
+        independentVar = arr[:, inputDims].T
+        # Inverse gives the location of a sample point in the output matrix
+        inverse = np.zeros(np.shape(independentVar), dtype=int)
+        # Axes has an irregular shape: nParam by the number of distinct
+        # parameter values, which may differ by parameter
+        axes = []
+        for i, row in enumerate(independentVar):
+            _, indicies, inverse[i, :] = np.unique(np.around(row, 10), True, True)
+            axes.append(row[indicies])
+        outputs = []
+        for dim in outputDims:
+            # Outputs must have nParam dimensions, each of the size
+            # of the number of distinct parameter values.
+            outMatrix = np.zeros([np.size(i) for i in axes])
+            outMatrix.fill(np.nan)
+            dependentVar = arr[:, dim]
+            for index, value in zip(inverse.T, dependentVar):
+                outMatrix[tuple(index)] = value
+            outputs.append(outMatrix)
+        return axes, outputs
+
     def __init__(self, filename: str | Path):
         self.file_path = Path(filename)
         self.name = self.file_path.stem

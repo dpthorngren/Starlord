@@ -96,3 +96,19 @@ def test_grid_building(dummy_grids):
     # Using axis and values transforms
     h = grid.build_grid("v1", {'y': np.log10}, np.cos)
     assert h._interp2d(1., np.log10(2.5)) == pytest.approx(np.cos(np.sin(1.) + 2.5), .03)
+
+
+def test_restructure_grid():
+    x = np.linspace(-5, 5, 20)
+    y = np.linspace(0, 10, 5)
+    arr = []
+    for xi in x:
+        for yi in y:
+            arr.append([xi, np.sin(xi) + yi, yi, np.cos(yi) - xi])
+    arr = np.array(arr)
+    axes, values = starlord.GridGenerator.restructure_grid(arr, [0, 2], [1, 3])
+    assert np.all(axes[0] == x)
+    assert np.all(axes[1] == y)
+    assert len(values) == 2
+    assert np.all(values[0] == np.sin(x[:, None]) + y[None, :])
+    assert np.all(values[1] == np.cos(y[None, :]) - x[:, None])
