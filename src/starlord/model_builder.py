@@ -233,8 +233,8 @@ class ModelBuilder():
         self._resolve_grids()
         result = [f"    {txt.underline}Grids{txt.end}"]
         if self._used_grids:
-            for k, v in self._used_grids.items():
-                result.append(k + " " + ", ".join(v))
+            for k, v in sorted(self._used_grids.items(), key=lambda g: g[0]):
+                result.append(k + " " + ", ".join(sorted(v)))
         else:
             result.append("None")
         return "\n".join(result) + "\n\n" + self._gen.summary(self._fancy_text)

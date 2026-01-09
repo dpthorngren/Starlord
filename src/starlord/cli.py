@@ -57,7 +57,8 @@ def main():
             g.summary(True, fancy_text=not args.plain_text)
             return
         print("Available grids:")
-        for g in GridGenerator.grids().values():
+        grids = GridGenerator.grids().values()
+        for g in sorted(grids, key=lambda g: g.name):
             # Print short grid info, no need for "Grid_" prefix.
             print("   ", str(g)[5:])
         return

@@ -11,12 +11,12 @@ mist.WISE_W4 = ["normal", "c.wise_w4_mean", 0.0114]
 # Fix the extinction parameter to 0:
 override.mist.Av = "0.0"
 # Ignore the distinction between surface and inital bulk [Fe/H]
-override.mistTracks.feh0 = "p.feh"
+override.mist.feh = "p.feh0"
 
 # The priors for the remaining parameters:
-prior.eep = ["uniform", 200, 400]
+prior.logAge = ["uniform", -0.5, 1]
 prior.logMass0 = ["uniform", -0.5, 0.5]
-prior.feh = ["uniform", -0.2, 0.5]
+prior.feh0 = ["uniform", -0.2, 0.5]
 prior.parallax = [15.0153, 0.03612]
 
 [sampling]

@@ -13,36 +13,36 @@ We want to make sure there aren't any syntax errors and that Starlord is interpr
 
 .. code:: none
 
-           Grids
-    mist 2MASS_H, bc_2MASS_J, bc_WISE_W2, WISE_W4, bc_WISE_W3, WISE_W1, WISE_W2, bc_WISE_W1, 2MASS_Ks, WISE_W3, 2MASS_J, bc_2MASS_Ks, bc_2MASS_H, bc_WISE_W4
-    mistTracks logRadius, logL, logMass, logTeff, logG
+        Grids
+    mist 2MASS_H, 2MASS_J, 2MASS_Ks, WISE_W1, WISE_W2, WISE_W3, WISE_W4, bc_2MASS_H, bc_2MASS_J, bc_2MASS_Ks, bc_WISE_W1, bc_WISE_W2, bc_WISE_W3, bc_WISE_W4
+    mistInvAge eep
+    mistTracks logG, logL, logMass, logRadius, logTeff
 
         Variables
-    Params:     eep, feh, logMass0, parallax
-    Constants:  grid_mistTracks_logMass, grid_mistTracks_logRadius, grid_mistTracks_logTeff, grid_mist_bc_2MASS_H, grid_mist_bc_2MASS_J, grid_mist_bc_2MASS_Ks, grid_mist_bc_WI
-    SE_W1, grid_mist_bc_WISE_W2, grid_mist_bc_WISE_W3, grid_mist_bc_WISE_W4, wise_w4_mean
-    Locals:     mistTracks_logG, mistTracks_logL, mistTracks_logMass, mistTracks_logRadius, mistTracks_logTeff, mist_2MASS_H, mist_2MASS_J, mist_2MASS_Ks, mist_WISE_W1, mist_W
-    ISE_W2, mist_WISE_W3, mist_WISE_W4, mist_bc_2MASS_H, mist_bc_2MASS_J, mist_bc_2MASS_Ks, mist_bc_WISE_W1, mist_bc_WISE_W2, mist_bc_WISE_W3, mist_bc_WISE_W4
+    Params:     feh0, logAge, logMass0, parallax
+    Constants:  grid_mistInvAge_eep, grid_mistTracks_logMass, grid_mistTracks_logRadius, grid_mistTracks_logTeff, grid_mist_bc_2MASS_H, grid_mist_bc_2MASS_J, grid_mist_bc_2MASS_Ks, grid_mist_bc_WISE_W1, grid_mist_bc_WISE_W2, grid_mist_bc_WISE_W3, grid_mist_bc_WISE_W4, wise_w4_mean
+    Locals:     mistInvAge_eep, mistTracks_logG, mistTracks_logL, mistTracks_logMass, mistTracks_logRadius, mistTracks_logTeff, mist_2MASS_H, mist_2MASS_J, mist_2MASS_Ks, mist_WISE_W1, mist_WISE_W2, mist_WISE_W3, mist_WISE_W4, mist_bc_2MASS_H, mist_bc_2MASS_J, mist_bc_2MASS_Ks, mist_bc_WISE_W1, mist_bc_WISE_W2, mist_bc_WISE_W3, mist_bc_WISE_W4
 
         Forward Model
-    l.mistTracks_logMass = c.grid_mistTracks_logMass._interp3d(p.logMass0, p.feh, p.eep)
-    l.mistTracks_logRadius = c.grid_mistTracks_logRadius._interp3d(p.logMass0, p.feh, p.eep)
+    l.mistInvAge_eep = c.grid_mistInvAge_eep._interp3d(p.logMass0, p.feh0, p.logAge)
+    l.mistTracks_logMass = c.grid_mistTracks_logMass._interp3d(p.logMass0, p.feh0, l.mistInvAge_eep)
+    l.mistTracks_logRadius = c.grid_mistTracks_logRadius._interp3d(p.logMass0, p.feh0, l.mistInvAge_eep)
     l.mistTracks_logG = 4.43785118 + l.mistTracks_logMass - 2*l.mistTracks_logRadius
-    l.mistTracks_logTeff = c.grid_mistTracks_logTeff._interp3d(p.logMass0, p.feh, p.eep)
+    l.mistTracks_logTeff = c.grid_mistTracks_logTeff._interp3d(p.logMass0, p.feh0, l.mistInvAge_eep)
     l.mistTracks_logL = 2*(l.mistTracks_logRadius-1) + 4*(l.mistTracks_logTeff - 3.761777)
-    l.mist_bc_2MASS_H = c.grid_mist_bc_2MASS_H._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_2MASS_H = c.grid_mist_bc_2MASS_H._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_2MASS_H = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_2MASS_H - 5*(math.log10(p.parallax)-1)
-    l.mist_bc_2MASS_J = c.grid_mist_bc_2MASS_J._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_2MASS_J = c.grid_mist_bc_2MASS_J._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_2MASS_J = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_2MASS_J - 5*(math.log10(p.parallax)-1)
-    l.mist_bc_2MASS_Ks = c.grid_mist_bc_2MASS_Ks._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_2MASS_Ks = c.grid_mist_bc_2MASS_Ks._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_2MASS_Ks = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_2MASS_Ks - 5*(math.log10(p.parallax)-1)
-    l.mist_bc_WISE_W1 = c.grid_mist_bc_WISE_W1._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_WISE_W1 = c.grid_mist_bc_WISE_W1._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_WISE_W1 = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_WISE_W1 - 5*(math.log10(p.parallax)-1)
-    l.mist_bc_WISE_W2 = c.grid_mist_bc_WISE_W2._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_WISE_W2 = c.grid_mist_bc_WISE_W2._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_WISE_W2 = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_WISE_W2 - 5*(math.log10(p.parallax)-1)
-    l.mist_bc_WISE_W3 = c.grid_mist_bc_WISE_W3._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_WISE_W3 = c.grid_mist_bc_WISE_W3._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_WISE_W3 = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_WISE_W3 - 5*(math.log10(p.parallax)-1)
-    l.mist_bc_WISE_W4 = c.grid_mist_bc_WISE_W4._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh, 0.0)
+    l.mist_bc_WISE_W4 = c.grid_mist_bc_WISE_W4._interp4d(l.mistTracks_logTeff, l.mistTracks_logG, p.feh0, 0.0)
     l.mist_WISE_W4 = -2.5 * l.mistTracks_logL + 4.74 - l.mist_bc_WISE_W4 - 5*(math.log10(p.parallax)-1)
 
         Likelihood
@@ -55,48 +55,50 @@ We want to make sure there aren't any syntax errors and that Starlord is interpr
     Normal(l.mist_WISE_W4 | c.wise_w4_mean, 0.0114)
 
         Prior
-    Uniform(p.eep | 200.0, 400.0)
-    Uniform(p.feh | -0.2, 0.5)
+    Uniform(p.feh0 | -0.2, 0.5)
+    Uniform(p.logAge | -0.5, 1.0)
     Uniform(p.logMass0 | -0.5, 0.5)
     Normal(p.parallax | 15.0153, 0.03612)
 
         Constant Values
     c.wise_w4_mean = 7.196
 
+
 Notice that Starlord shows you in the ``Forward Model`` section its work to calculate grid inputs, interpolate on the grids, and then apply the bolometric corrections and distance effects.  These were entirely defined within the grid and implicitly invoked when we set a likelihood on the derived outputs of the mist grid.  It also added some constants and local variables for the grids themselves -- Starlord will set these, so you don't need to worry about them.
 
-The key thing to verify is that the likelihoods match your expectations, that you have set a prior for every parameter, and that the constants are properly set.  Now we can test the model.  We can see parameters in order are ``eep``, ``feh``, ``logMass0``, ``parallax``; let's test the values ``(250, 0, 0, 15)`` with ``starlord -dt 250,0,0,15 hd80606.toml``.  It will take a second to compile, but you should get:
+The key thing to verify is that the likelihoods match your expectations, that you have set a prior for every parameter, and that the constants are properly set.  Now we can test the model.  We can see parameters in order are ``feh``, ``logAge``, ``logMass0``, ``parallax``; let's test the values ``(0, 0.3, 0, 15)`` with ``starlord -dt 0,.3,0,15 hd80606.toml``.  It will take a second to compile, but you should get:
 
 .. code:: none
 
-       Test Case
-    p.eep                   250.0
-    p.feh                   0.0
+        Test Case
+    p.feh0                  0.0
+    p.logAge                0.3
     p.logMass0              0.0
     p.parallax              15.0
-    l.mistTracks_logG       4.53267
-    l.mistTracks_logL       -2.11003
-    l.mistTracks_logMass    -2.92512e-06
-    l.mistTracks_logRadius  -0.0474104
-    l.mistTracks_logTeff    3.75797
-    l.mist_2MASS_H          7.6958
-    l.mist_2MASS_J          8.03596
-    l.mist_2MASS_Ks         7.65735
-    l.mist_WISE_W1          7.64546
-    l.mist_WISE_W2          7.66841
-    l.mist_WISE_W3          7.63476
-    l.mist_WISE_W4          7.63409
-    l.mist_bc_2MASS_H       1.43883
-    l.mist_bc_2MASS_J       1.09866
-    l.mist_bc_2MASS_Ks      1.47727
-    l.mist_bc_WISE_W1       1.48916
-    l.mist_bc_WISE_W2       1.46621
-    l.mist_bc_WISE_W3       1.49986
-    l.mist_bc_WISE_W4       1.50054
-    log_like                -1405.96
-    log_prior               -2.62939
+    l.mistInvAge_eep        325.56
+    l.mistTracks_logG       4.49019
+    l.mistTracks_logL       -2.05148
+    l.mistTracks_logMass    -2.67794e-05
+    l.mistTracks_logRadius  -0.0261845
+    l.mistTracks_logTeff    3.762
+    l.mist_2MASS_H          7.57698
+    l.mist_2MASS_J          7.90794
+    l.mist_2MASS_Ks         7.54013
+    l.mist_WISE_W1          7.52884
+    l.mist_WISE_W2          7.5497
+    l.mist_WISE_W3          7.51846
+    l.mist_WISE_W4          7.51794
+    l.mist_bc_2MASS_H       1.41127
+    l.mist_bc_2MASS_J       1.0803
+    l.mist_bc_2MASS_Ks      1.44812
+    l.mist_bc_WISE_W1       1.4594
+    l.mist_bc_WISE_W2       1.43855
+    l.mist_bc_WISE_W3       1.46979
+    l.mist_bc_WISE_W4       1.47031
+    log_like                -681.972
+    log_prior               2.26347
 
-You can see the parameters first, then the evolution track outputs, then the magnitudes, the bolometric corrections they came were derived from, and the log likelihood and log prior.Well our guess was a little off but everything seems to be calculating properly.
+You can see the parameters first, then the evolution track outputs, then the magnitudes, the bolometric corrections they came were derived from, and the log likelihood and log prior.  Well our guess was a little off but everything seems to be calculating properly.
 
 Sampling
 --------------------
@@ -104,11 +106,11 @@ For the sake of example we explicitly set the sampler as "emcee" and an init and
 
 .. code:: none
 
-    100%|█████████████████████████████████████| 4500/4500 [00:01<00:00, 3943.58it/s]
-      Name               Mean         Std         16%         50%         84%
-    0 eep               351.2       72.71       216.8       388.9       397.7
-    1 feh              0.3611      0.1103      0.2473      0.3839      0.4727
-    2 logMass0        0.02392     0.02928   -0.000881     0.01403     0.07333
-    3 parallax          15.02     0.03589       14.98       15.02       15.05
+    100%|█████████████████████████████████████| 4500/4500 [00:00<00:00, 5402.18it/s]
+         Name               Mean         Std         16%         50%         84%
+       0 feh0             0.3544      0.1196      0.2297      0.3856      0.4691
+       1 logAge           0.8458      0.2542      0.7762      0.9292      0.9819
+       2 logMass0       0.005823     0.01787   -0.007341    0.002378      0.0193
+       3 parallax          15.02     0.03559       14.98       15.02       15.05
 
 Wasn't that delightfully fast?  The mass is about what we expected and the metallicity is plausible but wider than what is listed on the NASA exoplanet archive -- presumably a side-effect of choosing the input bands semi-arbitrarily.  We also get an npz file to use for subsequent analysis.  This can be opened in Python with ``post_sample = np.load("hd80606.npz")['samples']``.
