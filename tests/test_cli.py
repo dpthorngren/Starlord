@@ -66,3 +66,41 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     assert "Constant Values" in captured.out
     assert "c.offset = -1.5" in captured.out
     assert "c.B_mean = 2.5" in captured.out
+
+
+def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/dummy_grid.toml', '-dap'])
+    config.grid_dir = dummy_grids
+    GridGenerator.reload_grids()
+    cli.main()
+    # Test CLI summaries
+    captured = capsys.readouterr().out
+    print(captured)
+    assert "Params:     b, x, y" in captured
+    assert "dummy g1, v1, v2" in captured
+    assert "rdummy c" in captured
+    assert "Params:     b, x, y" in captured
+    assert "l.dummy_g1 = 2.5*(5+p.x) + l.dummy_v1" in captured
+    assert "Normal(l.dummy_v2 | 3.0, 1.0)" in captured
+    assert "Normal(l.rdummy_c | 0.0, 1.0)" in captured
+    # Test CLI
+    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/dummy_grid.toml', '-dpt', '"0.5,3.5,5.5"'])
+    cli.main()
+    captured = capsys.readouterr().out
+    print(captured)
+    assert "\n    Test Case" in captured
+    assert "\np.b         0.5" in captured
+    assert "\nl.dummy_g1  26.3" in captured
+    assert "\nl.dummy_v1  5.1" in captured
+    assert "\nl.dummy_v2  24.7" in captured
+    assert "\nl.rdummy_c  30.1" in captured
+    assert "\nlog_like    -694.3" in captured
+    assert "\nlog_prior    -49.2" in captured
+    # Test that the retrieval runs (it's nonsense, so ignore output values)
+    outfile = config.grid_dir / "dummy_out.npz"
+    monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/dummy_grid.toml', '-o', str(outfile)])
+    cli.main()
+    captured = capsys.readouterr().out
+    print(captured)
+    assert outfile.exists()
+    assert "   0 b" in captured

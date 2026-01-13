@@ -1,0 +1,16 @@
+[model]
+rdummy.c = ["normal", 0.0, 1.0]
+dummy.v2 = ["normal", 3.0, 1.0]
+
+prior.b = ["normal", 1.5, 0.1]
+prior.x = ['normal', 3.0, 0.5]
+prior.y = ['uniform', 5.1, 6.0]
+
+override.rdummy.a = "math.sqrt(dummy.g1)"
+
+[sampling]
+sampler = "emcee"
+
+[output]
+terminal=true
+output="dummy_out.npz"

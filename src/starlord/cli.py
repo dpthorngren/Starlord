@@ -116,7 +116,8 @@ def main():
     sampler_args = settings['sampling'].get(sampler_type + "_init", {})
     sampler = builder.build_sampler(sampler_type, constants=consts, **sampler_args)
     if args.test_case:
-        test_case = np.array([float(x) for x in args.test_case.split(",")])
+        test_case_str = args.test_case.replace('"', "").split(",")
+        test_case = np.array([float(x) for x in test_case_str])
         assert len(test_case) == len(sampler.param_names)
         out = sampler.model.forward_model(test_case)
         padding = max(len(i) for i in set(sampler.param_names) | set(out.keys()))
