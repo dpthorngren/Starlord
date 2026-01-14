@@ -9,7 +9,7 @@ Starlord
 
 A Python library for Bayesian fits of models with gridded functions to data, with an emphasis on very flexible stellar model fitting.
 
-This project has reached an alpha release.  There are many missing features (see roadmap](#roadmap)) and very likely some bugs.  Please let me know if you find any.
+This project has reached an alpha release.  There are many missing features (see [roadmap](#roadmap)) and very likely some bugs.  Please let me know if you find any.
 
 Installation
 --------------------
@@ -27,16 +27,13 @@ Once installed, Starlord can be invoked in the terminal with `starlord`, which w
 
 Roadmap
 --------------------
-This is a list of features I'd like to add, roughly grouped by priority and definitely subject to change.
+This is a list of features I'd like to add, roughly ordered by priority and definitely subject to change.
 
-<ins>**Beta Release Goals**</ins>
-1. **Data Structure for Constants** -- Complete.
-2. **Prior Features** -- Truncated distributions and priors on transformed parameters.
-3. **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
-
-<ins>**Subsequent Goals**</ins>
-1. **Vector Operations** -- Useful for more general Bayesian models.
-2. **Multiple Grid Interpolations** -- Mainly for multiple star systems.
-3. **Implicit Variables** -- If mass is defined, then logMass or log_mass are pretty clear in their intent.
-4. **Python interpolation support** -- The grid system is faster than `scipy.RegularGridInterpolator`, but currently awkward to use directly in Python.
+ - **Multiple Grid Interpolations** -- Mainly for multiple star systems.
+ - **Extra Outputs** -- E.g. list effective temperature even though it's not a model parameter.
+ - **Prior Features** -- Truncated distributions and priors on transformed parameters.
+ - **Implicit Variables** -- If mass is defined, then logMass or log_mass are pretty clear in their intent.
+ - **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
+ - **Vector Operations** -- Useful for more general Bayesian models.
+ - **Python interpolation support** -- The grid system is faster than `scipy.RegularGridInterpolator`, but currently awkward to use directly in Python.
 
