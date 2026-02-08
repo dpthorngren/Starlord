@@ -45,8 +45,7 @@ class ModelBuilder():
         self._verbose: bool = verbose
         self._fancy_text: bool = fancy_text
         self._gen = CodeGenerator(verbose)
-        self._used_grids: dict[str, set[str]] = {}
-        self._input_overrides: dict[str, dict[str, str]] = {}
+        self._deferred_mappings: dict[str, str] = {}
 
     def set_from_dict(self, model: dict) -> None:
         '''Load model description from a dict following the TOML input spec.
@@ -92,8 +91,8 @@ class ModelBuilder():
                     assert len(value) in [2, 3]
                     if self._verbose:
                         print(f"{grid}.{key} = {value}")
-                    self._register_grid_key(grid, key)
-                    self._unpack_distribution(f"l.{grid}_{key}", value)
+                    # self._register_grid_key(grid, key)
+                    self._unpack_distribution(f"d.{grid}_{key}", value)
         if "override" in model.keys():
             for key, override in model['override'].items():
                 if self._verbose:
@@ -132,8 +131,7 @@ class ModelBuilder():
             print(f"  ModelBuilder.override_input('{grid_name}', '{input_name}', '{value}')")
         grid = GridGenerator.get_grid(grid_name)
         assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
-        self._input_overrides.setdefault(grid_name, {})
-        self._input_overrides[grid_name][input_name] = value
+        self._deferred_mappings[f"d.{grid_name}_{input_name}"] = value
 
     def expression(self, expr: str) -> None:
         '''Directly insert an expression into the generated code.
@@ -201,7 +199,7 @@ class ModelBuilder():
         var = self._extract_grids(var)
         assert var.count(".") == 1, 'Variables must be of the form "label.name".'
         label, name = var.split(".")
-        assert label in "pbl", "Variable label must be a grid name, p, b, or l."
+        assert label in "pbld", "Variable label must be a grid name, p, b, or l."
         self._gen.constraint(f"{label}.{name}", dist, params)
 
     def prior(self, param: str, dist: str, params: list[str | float]) -> None:
@@ -230,13 +228,15 @@ class ModelBuilder():
             The model summary.
         '''
         txt = config.text_format if self._fancy_text else config.text_format_off
-        self._resolve_grids()
-        result = [f"    {txt.underline}Grids{txt.end}"]
-        if self._used_grids:
-            for k, v in sorted(self._used_grids.items(), key=lambda g: g[0]):
-                result.append(k + " " + ", ".join(sorted(v)))
-        else:
-            result.append("None")
+        self._resolve_deferred()
+        result = []
+        # result = [f"    {txt.underline}Grids{txt.end}"]
+        # TODO: Add grid listing back in
+        # if self._used_grids:
+        #     for k, v in sorted(self._used_grids.items(), key=lambda g: g[0]):
+        #         result.append(k + " " + ", ".join(sorted(v)))
+        # else:
+        #     result.append("None")
         return "\n".join(result) + "\n\n" + self._gen.summary(self._fancy_text)
 
     def generate(self) -> str:
@@ -248,7 +248,7 @@ class ModelBuilder():
         Raises:
             AssertionError: if one of the various consistency checks fails.
         '''
-        self._resolve_grids()
+        self._resolve_deferred()
         return self._gen.generate()
 
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
@@ -265,82 +265,60 @@ class ModelBuilder():
             self.constraint(var, dist, spec)
 
     def _extract_grids(self, source: str) -> str:
-        '''Extracts grid names from the source string and replaces them with local variables.
-        Registers the grid variables to be interpolated on grid resolution.'''
+        '''Extracts grid names from the source string and replaces them with deferred variables.'''
         # Identifies variables of the form "foo.bar", including grids, variables, and library functions.
         match = re.findall(r"([a-z_]\w*)\.([A-Za-z_]\w*)", source)
         if match is not None:
             for label, name in set(match):
                 if label in GridGenerator.grids().keys():
-                    self._register_grid_key(label, name)
-                    source = source.replace(f"{label}.{name}", f"l.{label}_{name}")
+                    source = source.replace(f"{label}.{name}", f"d.{label}_{name}")
         return source
 
-    def _register_grid_key(self, grid: str, key: str):
-        '''Adds a grid to the list and key to the target outputs.  Redundant calling is fine.'''
-        assert grid in GridGenerator.grids().keys(), f"Grid {grid} not recognized."
-        assert key in GridGenerator.grids()[grid].provides, f"{key} not in grid {grid}."
-        self._used_grids.setdefault(grid, set())
-        self._used_grids[grid].add(key)
-
-    def _resolve_grids(self) -> None:
-        '''Add grid interpolator components to the generator object (deleting existing ones)
-        and build the required grid objects, storing them in self.grids.'''
+    def _resolve_deferred(self) -> None:
+        # TODO: Docs
+        txt = config.text_format if self._fancy_text else config.text_format_off
+        if self._verbose:
+            print(f"\n    {txt.underline}Variable Resolution{txt.end}")
         # Remove any previously autogenerated components
         self._gen.remove_generated()
         self._gen._mark_autogen = True
-        input_maps = {}
         self._gen.auto_constants.clear()
-        defined = set()
+        self._gen.deferred_mappings = self._deferred_mappings.copy()
 
-        try:
-            # First pass handles derived grid outputs and default parameters that refer to other grids
-            while True:
-                # Sort the grids to make code generation deterministic
-                for name in sorted(self._used_grids.keys()):
-                    columns = sorted(self._used_grids[name])
-                    grid = GridGenerator.get_grid(name)
-
-                    # Resolve grid inputs that depend on other grids
-                    if name not in input_maps.keys():
-                        in_map = grid._get_input_map(self._input_overrides.get(name, {}))
-                        input_maps[name] = {k: self._extract_grids(v) for k, v in in_map.items()}
-                        break
-
-                    # Identify desired grid outputs that are derived but not already resolved
-                    name_map = {f"derived_{name}_{c}": c for c in columns if c in grid.derived}
-                    derived = set(name_map.keys()) - defined
-                    if len(derived) != 0:
-                        der = derived.pop()
-                        # Add the code to _grids for tracking and send the assigment code to GridGenerator
-                        code = grid.derived[name_map[der]]
-                        defined.add(der)
-                        self.assign("l." + der[8:], code)
-                        # Begin again in case it recursively requires additional grids / vars
-                        break
-                else:
-                    break
-
-            # Second pass builds the grids and add interpolators to the code generator
-            for name in sorted(self._used_grids.keys()):
-                grid = GridGenerator.get_grid(name)
-                input_map = input_maps[name]
-                for key in sorted(self._used_grids[name]):
-                    if key in grid.derived:
-                        continue
-                    grid_var = f"grid_{name}_{key}"
-                    defined.add(grid_var)
-                    self._gen.auto_constants[grid_var] = f"GridGenerator.get_grid('{name}').build_grid('{key}')"
-                    param_string = ", ".join([input_map[i] for i in grid.inputs])
-                    self.assign(f"l.{name}_{key}", f"c.{grid_var}._interp{grid.ndim}d({param_string})")
-                    self._gen.constant_types[grid_var] = "GridInterpolator"
-        except Exception as e:
-            # Must disable marking components as autogenerated whether or not there was an exception.
-            self._gen._mark_autogen = False
-            raise e
-        self._gen._mark_autogen = False
-        if self._verbose:
-            print("")
+        while self._gen.unresolved_deferred:
+            target = self._gen.unresolved_deferred[0]
+            if self._verbose:
+                print("Resolving", target, end=" ")
+            sep = target.find("_")
+            grid_name = target[2:sep]
+            key = target[sep + 1:]
+            grid = GridGenerator.get_grid(grid_name)
+            if key in grid.inputs:
+                if self._verbose:
+                    print("(input)")
+                # TODO: Refactor?  Overrides?
+                self._gen.deferred_mappings[target] = grid._get_input_map()[key]
+            elif key in grid.outputs:
+                if self._verbose:
+                    print("(output)")
+                # Create the interpolation component
+                grid_var = f"grid_{grid_name}_{key}"
+                param_string = ", ".join([f"d.{grid_name}_{i}" for i in grid.inputs])
+                self.assign(f"{grid_name}_{key}", f"c.{grid_var}._interp{grid.ndim}d({param_string})")
+                # Setup the grid itself as a constant
+                self._gen.auto_constants[grid_var] = f"GridGenerator.get_grid('{grid_name}').build_grid('{key}')"
+                self._gen.constant_types[grid_var] = "GridInterpolator"
+                # Map the deferred variable
+                self._gen.deferred_mappings[target] = f"l.{grid_name}_{key}"
+            elif key in grid.derived:
+                if self._verbose:
+                    print("(derived)")
+                code = grid.derived[key]
+                self.assign(f"l.{grid_name}_{key}", code)
+                # Map the deferred variable
+                self._gen.deferred_mappings[target] = f"l.{grid_name}_{key}"
+            else:
+                raise ValueError(f"Key {key} not in grid {grid_name}.")
 
     def validate_constants(self, constants: dict, print_summary: bool = False) -> Tuple[set[str], set[str]]:
         '''Check that the constants provided match those that were expected.
@@ -389,7 +367,7 @@ class ModelBuilder():
             KeyError: if a required constant was not provided in constants
             ValueError: if the `sampler_type` was not one of "dynesty" or "emcee"
         '''
-        self._resolve_grids()
+        self._resolve_deferred()
         mod = self._gen.compile()
         missing, _ = self.validate_constants(constants, self._verbose)
         if missing:
