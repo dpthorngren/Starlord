@@ -68,23 +68,10 @@ class CodeGenerator:
             self._update_vars()
         return tuple(self._locals)
 
-    @property
-    def deferred(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return tuple(self._deferred)
-
-    @property
-    def unresolved_deferred(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return [i for i in self._deferred if i not in self.deferred_mappings.keys()]
-
     def __init__(self, verbose: bool = False):
         self.verbose: bool = verbose
         self._like_components = []
         self._prior_components = []
-        self.deferred_mappings: dict[str, str] = {}
         self._mark_autogen: bool = False
         self.imports: list[str] = [
             "from starlord.cy_tools cimport *",
@@ -98,7 +85,6 @@ class CodeGenerator:
         self._constants: list[Symb] = []
         self._blobs: list[Symb] = []
         self._locals: list[Symb] = []
-        self._deferred: list[Symb] = []
         self.constant_types = {}
 
     def _update_vars(self):
@@ -107,7 +93,6 @@ class CodeGenerator:
         self._constants = sorted(list(result['c']))
         self._blobs = sorted(list(result['b']))
         self._locals = sorted(list(result['l']))
-        self._deferred = sorted(list(result['d']))
         self._vars_out_of_date = False
 
     def get_mapping(self, prepend_self=False) -> dict[str, Namespace]:
@@ -251,7 +236,6 @@ class CodeGenerator:
         result.append(self.generate_log_prior())
         result.append(self.generate_log_prob())
         result.append(self.generate_init())
-        # result_str = CodeGenerator.resolve_deferred(self.deferred_mappings, "\n".join(result))
         return "\n".join(result) + "\n"
 
     def compile(self) -> ModuleType:
@@ -288,7 +272,6 @@ class CodeGenerator:
         result += [f"\n    {txt.underline}Prior{txt.end}"]
         prior_comps = sorted(self._prior_components, key=lambda c: "_".join(sorted(c.vars)))
         result += [str(c) for c in prior_comps]
-        result_str = CodeGenerator.resolve_deferred(self.deferred_mappings, "\n".join(result))
         return self._fancy_format(result_str, fancy)
 
     def expression(self, expr: str) -> None:
@@ -354,21 +337,9 @@ class CodeGenerator:
         self._vars_out_of_date = True
 
     @staticmethod
-    def resolve_deferred(mappings: dict[str, str], source: str):
-        '''Replaces all deferred vars (like {d.key}) in source like with mappings[key], recursively.'''
-        mappings = mappings.copy()
-        for key in mappings.keys():
-            while re.search(r"{(d\.\w+)}", mappings[key]):
-                mappings[key] = mappings[key].format_map(mappings)
-            source = re.sub(f"{{{key}}}", mappings[key], source)
-        source, _ = CodeGenerator._extract_params(source)
-        return source
-
-    @staticmethod
     def _fancy_format(source: str, fancy=False) -> str:
         '''Finds variables enclosed in curly braces and boldens and colors them based on their type'''
         txt = config.text_format if fancy else config.text_format_off
-        result = re.sub(r"{(d\.\w+)}", f"{txt.bold}{txt.red}\\g<1>{txt.end}", source, flags=re.M)
         result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", result, flags=re.M)
         result = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
         result = re.sub(r"{([bl]\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
