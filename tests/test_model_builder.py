@@ -12,6 +12,8 @@ def test_model_builder_variables():
     assert fitter is not None
     fitter.assign("x", "2.643")
     fitter.expression("logL += p.foo*p.foo / 10.")
+    fitter.summary()
+    assert fitter._gen is not None
     assert fitter._gen.params == ("p.foo",)
     assert fitter._gen.locals == ("l.x",)
     fitter.assign("b.something", "3.5*(p.foo - c.bar)")
@@ -24,6 +26,7 @@ def test_recursive_grids(dummy_grids: Path):
     fitter.constraint("rdummy.d", "normal", [10., 1.])
     # Running to resolve the grids
     print(fitter.summary())
+    assert fitter._gen is not None
     assert fitter._gen.params == ('p.b', 'p.x', 'p.y')
     assert fitter._gen.locals == ('l.dummy_g1', 'l.dummy_v1', 'l.rdummy_c', 'l.rdummy_d')
     assert fitter._gen.constants == ('c.grid_dummy_v1', 'c.grid_rdummy_c')
@@ -38,6 +41,7 @@ def test_param_overrides(dummy_grids: Path):
     fitter.prior("p.x", "normal", [2., 5.])
     # Running to resolve the grids
     print(fitter.summary())
+    assert fitter._gen is not None
     assert fitter._gen.params == ('p.x',)
     assert fitter._gen.locals == ('l.dummy_v1',)
     assert fitter._gen.constants == ('c.fixed_y', 'c.grid_dummy_v1')

@@ -272,7 +272,7 @@ class CodeGenerator:
         result += [f"\n    {txt.underline}Prior{txt.end}"]
         prior_comps = sorted(self._prior_components, key=lambda c: "_".join(sorted(c.vars)))
         result += [str(c) for c in prior_comps]
-        return self._fancy_format(result_str, fancy)
+        return self._fancy_format("\n".join(result), fancy)
 
     def expression(self, expr: str) -> None:
         '''Specify a general expression to add to the code.  Assignments and variables used will be
@@ -340,7 +340,7 @@ class CodeGenerator:
     def _fancy_format(source: str, fancy=False) -> str:
         '''Finds variables enclosed in curly braces and boldens and colors them based on their type'''
         txt = config.text_format if fancy else config.text_format_off
-        result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", result, flags=re.M)
+        result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source, flags=re.M)
         result = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
         result = re.sub(r"{([bl]\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
         result = re.sub(r"{([+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
