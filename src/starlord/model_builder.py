@@ -23,7 +23,7 @@ class ModelBuilder():
        change.
     :Local Variables: ``l.[name]`` these are calculated for each log likelihood call
        but not recorded
-    :Grid Variables: ``[grid_name].[output_name]``, these indicate the grid
+    :Grid Variables: ``d.[grid_name].[output_name]``, these indicate the grid
        should be interpolated to get the value, which will often result in more
        parameters being implicitly defined.
 
@@ -38,30 +38,32 @@ class ModelBuilder():
     '''
 
     @property
-    def _code_generator(self) -> CodeGenerator:
-        if self._gen is None:
+    def code_generator(self) -> CodeGenerator:
+        if self.__gen__ is None:
+            self.__grids__ = {}
             deferred_map = self._resolve_deferred()
             if self.verbose:
                 print(f"\n    {self.txt.underline}Code Generation{self.txt.end}")
-            self._gen = CodeGenerator(self.verbose)
+            self.__gen__ = CodeGenerator(self.verbose)
             for deferred_vars, expr in self._expressions:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
-                self._gen.expression(expr.format_map(deferred_map))
-            for deferred_vars, var, expr in self._assignments + self._assignments_gen:
+                self.__gen__.expression(expr.format_map(deferred_map))
+            for deferred_vars, var, expr in self._assignments + self.__assignments_gen__:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
-                self._gen.assign(var.format_map(deferred_map), expr.format_map(deferred_map))
-            for deferred_vars, var, dist, params in self._constraints + self._constraints_gen:
+                self.__gen__.assign(var.format_map(deferred_map), expr.format_map(deferred_map))
+            for deferred_vars, var, dist, params in self._constraints + self.__constraints_gen__:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
-                self._gen.constraint(var.format_map(deferred_map), dist.format_map(deferred_map), params)
+                self.__gen__.constraint(var.format_map(deferred_map), dist.format_map(deferred_map), params)
             for param, dist, params in self._priors:
-                self._gen.prior(param, dist, params)
-            self._gen.auto_constants = self._auto_constants.copy()
-            self._gen.constant_types = self._constant_types.copy()
-        return self._gen
+                self.__gen__.prior(param, dist, params)
+            self.__gen__.auto_constants = self._auto_constants.copy()
+            self.__gen__.constant_types = self._constant_types.copy()
+            print("")
+        return self.__gen__
 
     @property
     def txt(self) -> _TextFormatCodes_:
-        if self._fancy_text:
+        if self.fancy_text:
             return config.text_format
         return config.text_format_off
 
@@ -72,18 +74,19 @@ class ModelBuilder():
             fancy_text: If True, color and style terminal output text
         '''
         self.verbose: bool = verbose
-        self._fancy_text: bool = fancy_text
-        self._gen: Optional[CodeGenerator] = None
-        self._deferred_mappings: dict[str, str] = {}
+        self.fancy_text: bool = fancy_text
+        self.__gen__: Optional[CodeGenerator] = None
+        self.__grids__: dict[str, list[str]] = {}
+        self.user_mappings: dict[str, str] = {}
         # Data for the CodeGenerator setup, formatted as ([deferred vars], arguments...)
         # TODO: Namedtuples instead?
         self._expressions: List[Tuple[List[str], str]] = []
         self._assignments: List[Tuple[List[str], str, str]] = []
         self._constraints: List[Tuple[List[str], str, str, List[str | float]]] = []
         # Generated variables
-        self._auto_generating = False
-        self._assignments_gen: List[Tuple[List[str], str, str]] = []
-        self._constraints_gen: List[Tuple[List[str], str, str, List[str | float]]] = []
+        self.__auto_generating__ = False
+        self.__assignments_gen__: List[Tuple[List[str], str, str]] = []
+        self.__constraints_gen__: List[Tuple[List[str], str, str, List[str | float]]] = []
         # Priors do not have deferred_vars, so they're just (var, dist, params)
         self._priors: List[Tuple[str, str, List[str | float]]] = []
         # Lists to be passed directly to CodeGenerator
@@ -138,11 +141,15 @@ class ModelBuilder():
             for key, override in model['override'].items():
                 if self.verbose:
                     print(f"override.{key} = {override}")
-                for input_name, value in override.items():
-                    self.override_input(key, input_name, value)
+                if type(override) is dict:
+                    for input_name, value in override.items():
+                        self.override_mapping(f"{key}.{input_name}", value)
+                else:
+                    assert type(override) is str
+                    self.override_mapping(key, override)
 
-    def override_input(self, grid_name: str, input_name: str, value: str):
-        '''Sets the value or symbol to use for the given grid input.
+    def override_mapping(self, key: str, value: str):
+        '''Sets the value or symbol to use a deferred variable, often grid variables.
 
         This can be used to fix grid axes to a particular value, or make them depend on some
         additional grid output or calculation.  Grid inputs are set by default according to
@@ -150,32 +157,34 @@ class ModelBuilder():
         default to being a parameter named "p.{input_name}".
 
         Args:
-            grid_name: The grid to set the input of
-            input_name: Which input to set
-            value: What to set the input to
+            key: The deferred variable key, e.g. "grid.output_var" or "nongrid_var".
+            value: What to set the variable to wherever it appears.
 
         Examples:
             Suppose you are fitting a stellar model and wish to lock the metallicity to solar.
             If you're using the mist grid, you could do this with::
 
-                builder.override_input("mist", "feh", "0")
+                builder.override_input("mist.feh", "0")
 
             In the same circumstance, if you wanted to set logG to 2% higher than
             what the evolution tracks output (as a sensitivity test, perhaps), you could use::
 
-                builder.override_input("mist", "logG", "1.02*mistTracks.logG")
+                builder.override_input("mist.logG", "1.02*d.mistTracks.logG")
 
-            Note that this uses another grid.  Starlord will detect and handle this without
-            issue.  In fact, the default input refers to mistTracks.logG already.
+            Note that this uses another grid via a deferred variable.  Starlord detectrs this
+            via the "d." prefix.  In fact, the default input refers to d.mistTracks.logG already.
         '''
-        # TODO: Make function more general
         if self.verbose:
-            print(f"  ModelBuilder.override_input('{grid_name}', '{input_name}', '{value}')")
-        grid = GridGenerator.get_grid(grid_name)
-        assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
+            print(f"  ModelBuilder.override_input('{key}', '{value}')")
+        assert re.fullmatch(r"[a-zA-Z]\w*(\.[a-zA-Z]\w*)?", key), key
+        if "." in key:
+            grid_name, input_name = key.split(".")
+            grid = GridGenerator.get_grid(grid_name)
+            assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
+            key = f"{grid_name}__{input_name}"
         self._gen = None
         _, value = self._extract_deferred(value)
-        self._deferred_mappings[f"{grid_name}__{input_name}"] = value
+        self.user_mappings[key] = value
 
     def expression(self, expr: str) -> None:
         '''Directly insert an expression into the generated code.
@@ -217,14 +226,16 @@ class ModelBuilder():
             as (arbitrarily-named) constants to set later, but you can use literals instead
             if you want to.
         '''
-        # If l or b is omitted, l is implied
-        var = var if re.match(r"^[bl]\.", var) is not None else f"l.{var}"
         if self.verbose:
             print(f"  ModelBuilder.assignment('{var}', {expr})")
+        assert re.fullmatch(r"({\w+}|(l\.)?[a-zA-Z]\w*)", var), var
+        # l is implied if it is omitted.
+        if not (var.startswith("l.") or var.startswith("{")):
+            var = f"l.{var}"
         deferred_vars, expr = self._extract_deferred(expr)
         self._gen = None
-        if self._auto_generating:
-            self._assignments_gen.append((deferred_vars, var, expr))
+        if self.__auto_generating__:
+            self.__assignments_gen__.append((deferred_vars, var, expr))
         else:
             self._assignments.append((deferred_vars, var, expr))
 
@@ -246,15 +257,11 @@ class ModelBuilder():
         if self.verbose:
             print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
         deferred_vars, var = self._extract_deferred(var)
-        # assert var.count(".") == 1, 'Variables must be of the form "label.name".'
-        # label, name = var.split(".")
-        # assert label in "pbld", "Variable label must be a grid name, p, b, or l."
+        assert re.fullmatch(r"({\w+}|[pcl]\.[a-zA-Z]\w*)", var), f'Bad variable name {var}.'
         self._gen = None
-        if self._auto_generating:
-            # self._constraints_gen.append((deferred_vars, f"{label}.{name}", dist, params))
-            self._constraints_gen.append((deferred_vars, var, dist, params))
+        if self.__auto_generating__:
+            self.__constraints_gen__.append((deferred_vars, var, dist, params))
         else:
-            # self._constraints.append((deferred_vars, f"{label}.{name}", dist, params))
             self._constraints.append((deferred_vars, var, dist, params))
 
     def prior(self, param: str, dist: str, params: list[str | float]) -> None:
@@ -283,15 +290,14 @@ class ModelBuilder():
         Returns:
             The model summary.
         '''
-        result = []
-        # TODO: Add grid listing back in
-        # result = [f"    {self.txt.underline}Grids{self.txt.end}"]
-        # if self._used_grids:
-        #     for k, v in sorted(self._used_grids.items(), key=lambda g: g[0]):
-        #         result.append(k + " " + ", ".join(sorted(v)))
-        # else:
-        #     result.append("None")
-        return "\n".join(result) + "\n\n" + self._code_generator.summary(self._fancy_text)
+        summary_text = self.code_generator.summary(self.fancy_text)
+        result = [f"    {self.txt.underline}Grids{self.txt.end}"]
+        if self.__grids__:
+            for k, v in sorted(self.__grids__.items(), key=lambda g: g[0]):
+                result.append(k + " " + ", ".join(sorted(v)))
+        else:
+            result.append("None")
+        return "\n".join(result) + "\n\n" + summary_text
 
     def generate_code(self) -> str:
         '''Generates the code for the model.
@@ -302,7 +308,7 @@ class ModelBuilder():
         Raises:
             AssertionError: if one of the various consistency checks fails.
         '''
-        return self._code_generator.generate()
+        return self.code_generator.generate()
 
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
@@ -323,16 +329,20 @@ class ModelBuilder():
         # Identifies deferred variables of the form "d.foo.bar"
         vars = []
         replace_grids = partial(ModelBuilder._replace_grid_name, accum=vars)
-        source = re.sub(r"d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z_]\w*))?", replace_grids, source)
+        source = re.sub(r"d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?", replace_grids, source)
         return vars, source
 
     @staticmethod
     def _replace_grid_name(match, accum):
         label, name = match.groups()
-        assert label in GridGenerator.grids().keys()
-        var = f"{label}__{name}"
-        accum.append(var)
-        return f"{{{var}}}"
+        if name is not None:
+            assert label in GridGenerator.grids().keys()
+            var = f"{label}__{name}"
+            accum.append(var)
+            return f"{{{var}}}"
+        else:
+            accum.append(label)
+            return f"{{{label}}}"
 
     def _resolve_deferred(self) -> dict[str, str]:
         # TODO: Docs
@@ -355,9 +365,9 @@ class ModelBuilder():
             stack.append(dvar)
 
             # Get the value to sub in for symbol
-            if dvar in self._deferred_mappings:
+            if dvar in self.user_mappings:
                 # User-specified mapping for the variable takes priority
-                value = self._deferred_mappings[dvar]
+                value = self.user_mappings[dvar]
                 _, value = self._extract_deferred(value)
                 value = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, value)
             else:
@@ -375,27 +385,28 @@ class ModelBuilder():
                     code = f"c.{grid_var}._interp{grid.ndim}d({param_string})"
                     code = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, code)
                     try:
-                        self._auto_generating = True
+                        self.__auto_generating__ = True
                         self.assign(f"{grid_name}__{key}", code)
                         self._auto_constants[grid_var] = f"GridGenerator.get_grid('{grid_name}').build_grid('{key}')"
                         self._constant_types[grid_var] = "GridInterpolator"
                     finally:
-                        self._auto_generating = False
+                        self.__auto_generating__ = False
                     value = f"l.{grid_name}__{key}"
                 elif key in grid.derived:
                     _, code = self._extract_deferred(grid.derived[key])
                     code = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, code)
                     try:
-                        self._auto_generating = True
+                        self.__auto_generating__ = True
                         self.assign(f"l.{grid_name}__{key}", code)
                     finally:
-                        self._auto_generating = False
+                        self.__auto_generating__ = False
                     value = f"l.{grid_name}__{key}"
                 else:
                     raise ValueError(f"Key {key} not in grid {grid_name}.")
+                self.__grids__.setdefault(grid_name, []).append(key)
 
             if self.verbose:
-                print(dvar.ljust(30), value)
+                print("d." + dvar.replace("__", ".").ljust(30), value)
 
             # Value is now fully resolved, so record and return it.
             deferred_mappings[dvar] = value
@@ -428,9 +439,9 @@ class ModelBuilder():
             A set() of any missing constant names
             A set() of any extra constant names that weren't expected
         '''
-        expected = {c.name for c in self._code_generator.constants}
+        expected = {c.name for c in self.code_generator.constants}
         missing = expected - set(constants.keys())
-        missing -= set(self._code_generator.auto_constants.keys())
+        missing -= set(self.code_generator.auto_constants.keys())
         extra = set(constants.keys()) - expected
         if print_summary:
             print(f"\n    {self.txt.underline}Constant Values{self.txt.end}")
@@ -462,13 +473,13 @@ class ModelBuilder():
             KeyError: if a required constant was not provided in constants
             ValueError: if the `sampler_type` was not one of "dynesty" or "emcee"
         '''
-        mod = self._code_generator.compile()
+        mod = self.code_generator.compile()
         missing, _ = self.validate_constants(constants, self.verbose)
         if missing:
             raise KeyError("Missing values for constant(s): " + ", ".join(missing))
         consts = []
-        for c in self._code_generator.constants:
-            if c[2:] not in self._code_generator.auto_constants.keys():
+        for c in self.code_generator.constants:
+            if c[2:] not in self.code_generator.auto_constants.keys():
                 consts.append(constants[str(c.name)])
         sampler_type = sampler_type.lower().strip()
         if sampler_type == "dynesty":

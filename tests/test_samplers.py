@@ -27,8 +27,8 @@ def test_grid_retrieval(dummy_grids: Path):
     code = builder.generate_code()
     print(code)
     assert len(re.findall(r"l_dummy__v1 = ", code)) == 1
-    assert builder._code_generator.locals == ('l.dummy__g1', 'l.dummy__g2', 'l.dummy__v1', 'l.dummy__v2', 'l.foo')
-    assert builder._code_generator.constants == ('c.grid__dummy__v1', 'c.grid__dummy__v2', 'c.offset')
+    assert builder.code_generator.locals == ('l.dummy__g1', 'l.dummy__g2', 'l.dummy__v1', 'l.dummy__v2', 'l.foo')
+    assert builder.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__dummy__v2', 'c.offset')
     sampler = builder.build_sampler("emcee", {'offset': 1.5})
 
     # Check the forward model works as expected (see test_grids.dummy_grids)
