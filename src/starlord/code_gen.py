@@ -57,12 +57,6 @@ class CodeGenerator:
         return tuple(self._constants)
 
     @property
-    def blobs(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return tuple(self._blobs)
-
-    @property
     def locals(self):
         if self._vars_out_of_date:
             self._update_vars()
@@ -83,7 +77,6 @@ class CodeGenerator:
         self._variables: set[Symb] = set()
         self._params: list[Symb] = []
         self._constants: list[Symb] = []
-        self._blobs: list[Symb] = []
         self._locals: list[Symb] = []
         self.constant_types = {}
 
@@ -91,7 +84,6 @@ class CodeGenerator:
         self._variables, result = self._collect_vars(self._like_components + self._prior_components)
         self._params = sorted(list(result['p']))
         self._constants = sorted(list(result['c']))
-        self._blobs = sorted(list(result['b']))
         self._locals = sorted(list(result['l']))
         self._vars_out_of_date = False
 
@@ -102,8 +94,6 @@ class CodeGenerator:
         mapping['c'] = Namespace(**{c.name: p + c.var for c in self.constants})
         mapping['l'] = Namespace(**{loc.name: p + loc.var for loc in self.locals})
         mapping['p'] = Namespace(**{n.name: f"params[{i}]" for i, n in enumerate(self.params)})
-        if self.blobs:
-            raise NotImplementedError
         return mapping
 
     def generate_prior_ppf(self) -> str:
@@ -256,8 +246,6 @@ class CodeGenerator:
                 else:
                     consts.append(txt.blue + c[2:] + txt.end)
             result += ["Constants:".ljust(12) + ", ".join(consts)]
-        if self.blobs:
-            result += ["Blobs:".ljust(12) + ", ".join([txt.green + b[2:] + txt.end for b in self.blobs])]
         if self.locals:
             result += ["Locals:".ljust(12) + ", ".join([txt.green + loc[2:] + txt.end for loc in self.locals])]
         result += [f"\n    {txt.underline}Forward Model{txt.end}"]
@@ -279,36 +267,36 @@ class CodeGenerator:
         automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
         provides = set()
         # Finds assignment blocks like "l.foo = " and "l.bar, l.foo = "
-        assigns = re.findall(r"^\s*[pcbl]\.[A-Za-z_]\w*\s*(?:,\s*[pcbl]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
+        assigns = re.findall(r"^\s*[pcl]\.[A-Za-z_]\w*\s*(?:,\s*[pcl]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
         assigns += re.findall(
-            r"^\s*\(\s*[pcbl]\.[A-Za-z_]\w*\s*(?:,\s*[pcbl]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
+            r"^\s*\(\s*[pcl]\.[A-Za-z_]\w*\s*(?:,\s*[pcl]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         # Same as above but covers when vars are enclosed by parentheses like "(l.a, l.b) ="
         assigns += re.findall(
-            r"^\s*\(\s*[pcbl]\.[A-Za-z_]\w*\s*(?:,\s*[pcba]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
+            r"^\s*\(\s*[pcl]\.[A-Za-z_]\w*\s*(?:,\s*[pca]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         for block in assigns:
             # Handles parens, multiple assignments, extra whitespace, and removes the "="
             block = block[:-1].strip(" ()")
             # Block now looks like "l.foo" or "l.foo, l.bar"
             for var in block.split(","):
                 var = var.strip()
-                # Verify that the result is a local or blob formatted as "l.foo" or "b.bar"
-                assert var[0] in "lb" and var[1] == ".", var
+                # Verify that the result is a local var "l.foo"
+                assert var[:2] == "l.", var
                 provides.add(Symb(var))
         code, variables = self._extract_params(expr)
         requires = variables - provides
         comp = Component(requires, provides, code, self._mark_autogen)
         if self.verbose:
-            print(self._fancy_format("\n".join(["    " + line for line in str(comp).split("\n")])))
+            print(self._fancy_format("\n".join([line for line in str(comp).split("\n")])))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
     def assign(self, var: str, expr: str) -> None:
         # If l or b is omitted, l is implied
-        var = Symb(var if re.match(r"^[bl]\.", var) is not None else f"l.{var}")
+        var = Symb(var if re.match(r"^l\.", var) is not None else f"l.{var}")
         code, variables = self._extract_params(expr)
         comp = AssignmentComponent.create(var, code, variables - {var}, self._mark_autogen)
         if self.verbose:
-            print("    " + self._fancy_format(str(comp)))
+            print(self._fancy_format(str(comp)))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -318,7 +306,7 @@ class CodeGenerator:
         pars: list[Symb] = [Symb(i) for i in params]
         comp = DistributionComponent.create(var, dist, pars, self._mark_autogen)
         if self.verbose:
-            print("    " + self._fancy_format(str(comp)))
+            print(self._fancy_format(str(comp)))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -328,7 +316,7 @@ class CodeGenerator:
         pars: list[Symb] = [Symb(i) for i in params]
         comp = Prior.create(var, dist, pars)
         if self.verbose:
-            print("    " + self._fancy_format(str(comp)))
+            print(self._fancy_format(str(comp)))
         self._prior_components.append(comp)
         self._vars_out_of_date = True
 
@@ -342,7 +330,7 @@ class CodeGenerator:
         txt = config.text_format if fancy else config.text_format_off
         result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source, flags=re.M)
         result = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
-        result = re.sub(r"{([bl]\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
+        result = re.sub(r"{(l\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
         result = re.sub(r"{([+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
         return result
 
@@ -352,8 +340,8 @@ class CodeGenerator:
         variables are listed before those that require them. Beyond this the sort is stable
         (components which could appear in any order appear in the order found in their input list).'''
         _, vars = CodeGenerator._collect_vars(components)
-        # Check that every local and blob used is initialized somewhere
-        for v in vars['l'] | vars['b']:
+        # Check that every local used is initialized somewhere
+        for v in vars['l']:
             for comp in components:
                 if v in comp.provides:
                     break
@@ -365,7 +353,7 @@ class CodeGenerator:
         components = components.copy()
         while len(components) > 0:
             for comp in components:
-                reqs = {c for c in comp.requires if c[0] in "bl" and c not in initialized}
+                reqs = {c for c in comp.requires if c[:2] == "l." and c not in initialized}
                 if len(reqs) == 0:
                     initialized = initialized | comp.provides
                     result.append(comp)
@@ -378,10 +366,10 @@ class CodeGenerator:
     @staticmethod
     def _collect_vars(target: list[Component]) -> tuple[set[Symb], dict[str, set[Symb]]]:
         variables = set()
-        result: dict[str, set[Symb]] = {i: set() for i in 'pcbld'}
+        result: dict[str, set[Symb]] = {i: set() for i in 'pcld'}
         for comp in target:
             for sym in comp.requires | comp.provides:
-                assert sym.label in 'pcbld', f"Bad symbol name {sym}"
+                assert sym.label in 'pcl', f"Bad symbol name {sym}"
                 result[sym.label].add(sym)
                 variables.add(sym)
         return variables, result
@@ -389,10 +377,10 @@ class CodeGenerator:
     @staticmethod
     def _extract_params(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
-        Variables can be constants "c.name", blobs "b.name", parameters "p.name", or local variables "l.name".
+        Variables can be constants "c.name", parameters "p.name", or local variables "l.name".
         Ignores variables already surrounded by format brackets.'''
-        template: str = re.sub(r"(?<![\w{])([pcbld]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)
-        all_vars: list[str] = re.findall(r"(?<=\{)[pcbld]\.[A-Za-z_]\w*(?=\})", template, flags=re.M)
+        template: str = re.sub(r"(?<![\w{])([pcld]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)
+        all_vars: list[str] = re.findall(r"(?<=\{)[pcld]\.[A-Za-z_]\w*(?=\})", template, flags=re.M)
         variables: set[Symb] = {Symb(v) for v in all_vars}
         return template, variables
 

@@ -8,7 +8,7 @@ class Symb(str):
     '''Represents a single symbol or constant in the code generator.'''
 
     def __new__(cls, source: str | float | int) -> Symb:
-        if type(source) is str and re.fullmatch(r"[pcbld]\.[A-Za-z_]\w*", source) is not None:
+        if type(source) is str and re.fullmatch(r"[pcl]\.[A-Za-z_]\w*", source) is not None:
             return super().__new__(cls, source)
         try:
             value: float = float(source)

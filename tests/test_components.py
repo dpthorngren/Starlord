@@ -12,7 +12,7 @@ def test_symbols():
         code_components.Symb("asdf")
     with raises(ValueError):
         code_components.Symb("p_stuff")
-    s = code_components.Symb("b.foo")
-    assert s.label == "b"
+    s = code_components.Symb("c.foo")
+    assert s.label == "c"
     assert s.name == "foo"
-    assert s.var == "b_foo"
+    assert s.var == "c_foo"

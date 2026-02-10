@@ -4,7 +4,7 @@ import re
 from functools import partial
 from typing import List, Optional, Tuple
 
-from ._config import config
+from ._config import _TextFormatCodes_, config
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
 from .samplers import SamplerEnsemble, SamplerNested
@@ -36,6 +36,34 @@ class ModelBuilder():
     you must define priors with :meth:`prior` before you can get a sampler for
     the model with :meth:`build_sampler`.
     '''
+
+    @property
+    def _code_generator(self) -> CodeGenerator:
+        if self._gen is None:
+            deferred_map = self._resolve_deferred()
+            if self.verbose:
+                print(f"\n    {self.txt.underline}Code Generation{self.txt.end}")
+            self._gen = CodeGenerator(self.verbose)
+            for deferred_vars, expr in self._expressions:
+                assert all([i in deferred_map.keys() for i in deferred_vars])
+                self._gen.expression(expr.format_map(deferred_map))
+            for deferred_vars, var, expr in self._assignments + self._assignments_gen:
+                assert all([i in deferred_map.keys() for i in deferred_vars])
+                self._gen.assign(var.format_map(deferred_map), expr.format_map(deferred_map))
+            for deferred_vars, var, dist, params in self._constraints + self._constraints_gen:
+                assert all([i in deferred_map.keys() for i in deferred_vars])
+                self._gen.constraint(var.format_map(deferred_map), dist.format_map(deferred_map), params)
+            for param, dist, params in self._priors:
+                self._gen.prior(param, dist, params)
+            self._gen.auto_constants = self._auto_constants.copy()
+            self._gen.constant_types = self._constant_types.copy()
+        return self._gen
+
+    @property
+    def txt(self) -> _TextFormatCodes_:
+        if self._fancy_text:
+            return config.text_format
+        return config.text_format_off
 
     def __init__(self, verbose: bool = False, fancy_text: bool = True):
         '''
@@ -75,9 +103,8 @@ class ModelBuilder():
                 model = tomllib.load("mymodel.toml")['model']
                 builder = ModelBuilder().set_from_dict(model)
         '''
-        txt = config.text_format if self._fancy_text else config.text_format_off
         if self.verbose:
-            print(f"    {txt.underline}Model Processing{txt.end}")
+            print(f"    {self.txt.underline}Model Processing{self.txt.end}")
         if "expr" in model.keys():
             for name, code in model['expr'].items():
                 if self.verbose:
@@ -105,7 +132,7 @@ class ModelBuilder():
                 for key, value in model[grid].items():
                     assert len(value) in [2, 3]
                     if self.verbose:
-                        print(f"{grid}.{key} = {value}")
+                        print(f"d.{grid}.{key} = {value}")
                     self._unpack_distribution(f"d.{grid}.{key}", value)
         if "override" in model.keys():
             for key, override in model['override'].items():
@@ -257,9 +284,8 @@ class ModelBuilder():
             The model summary.
         '''
         result = []
-        # txt = config.text_format if self._fancy_text else config.text_format_off
         # TODO: Add grid listing back in
-        # result = [f"    {txt.underline}Grids{txt.end}"]
+        # result = [f"    {self.txt.underline}Grids{self.txt.end}"]
         # if self._used_grids:
         #     for k, v in sorted(self._used_grids.items(), key=lambda g: g[0]):
         #         result.append(k + " " + ", ".join(sorted(v)))
@@ -278,27 +304,6 @@ class ModelBuilder():
         '''
         return self._code_generator.generate()
 
-    @property
-    def _code_generator(self) -> CodeGenerator:
-        if self._gen is None:
-            deferred_map = self._resolve_deferred()
-            # TODO: Finish setting up the generator
-            self._gen = CodeGenerator(self.verbose)
-            for deferred_vars, expr in self._expressions:
-                assert all([i in deferred_map.keys() for i in deferred_vars])
-                self._gen.expression(expr.format_map(deferred_map))
-            for deferred_vars, var, expr in self._assignments + self._assignments_gen:
-                assert all([i in deferred_map.keys() for i in deferred_vars])
-                self._gen.assign(var.format_map(deferred_map), expr.format_map(deferred_map))
-            for deferred_vars, var, dist, params in self._constraints + self._constraints_gen:
-                assert all([i in deferred_map.keys() for i in deferred_vars])
-                self._gen.constraint(var.format_map(deferred_map), dist.format_map(deferred_map), params)
-            for param, dist, params in self._priors:
-                self._gen.prior(param, dist, params)
-            self._gen.auto_constants = self._auto_constants.copy()
-            self._gen.constant_types = self._constant_types.copy()
-        return self._gen
-
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
         the results on to :func:`prior` if prior=True else :func:`constraint`'''
@@ -312,7 +317,8 @@ class ModelBuilder():
         else:
             self.constraint(var, dist, spec)
 
-    def _extract_deferred(self, source: str) -> Tuple[List[str], str]:
+    @staticmethod
+    def _extract_deferred(source: str) -> Tuple[List[str], str]:
         '''Extracts grid names from the source string and replaces them with deferred variables.'''
         # Identifies deferred variables of the form "d.foo.bar"
         vars = []
@@ -329,10 +335,9 @@ class ModelBuilder():
         return f"{{{var}}}"
 
     def _resolve_deferred(self) -> dict[str, str]:
-        # TODO: Docs, verbose messages
-        txt = config.text_format if self._fancy_text else config.text_format_off
+        # TODO: Docs
         if self.verbose:
-            print(f"\n    {txt.underline}Variable Resolution{txt.end}")
+            print(f"\n    {self.txt.underline}Variable Resolution{self.txt.end}")
 
         # Setup the recursive resolver
         deferred_mappings = dict()
@@ -389,6 +394,9 @@ class ModelBuilder():
                 else:
                     raise ValueError(f"Key {key} not in grid {grid_name}.")
 
+            if self.verbose:
+                print(dvar.ljust(30), value)
+
             # Value is now fully resolved, so record and return it.
             deferred_mappings[dvar] = value
             stack.remove(dvar)
@@ -420,23 +428,22 @@ class ModelBuilder():
             A set() of any missing constant names
             A set() of any extra constant names that weren't expected
         '''
-        txt = config.text_format if self._fancy_text else config.text_format_off
         expected = {c.name for c in self._code_generator.constants}
         missing = expected - set(constants.keys())
         missing -= set(self._code_generator.auto_constants.keys())
         extra = set(constants.keys()) - expected
         if print_summary:
-            print(f"\n    {txt.underline}Constant Values{txt.end}")
+            print(f"\n    {self.txt.underline}Constant Values{self.txt.end}")
             if not missing and not constants.items():
                 print("[None]")
             for k in missing:
-                print(f"{txt.blue}{txt.bold}c.{k}{txt.end} is not set")
+                print(f"{self.txt.blue}{self.txt.bold}c.{k}{self.txt.end} is not set")
             for k, v in constants.items():
                 if k in extra:
-                    print(f"{txt.blue}{txt.bold}c.{k}{txt.end} is set but not used")
+                    print(f"{self.txt.blue}{self.txt.bold}c.{k}{self.txt.end} is set but not used")
                 elif k in expected:
                     # Excludes grid variables, which are managed internally by Starlord
-                    print(f"{txt.blue}{txt.bold}c.{k}{txt.end} = {txt.blue}{v:.4n}{txt.end}")
+                    print(f"{self.txt.blue}{self.txt.bold}c.{k}{self.txt.end} = {self.txt.blue}{v:.4n}{self.txt.end}")
             print("")
         return missing, extra
 
