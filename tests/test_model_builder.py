@@ -23,28 +23,28 @@ def test_recursive_grids(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     fitter = starlord.ModelBuilder()
-    fitter.constraint("rdummy.d", "normal", [10., 1.])
+    fitter.constraint("d.rdummy.d", "normal", [10., 1.])
     # Running to resolve the grids
     print(fitter.summary())
     assert fitter._gen is not None
     assert fitter._gen.params == ('p.b', 'p.x', 'p.y')
-    assert fitter._gen.locals == ('l.dummy_g1', 'l.dummy_v1', 'l.rdummy_c', 'l.rdummy_d')
-    assert fitter._gen.constants == ('c.grid_dummy_v1', 'c.grid_rdummy_c')
+    assert fitter._gen.locals == ('l.dummy__g1', 'l.dummy__v1', 'l.rdummy__c', 'l.rdummy__d')
+    assert fitter._gen.constants == ('c.grid__dummy__v1', 'c.grid__rdummy__c')
 
 
 def test_param_overrides(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     fitter = starlord.ModelBuilder()
-    fitter.constraint("dummy.v1", "normal", [3., 1.])
+    fitter.constraint("d.dummy.v1", "normal", [3., 1.])
     fitter.override_input("dummy", "y", "5.0 + c.fixed_y")
     fitter.prior("p.x", "normal", [2., 5.])
     # Running to resolve the grids
     print(fitter.summary())
     assert fitter._gen is not None
     assert fitter._gen.params == ('p.x',)
-    assert fitter._gen.locals == ('l.dummy_v1',)
-    assert fitter._gen.constants == ('c.fixed_y', 'c.grid_dummy_v1')
+    assert fitter._gen.locals == ('l.dummy__v1',)
+    assert fitter._gen.constants == ('c.fixed_y', 'c.grid__dummy__v1')
     code = fitter.generate_code()
     assert "5.0 + self.c_fixed_y" in code
     assert "params[1]" not in code

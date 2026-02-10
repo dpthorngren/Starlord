@@ -6,7 +6,7 @@ prior.b = ["normal", 1.5, 0.1]
 prior.x = ['normal', 3.0, 0.5]
 prior.y = ['uniform', 5.1, 6.0]
 
-override.rdummy.a = "math.sqrt(dummy.g1)"
+override.rdummy.a = "math.sqrt(d.dummy.g1)"
 
 [sampling]
 sampler = "emcee"
