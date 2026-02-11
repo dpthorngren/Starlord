@@ -56,8 +56,8 @@ class ModelBuilder():
                 self.__gen__.constraint(var.format_map(deferred_map), dist.format_map(deferred_map), params)
             for param, dist, params in self._priors:
                 self.__gen__.prior(param, dist, params)
-            self.__gen__.auto_constants = self._auto_constants.copy()
-            self.__gen__.constant_types = self._constant_types.copy()
+            self.__gen__.auto_constants = self.auto_constants.copy()
+            self.__gen__.constant_types = self.constant_types.copy()
             print("")
         return self.__gen__
 
@@ -75,23 +75,23 @@ class ModelBuilder():
         '''
         self.verbose: bool = verbose
         self.fancy_text: bool = fancy_text
+        # User-controlled settings passed directly to CodeGenerator
+        self.user_mappings: dict[str, str] = {}
+        self.auto_constants: dict[str, str] = {}
+        self.constant_types: dict[str, str] = {}
+        # Caching backers for self.code_generator
         self.__gen__: Optional[CodeGenerator] = None
         self.__grids__: dict[str, list[str]] = {}
-        self.user_mappings: dict[str, str] = {}
-        # Data for the CodeGenerator setup, formatted as ([deferred vars], arguments...)
-        # TODO: Namedtuples instead?
+        # Component storage for CodeGenerator setup, formatted as ([deferred vars], arguments...)
         self._expressions: List[Tuple[List[str], str]] = []
         self._assignments: List[Tuple[List[str], str, str]] = []
         self._constraints: List[Tuple[List[str], str, str, List[str | float]]] = []
-        # Generated variables
+        # Generated component storage (same as above, but handled internally)
         self.__auto_generating__ = False
         self.__assignments_gen__: List[Tuple[List[str], str, str]] = []
         self.__constraints_gen__: List[Tuple[List[str], str, str, List[str | float]]] = []
         # Priors do not have deferred_vars, so they're just (var, dist, params)
         self._priors: List[Tuple[str, str, List[str | float]]] = []
-        # Lists to be passed directly to CodeGenerator
-        self._auto_constants: dict[str, str] = {}
-        self._constant_types: dict[str, str] = {}
 
     def set_from_dict(self, model: dict) -> None:
         '''Load model description from a dict following the TOML input spec.
@@ -183,7 +183,7 @@ class ModelBuilder():
             assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
             key = f"{grid_name}__{input_name}"
         self._gen = None
-        _, value = self._extract_deferred(value)
+        _, value = DeferredResolver.extract_deferred(value)
         self.user_mappings[key] = value
 
     def expression(self, expr: str) -> None:
@@ -203,7 +203,7 @@ class ModelBuilder():
             print(f"  ModelBuilder.expression('{expr_str}')")
         # Switch any tabs out for spaces and process any grids
         expr = expr.replace("\t", "    ")
-        deferred_vars, expr = self._extract_deferred(expr)
+        deferred_vars, expr = DeferredResolver.extract_deferred(expr)
         self._gen = None
         self._expressions.append((deferred_vars, expr))
 
@@ -232,7 +232,7 @@ class ModelBuilder():
         # l is implied if it is omitted.
         if not (var.startswith("l.") or var.startswith("{")):
             var = f"l.{var}"
-        deferred_vars, expr = self._extract_deferred(expr)
+        deferred_vars, expr = DeferredResolver.extract_deferred(expr)
         self._gen = None
         if self.__auto_generating__:
             self.__assignments_gen__.append((deferred_vars, var, expr))
@@ -256,7 +256,7 @@ class ModelBuilder():
         '''
         if self.verbose:
             print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
-        deferred_vars, var = self._extract_deferred(var)
+        deferred_vars, var = DeferredResolver.extract_deferred(var)
         assert re.fullmatch(r"({\w+}|[pcl]\.[a-zA-Z]\w*)", var), f'Bad variable name {var}.'
         self._gen = None
         if self.__auto_generating__:
@@ -323,110 +323,6 @@ class ModelBuilder():
         else:
             self.constraint(var, dist, spec)
 
-    @staticmethod
-    def _extract_deferred(source: str) -> Tuple[List[str], str]:
-        '''Extracts grid names from the source string and replaces them with deferred variables.'''
-        # Identifies deferred variables of the form "d.foo.bar"
-        vars = []
-        replace_grids = partial(ModelBuilder._replace_grid_name, accum=vars)
-        source = re.sub(r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?", replace_grids, source)
-        return vars, source
-
-    @staticmethod
-    def _replace_grid_name(match, accum):
-        label, name = match.groups()
-        if name is not None:
-            assert label in GridGenerator.grids().keys()
-            var = f"{label}__{name}"
-            accum.append(var)
-            return f"{{{var}}}"
-        else:
-            accum.append(label)
-            return f"{{{label}}}"
-
-    def _resolve_deferred(self) -> dict[str, str]:
-        # TODO: Docs
-        if self.verbose:
-            print(f"\n    {self.txt.underline}Variable Resolution{self.txt.end}")
-
-        # Setup the recursive resolver
-        deferred_mappings = dict()
-        stack = []
-
-        def recursive_resolve(dvar):
-            if type(dvar) is re.Match:
-                dvar = dvar.group(1)
-            # If symbol in deferred_mappings, just return that
-            if dvar in deferred_mappings.keys():
-                return deferred_mappings[dvar]
-
-            # Detect circular definitions
-            assert dvar not in stack, f"The definition of {dvar} is circular."
-            stack.append(dvar)
-
-            # Get the value to sub in for symbol
-            if dvar in self.user_mappings:
-                # User-specified mapping for the variable takes priority
-                value = self.user_mappings[dvar]
-                _, value = self._extract_deferred(value)
-                value = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, value)
-            else:
-                # Only remaining valid option is a grid variable
-                grid_name, key = dvar.split('__')
-                grid = GridGenerator.get_grid(grid_name)
-
-                if key in grid.inputs:
-                    value = grid._get_input_map()[key]
-                    _, value = self._extract_deferred(value)
-                    value = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, value)
-                elif key in grid.outputs:
-                    grid_var = f"grid__{grid_name}__{key}"
-                    param_string = ", ".join([f"{{{grid_name}__{i}}}" for i in grid.inputs])
-                    code = f"c.{grid_var}._interp{grid.ndim}d({param_string})"
-                    code = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, code)
-                    try:
-                        self.__auto_generating__ = True
-                        self.assign(f"{grid_name}__{key}", code)
-                        self._auto_constants[grid_var] = f"GridGenerator.get_grid('{grid_name}').build_grid('{key}')"
-                        self._constant_types[grid_var] = "GridInterpolator"
-                    finally:
-                        self.__auto_generating__ = False
-                    value = f"l.{grid_name}__{key}"
-                elif key in grid.derived:
-                    _, code = self._extract_deferred(grid.derived[key])
-                    code = re.sub(r"{(\w+(?:\.\w+)?)}", recursive_resolve, code)
-                    try:
-                        self.__auto_generating__ = True
-                        self.assign(f"l.{grid_name}__{key}", code)
-                    finally:
-                        self.__auto_generating__ = False
-                    value = f"l.{grid_name}__{key}"
-                else:
-                    raise ValueError(f"Key {key} not in grid {grid_name}.")
-                self.__grids__.setdefault(grid_name, []).append(key)
-
-            if self.verbose:
-                print("d." + dvar.replace("__", ".").ljust(30), value)
-
-            # Value is now fully resolved, so record and return it.
-            deferred_mappings[dvar] = value
-            stack.remove(dvar)
-            return value
-
-        # Collect base list of deferred variables
-        all_deferred: set[str] = set()
-        all_deferred = all_deferred.union(*[i[0] for i in self._expressions])
-        all_deferred = all_deferred.union(*[i[0] for i in self._assignments])
-        all_deferred = all_deferred.union(*[i[0] for i in self._constraints])
-
-        while True:
-            unresolved = all_deferred - set(deferred_mappings.keys())
-            if len(unresolved) == 0:
-                break
-            recursive_resolve(unresolved.pop())
-
-        return deferred_mappings
-
     def validate_constants(self, constants: dict, print_summary: bool = False) -> Tuple[set[str], set[str]]:
         '''Check that the constants provided match those that were expected.
 
@@ -487,3 +383,137 @@ class ModelBuilder():
         elif sampler_type == "emcee":
             return SamplerEnsemble.create_from_module(mod, consts, **args)
         raise ValueError(f"Sampler type '{sampler_type}' was not recognized.")
+
+    def _resolve_deferred(self) -> dict[str, str]:
+        '''Gather deferred variables from the components and build a dict that resolves them.
+        This also fills out generated components and the __grids__ listing.'''
+        if self.verbose:
+            print(f"\n    {self.txt.underline}Variable Resolution{self.txt.end}")
+
+        # Collect base list of deferred variables
+        dvars: set[str] = set()
+        dvars = dvars.union(*[i[0] for i in self._expressions])
+        dvars = dvars.union(*[i[0] for i in self._assignments])
+        dvars = dvars.union(*[i[0] for i in self._constraints])
+
+        # Set up the resolver and solve
+        resolver = DeferredResolver(self.user_mappings, self.verbose)
+        resolver.resolve_all(dvars)
+
+        # Make components required by the resolved vars
+        self.__assignments_gen__ = []
+        self.__constraints_gen__ = []
+        resolver.push_components(self)
+        return resolver.def_map
+
+
+class DeferredResolver:
+    deferred_input_regex = r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?"
+    deferred_key_regex = r"{(\w+(?:\.\w+)?)}"
+
+    def __init__(self, user_map: dict[str, str], verbose=False):
+        self.user_map = user_map
+        self.verbose = verbose
+        # Lists dvars already being processed, to detect circular dependencies.
+        self.stack: list[str] = []
+        # Components required by the resolution (grids, intermediate variables)
+        # Structured as (grid, key, code)
+        self.new_components: list[Tuple[str, str, str]] = []
+        # Output mapping of dvars to the value to sub in for them
+        self.def_map: dict[str, str] = {}
+
+    def resolve_all(self, dvars) -> None:
+        unresolved = dvars - set(self.def_map.keys())
+        while len(unresolved) > 0:
+            self.resolve_recursive(unresolved.pop())
+            unresolved = dvars - set(self.def_map.keys())
+
+    def resolve_recursive(self, dvar: re.Match | str) -> str:
+        if type(dvar) is re.Match:
+            dvar = dvar.group(1)
+        assert type(dvar) is str
+
+        # If symbol in mappings, just return that
+        if dvar in self.def_map.keys():
+            return self.def_map[dvar]
+
+        # Detect circular definitions
+        assert dvar not in self.stack, f"The definition of {dvar} is circular."
+        self.stack.append(dvar)
+
+        # Get the value to sub in for symbol
+        if dvar in self.user_map:
+            # User-specified mapping for the variable takes priority
+            value = self.user_map[dvar]
+            _, value = DeferredResolver.extract_deferred(value)
+            value = re.sub(self.deferred_key_regex, self.resolve_recursive, value)
+        else:
+            # Must be a grid variable
+            grid_name, key = dvar.split('__')
+            grid = GridGenerator.get_grid(grid_name)
+
+            if key in grid.inputs:
+                # Grid input, can directly substitute value
+                value = grid._get_input_map()[key]
+                _, value = DeferredResolver.extract_deferred(value)
+                value = re.sub(self.deferred_key_regex, self.resolve_recursive, value)
+            elif key in grid.outputs:
+                # Grid output, need an interpolation component
+                grid_var = f"grid__{grid_name}__{key}"
+                inputs_str = ", ".join([f"{{{grid_name}__{i}}}" for i in grid.inputs])
+                code = f"c.{grid_var}._interp{grid.ndim}d({inputs_str})"
+                code = re.sub(self.deferred_key_regex, self.resolve_recursive, code)
+                self.new_components.append((grid_name, key, code))
+                value = f"l.{grid_name}__{key}"
+            elif key in grid.derived:
+                # Grid derived value, need assignment component
+                _, code = DeferredResolver.extract_deferred(grid.derived[key])
+                code = re.sub(self.deferred_key_regex, self.resolve_recursive, code)
+                self.new_components.append((grid_name, key, code))
+                value = f"l.{grid_name}__{key}"
+            else:
+                raise ValueError(f"Key {key} not in grid {grid_name}.")
+
+        if self.verbose:
+            print("d." + dvar.replace("__", ".").ljust(30), value)
+
+        # Value is now fully resolved, so record and return it.
+        self.def_map[dvar] = value
+        self.stack.remove(dvar)
+        return value
+
+    def push_components(self, target: ModelBuilder) -> None:
+        try:
+            target.__auto_generating__ = True
+            for grid_name, key, code in self.new_components:
+                grid_var = f"grid__{grid_name}__{key}"
+                if code.startswith("c.grid__"):
+                    target.assign(f"l.{grid_name}__{key}", code)
+                    target.auto_constants[grid_var] = f"GridGenerator.get_grid('{grid_name}').build_grid('{key}')"
+                    target.constant_types[grid_var] = "GridInterpolator"
+                else:
+                    target.assign(f"l.{grid_name}__{key}", code)
+                target.__grids__.setdefault(grid_name, []).append(key)
+        finally:
+            target.__auto_generating__ = False
+
+    @staticmethod
+    def extract_deferred(source: str) -> Tuple[List[str], str]:
+        '''Extracts grid names from the source string and replaces them with deferred variables.'''
+        # Identifies deferred variables of the form "d.foo.bar"
+        vars = []
+        replace_grids = partial(DeferredResolver._replace_grid_name, accum=vars)
+        source = re.sub(r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?", replace_grids, source)
+        return vars, source
+
+    @staticmethod
+    def _replace_grid_name(match, accum):
+        label, name = match.groups()
+        if name is not None:
+            assert label in GridGenerator.grids().keys()
+            var = f"{label}__{name}"
+            accum.append(var)
+            return f"{{{var}}}"
+        else:
+            accum.append(label)
+            return f"{{{label}}}"

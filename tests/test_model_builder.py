@@ -5,13 +5,14 @@ from test_grids import dummy_grids
 
 import starlord
 from starlord._config import config
+from starlord.model_builder import DeferredResolver
 
 
 def test_deferred_handling(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     src = "{l.foo = d.ten**d.dummy.v1 + d.dummy.x + p.dont_catch + c.ditto"
-    var, _ = starlord.ModelBuilder._extract_deferred(src)
+    var, _ = DeferredResolver.extract_deferred(src)
     assert var == ["ten", "dummy__v1", "dummy__x"]
 
 
