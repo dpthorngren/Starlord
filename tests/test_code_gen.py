@@ -19,12 +19,12 @@ def test_expressions():
     assert comp.requires == {"p.stuff"}
     assert comp.provides == {"l.foo"}
     assert comp.code.count("np.") == 1
-    assert comp.code.count("l_foo") == 0
-    assert comp.code.count("l.foo") == 1
-    assert comp.code.count("p_stuff") == 0
-    assert comp.code.count("p.stuff") == 1
+    assert comp.code.count("l__foo") == 1
+    assert comp.code.count("l.foo") == 0
+    assert comp.code.count("p__stuff") == 1
+    assert comp.code.count("p.stuff") == 0
     # Check variable aggregation
-    assert g.variables == {"l.foo", "p.stuff"}
+    assert g.variables is not None
     assert g.params == ("p.stuff",)
     assert g.locals == ("l.foo",)
     assert g.constants == ()

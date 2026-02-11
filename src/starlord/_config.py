@@ -4,7 +4,7 @@ from collections import namedtuple
 from pathlib import Path
 from types import SimpleNamespace
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 _TextFormatCodes_ = namedtuple(
     "_TextFormatCodes_",
