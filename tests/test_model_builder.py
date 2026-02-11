@@ -41,6 +41,24 @@ def test_recursive_grids(dummy_grids: Path):
     assert fitter.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__rdummy__c')
 
 
+def test_deferred_resolver(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    user_map = {'foo': 'd.rdummy.d', "dummy__x": "p.x_modified", "dummy.y": "p.y_modified"}
+    resolver = DeferredResolver(user_map, True)
+    resolver.resolve_all(set(["foo"]))
+    assert resolver.def_map['dummy__x'] == 'p.x_modified'
+    assert resolver.def_map['dummy__y'] == 'p.y_modified'
+    assert resolver.def_map['dummy__v1'] == 'l.dummy__v1'
+    assert resolver.def_map['dummy__g1'] == 'l.dummy__g1'
+    assert resolver.def_map['rdummy__a'] == 'l.dummy__g1'
+    assert resolver.def_map['rdummy__b'] == 'p.b'
+    assert resolver.def_map['rdummy__c'] == 'l.rdummy__c'
+    assert resolver.def_map['rdummy__d'] == 'l.rdummy__d'
+    assert resolver.def_map['foo'] == 'l.rdummy__d'
+    assert len(resolver.new_components) == 4
+
+
 def test_param_overrides(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()

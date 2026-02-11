@@ -408,11 +408,11 @@ class ModelBuilder():
 
 
 class DeferredResolver:
-    deferred_input_regex = r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?"
+    deferred_input_regex = r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*)(-\d+)?)?"
     deferred_key_regex = r"{(\w+(?:\.\w+)?)}"
 
     def __init__(self, user_map: dict[str, str], verbose=False):
-        self.user_map = user_map
+        self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}
         self.verbose = verbose
         # Lists dvars already being processed, to detect circular dependencies.
         self.stack: list[str] = []
