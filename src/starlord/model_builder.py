@@ -480,7 +480,7 @@ class ModelBuilder():
         consts = []
         for c in self.code_generator.constants:
             if c[2:] not in self.code_generator.auto_constants.keys():
-                consts.append(constants[str(c.name)])
+                consts.append(constants[str(c[2:])])
         sampler_type = sampler_type.lower().strip()
         if sampler_type == "dynesty":
             return SamplerNested.create_from_module(mod, consts, **args)

@@ -23,10 +23,10 @@ def test_grid_retrieval(dummy_grids: Path):
     builder.prior("y", "uniform", [0.1, 10.0])
     print(builder.summary())
 
-    # Check parameters (grid noted only after running)
+    # Check parameters
     code = builder.generate_code()
     print(code)
-    assert len(re.findall(r"l_dummy__v1 = ", code)) == 1
+    assert len(re.findall(r"l__dummy__v1 = ", code)) == 1
     assert builder.code_generator.locals == ('l.dummy__g1', 'l.dummy__g2', 'l.dummy__v1', 'l.dummy__v2', 'l.foo')
     assert builder.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__dummy__v2', 'c.offset')
     sampler = builder.build_sampler("emcee", {'offset': 1.5})
@@ -82,11 +82,11 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     paramSummary = re.search(r"^Params:\s+(.*)$", captured.out, flags=re.M)
     assert paramSummary is not None
     params = list(map(str.strip, paramSummary.group(1).split(",")))
-    assert params == ['bar', 'foo']
+    assert params == ['p.bar', 'p.foo']
     localSummary = re.search(r"^Locals:\s+(.*)$", captured.out, flags=re.M)
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
-    assert locals == ['blah', 'stuff']
+    assert locals == ['l.blah', 'l.stuff']
 
     # Check that the summary prints properly (largely formats result.stats())
     sampler = builder.build_sampler("dynesty", {'offset': 1.5})

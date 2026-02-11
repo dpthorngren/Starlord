@@ -7,30 +7,19 @@ import re
 import shutil
 import sys
 import time
+from functools import partial
 from importlib import util
 from importlib.machinery import ModuleSpec
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
+from typing import NamedTuple, Optional
 
 import cython
 
 from ._config import __version__, config
 from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
 
-
-class Namespace(SimpleNamespace):
-    '''A slightly less simple namespace, allowing for [] and iteration'''
-
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
-    def __iter__(self):
-        return self.__dict__.items().__iter__()
-
-    def keys(self):
-        return self.__dict__.keys()
-
-    def values(self):
-        return self.__dict__.values()
+_VarCache = NamedTuple(
+    'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
 
 
 class CodeGenerator:
@@ -39,96 +28,77 @@ class CodeGenerator:
     _dynamic_modules_: dict = {}
 
     @property
-    def variables(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return self._variables
+    def variables(self) -> _VarCache:
+        if self.__variables__ is None:
+            vars = self._collect_vars(self._like_components + self._prior_components)
+            params = tuple(sorted(vars[0]))
+            constants = tuple(sorted(vars[1]))
+            locals = tuple(sorted(vars[2]))
+            mapping = {c.var: f"self.{c.var}" for c in constants}
+            mapping.update({loc.var: f"self.{loc.var}" for loc in locals})
+            mapping.update({p.var: f"params[{i}]" for i, p in enumerate(params)})
+            self.__variables__ = _VarCache(params, constants, locals, mapping)  # type: ignore
+        return self.__variables__
 
     @property
-    def params(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return tuple(self._params)
+    def params(self) -> tuple[Symb]:
+        return self.variables.p
 
     @property
-    def constants(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return tuple(self._constants)
+    def constants(self) -> tuple[Symb]:
+        return self.variables.c
 
     @property
-    def locals(self):
-        if self._vars_out_of_date:
-            self._update_vars()
-        return tuple(self._locals)
+    def locals(self) -> tuple[Symb]:
+        return self.variables.l
+
+    @property
+    def mapping(self) -> dict[str, str]:
+        return self.variables.map
 
     def __init__(self, verbose: bool = False):
         self.verbose: bool = verbose
         self._like_components = []
         self._prior_components = []
-        self._mark_autogen: bool = False
         self.imports: list[str] = [
             "from starlord.cy_tools cimport *",
             "from starlord import GridGenerator",
         ]
         self.auto_constants = {}
-        # Lazily-updated property backers
-        self._vars_out_of_date: bool = True
-        self._variables: set[Symb] = set()
-        self._params: list[Symb] = []
-        self._constants: list[Symb] = []
-        self._locals: list[Symb] = []
         self.constant_types = {}
-
-    def _update_vars(self):
-        self._variables, result = self._collect_vars(self._like_components + self._prior_components)
-        self._params = sorted(list(result['p']))
-        self._constants = sorted(list(result['c']))
-        self._locals = sorted(list(result['l']))
-        self._vars_out_of_date = False
-
-    def get_mapping(self, prepend_self=False) -> dict[str, Namespace]:
-        self._update_vars()
-        p = "self." if prepend_self else ""
-        mapping: dict[str, Namespace] = {}
-        mapping['c'] = Namespace(**{c.name: p + c.var for c in self.constants})
-        mapping['l'] = Namespace(**{loc.name: p + loc.var for loc in self.locals})
-        mapping['p'] = Namespace(**{n.name: f"params[{i}]" for i, n in enumerate(self.params)})
-        return mapping
+        # Lazily-updated property backer
+        self.__variables__: Optional[_VarCache] = None
 
     def generate_prior_ppf(self) -> str:
-        mapping = self.get_mapping(True)
         result: list[str] = []
         result.append("cpdef double[:] prior_transform(self, double[:] params):")
-        params = self._collect_vars(self._like_components)[1]['p']
         prior_params = {list(c.vars)[0] for c in self._prior_components}
+        params = set(self.params)
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
         for comp in self._prior_components:
-            code: str = comp.generate_ppf().format(**mapping)
+            code: str = comp.generate_ppf().format(**self.mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return params\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate_log_prior(self) -> str:
-        mapping = self.get_mapping(True)
         result: list[str] = []
         result.append("cpdef double log_prior(self, double[:] params):")
         result.append("    cdef double logP = 0.")
-        params = self._collect_vars(self._like_components)[1]['p']
+        params = set(self.params)
         prior_params = {list(c.vars)[0] for c in self._prior_components}
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
         for comp in self._prior_components:
-            code: str = comp.generate_pdf().format(**mapping)
-            result.append("\n".join("    " + loc for loc in code.splitlines()))
+            code: str = comp.generate_pdf().format(**self.mapping)
+            result.append("\n".join("    " + i for i in code.splitlines()))
         result.append("    return logP\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate_forward_model(self) -> str:
-        mapping = self.get_mapping(True)
         # Write the function header
         result: list[str] = []
         result.append("cdef void _forward_model(self, double[:] params):")
@@ -136,25 +106,24 @@ class CodeGenerator:
         components = [c for c in self._like_components if type(c) is not DistributionComponent]
         components = self._sort_by_dependency(components)
         for comp in components:
-            code: str = comp.generate_code().format(**mapping)
+            code: str = comp.generate_code().format(**self.mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result[-1] = result[-1] + "\n"
         result.append("cpdef dict forward_model(self, double[:] params):")
         result.append("    self._forward_model(params)")
-        ret_locals = ", ".join([f"{k}={v}" for k, v in mapping['l'].__dict__.items()])
+        ret_locals = ", ".join([f"{loc.name}={self.mapping[loc.var]}" for loc in self.locals])
         result.append(f"    return dict({ret_locals})\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate_log_like(self) -> str:
-        mapping = self.get_mapping(True)
         # Write the function header
         result: list[str] = []
         result.append("cdef double _log_like(self, double[:] params):")
         result.append("    cdef double logL = 0.")
         for comp in self._like_components:
             if type(comp) is DistributionComponent:
-                code: str = comp.generate_code().format(**mapping)
+                code: str = comp.generate_code().format(**self.mapping)
                 result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
         # Generate the user-facing wrapper function
@@ -174,33 +143,31 @@ class CodeGenerator:
         return "\n".join(result)
 
     def generate_init(self) -> str:
-        mapping = self.get_mapping(True)
         result: list[str] = []
         # Organize function arguments and constants to be set
         args = ['self']
         definitions = []
-        for n, c in mapping['c']:
-            ct = self.constant_types.get(n, "double")
-            if n in self.auto_constants:
-                definitions.append(f"    if '{n}' in args:")
-                definitions.append(f"        {c} = args['{n}']")
+        for c in self.constants:
+            ct = self.constant_types.get(c.name, "double")
+            cm = self.mapping[c.var]
+            if c.name in self.auto_constants:
+                definitions.append(f"    if '{c.name}' in args:")
+                definitions.append(f"        {cm} = args['{c.name}']")
                 definitions.append("    else:")
-                definitions.append(f"        {c} = {self.auto_constants[n]}")
+                definitions.append(f"        {cm} = {self.auto_constants[c.name]}")
             else:
                 args.append(f"{ct} {c[5:]}")
-                definitions.append(f"    {c} = {c[5:]}")
+                definitions.append(f"    {cm} = {c[5:]}")
         args.append("**args")
         args = ", ".join(args)
         # Write the function
         result.append(f"def __init__({args}):")
-        param_names = list(mapping['p'].__dict__.keys())
-        result.append(f"    self.param_names = {param_names}")
+        result.append(f"    self.param_names = {[p.name for p in self.params]}")
         result += definitions
         result = ["    " + r for r in result]
         return "\n".join(result)
 
     def generate(self) -> str:
-        mapping = self.get_mapping()
         result: list[str] = []
         result.append("# Generated by Starlord.  Versions:")
         versions = f"# Starlord {__version__}, Cython {cython.__version__}, Python {sys.version}"
@@ -210,14 +177,15 @@ class CodeGenerator:
         # Class and constant declarations
         result.append("cdef class Model:")
         result.append("    cdef public object param_names")
-        for n, c in mapping['c']:
-            ct = self.constant_types.get(n, "double")
-            result.append(f"    cdef public {ct} {c}")
+        for c in self.constants:
+            ct = self.constant_types.get(c.name, "double")
+            cm = self.mapping[c.var][5:]
+            result.append(f"    cdef public {ct} {cm}")
         result.append("")
 
-        # Local vairable declarations
-        for n, l in mapping['l']:
-            result.append(f"    cdef public double {l}")
+        # Local variable declarations
+        for loc in self.locals:
+            result.append(f"    cdef public double {self.mapping[loc.var][5:]}")
         result.append("")
 
         result.append(self.generate_forward_model())
@@ -237,30 +205,32 @@ class CodeGenerator:
         result: list[str] = []
         result += [f"    {txt.underline}Variables{txt.end}"]
         if self.params:
-            result += ["Params:".ljust(12) + ", ".join([txt.yellow + p[2:] + txt.end for p in self.params])]
+            result += ["Params:".ljust(12) + ", ".join([p for p in self.params])]
         if self.constants:
-            consts = []
-            for c in self.constants:
-                if c in self.constant_types:
-                    consts.append(txt.blue + c[2:] + txt.end + " (" + self.constant_types[c] + ")")
-                else:
-                    consts.append(txt.blue + c[2:] + txt.end)
-            result += ["Constants:".ljust(12) + ", ".join(consts)]
+            result += ["Constants:".ljust(12) + ", ".join([c for c in self.constants])]
         if self.locals:
-            result += ["Locals:".ljust(12) + ", ".join([txt.green + loc[2:] + txt.end for loc in self.locals])]
+            result += ["Locals:".ljust(12) + ", ".join([loc for loc in self.locals])]
         result += [f"\n    {txt.underline}Forward Model{txt.end}"]
         likelihood = []
         for comp in self._sort_by_dependency(self._like_components):
             if type(comp) is DistributionComponent:
-                likelihood.append(str(comp))
+                likelihood.append(comp.display())
             else:
-                result.append(str(comp))
+                result.append(comp.display().format(**self.mapping))
         result += [f"\n    {txt.underline}Likelihood{txt.end}"]
         result += [str(i) for i in likelihood]
         result += [f"\n    {txt.underline}Prior{txt.end}"]
         prior_comps = sorted(self._prior_components, key=lambda c: "_".join(sorted(c.vars)))
-        result += [str(c) for c in prior_comps]
-        return self._fancy_format("\n".join(result), fancy)
+        result += [c.display() for c in prior_comps]
+        result_str = "\n".join(result)
+        # Highlight the output, if requested
+        if fancy:
+            result_str = re.sub(r"(?<!\w)(p\.\w+)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", result_str, flags=re.M)
+            result_str = re.sub(r"(?<!\w)(c\.\w+)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result_str, flags=re.M)
+            result_str = re.sub(r"(?<!\w)(l\.\w+)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result_str, flags=re.M)
+            result_str = re.sub(
+                r"((<!\w)[+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", result_str, flags=re.M)
+        return result_str
 
     def expression(self, expr: str) -> None:
         '''Specify a general expression to add to the code.  Assignments and variables used will be
@@ -284,9 +254,9 @@ class CodeGenerator:
                 provides.add(Symb(var))
         code, variables = self._extract_params(expr)
         requires = variables - provides
-        comp = Component(requires, provides, code, self._mark_autogen)
+        comp = Component(requires, provides, code)
         if self.verbose:
-            print(self._fancy_format("\n".join([line for line in str(comp).split("\n")])))
+            print("\n".join([line for line in str(comp).split("\n")]))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -294,9 +264,9 @@ class CodeGenerator:
         # If l or b is omitted, l is implied
         var = Symb(var if re.match(r"^l\.", var) is not None else f"l.{var}")
         code, variables = self._extract_params(expr)
-        comp = AssignmentComponent.create(var, code, variables - {var}, self._mark_autogen)
+        comp = AssignmentComponent.create(var, code, variables - {var})
         if self.verbose:
-            print(self._fancy_format(str(comp)))
+            print(comp.display())
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -304,9 +274,9 @@ class CodeGenerator:
         var = Symb(var)
         assert len(params) == 2
         pars: list[Symb] = [Symb(i) for i in params]
-        comp = DistributionComponent.create(var, dist, pars, self._mark_autogen)
+        comp = DistributionComponent.create(var, dist, pars)
         if self.verbose:
-            print(self._fancy_format(str(comp)))
+            print(comp.display())
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -316,37 +286,23 @@ class CodeGenerator:
         pars: list[Symb] = [Symb(i) for i in params]
         comp = Prior.create(var, dist, pars)
         if self.verbose:
-            print(self._fancy_format(str(comp)))
+            print(comp.display())
         self._prior_components.append(comp)
         self._vars_out_of_date = True
-
-    def remove_generated(self):
-        self._like_components = [c for c in self._like_components if not c.autogenerated]
-        self._vars_out_of_date = True
-
-    @staticmethod
-    def _fancy_format(source: str, fancy=False) -> str:
-        '''Finds variables enclosed in curly braces and boldens and colors them based on their type'''
-        txt = config.text_format if fancy else config.text_format_off
-        result = re.sub(r"{(p\.\w+)}", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source, flags=re.M)
-        result = re.sub(r"{(c\.\w+)}", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
-        result = re.sub(r"{(l\.\w+)}", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result, flags=re.M)
-        result = re.sub(r"{([+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", result, flags=re.M)
-        return result
 
     @staticmethod
     def _sort_by_dependency(components: list[Component]) -> list[Component]:
         '''Takes a list of components and returns a new one sorted such that components which provide
         variables are listed before those that require them. Beyond this the sort is stable
         (components which could appear in any order appear in the order found in their input list).'''
-        _, vars = CodeGenerator._collect_vars(components)
+        _, _, locals = CodeGenerator._collect_vars(components)
         # Check that every local used is initialized somewhere
-        for v in vars['l']:
+        for loc in locals:
             for comp in components:
-                if v in comp.provides:
+                if loc in comp.provides:
                     break
             else:
-                raise LookupError(f"Variable {v} is used but never initialized.")
+                raise LookupError(f"Variable {loc} is used but never initialized.")
         # Sort components according to their initialization requirements
         result = []
         initialized = set()
@@ -364,25 +320,36 @@ class CodeGenerator:
         return result
 
     @staticmethod
-    def _collect_vars(target: list[Component]) -> tuple[set[Symb], dict[str, set[Symb]]]:
-        variables = set()
-        result: dict[str, set[Symb]] = {i: set() for i in 'pcld'}
+    def _collect_vars(target: list[Component]) -> tuple[set[Symb], set[Symb], set[Symb]]:
+        params = set()
+        consts = set()
+        locals = set()
         for comp in target:
             for sym in comp.requires | comp.provides:
-                assert sym.label in 'pcl', f"Bad symbol name {sym}"
-                result[sym.label].add(sym)
-                variables.add(sym)
-        return variables, result
+                if sym.label == "p":
+                    params.add(sym)
+                elif sym.label == "c":
+                    consts.add(sym)
+                elif sym.label == "l":
+                    locals.add(sym)
+                else:
+                    raise ValueError(f"Invalid symbol {sym}.")
+        return params, consts, locals
 
     @staticmethod
     def _extract_params(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
-        Variables can be constants "c.name", parameters "p.name", or local variables "l.name".
-        Ignores variables already surrounded by format brackets.'''
-        template: str = re.sub(r"(?<![\w{])([pcld]\.[A-Za-z_]\w*)", r"{\1}", source, flags=re.M)
-        all_vars: list[str] = re.findall(r"(?<=\{)[pcld]\.[A-Za-z_]\w*(?=\})", template, flags=re.M)
-        variables: set[Symb] = {Symb(v) for v in all_vars}
-        return template, variables
+        Variables can be constants "c.name", parameters "p.name", or local variables "l.name".'''
+        vars = set()
+        replace_var = partial(CodeGenerator._replace_var, vars=vars)
+        template = re.sub(r"(?<!\w)([pcl]\.[A-Za-z_]\w*)", replace_var, source, flags=re.M)
+        return template, vars
+
+    @staticmethod
+    def _replace_var(source: re.Match, vars: set[Symb]) -> str:
+        var = Symb(source.group())
+        vars.add(var)
+        return var.bracketed
 
     @staticmethod
     def _cleanup_old_modules(exclude: list[str] = [], ignore_below: int = 20, stale_time: float = 7.) -> None:

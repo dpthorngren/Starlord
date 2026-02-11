@@ -44,24 +44,24 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     assert "from starlord.cy_tools cimport *\n" in captured.out
     assert "\n    cpdef double[:] prior_transform(self, double[:] params):\n" in captured.out
     # Key terms in the output present?
-    assert "\n        logL += normal_lpdf(self.l_A, 0.5, 0.25)\n" in captured.out
+    assert "\n        logL += normal_lpdf(self.l__A, 0.5, 0.25)\n" in captured.out
     assert "\n        params[0] = normal_ppf(params[0], -5.0, 5.0)" in captured.out
-    assert "\n        self.l_A = math.exp(params[0])" in captured.out
+    assert "\n        self.l__A = math.exp(params[0])" in captured.out
     # Summary was printed?
     assert "Variables" in captured.out
     # Check that the params match expectations
     paramSummary = re.search(r"^Params:\s+(.*)$", captured.out, flags=re.M)
     assert paramSummary is not None
     params = list(map(str.strip, paramSummary.group(1).split(",")))
-    assert params == ['a', 'b', 'y']
+    assert params == ['p.a', 'p.b', 'p.y']
     localSummary = re.search(r"^Locals:\s+(.*)$", captured.out, flags=re.M)
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
-    assert locals == ['A', 'B', 'dummy__v1', 'temp']
+    assert locals == ['l.A', 'l.B', 'l.dummy__v1', 'l.temp']
     constSummary = re.search(r"^Constants:\s+(.*)$", captured.out, flags=re.M)
     assert constSummary is not None
     consts = list(map(str.strip, constSummary.group(1).split(",")))
-    assert consts == ['B_mean', 'grid__dummy__v1', 'offset']
+    assert consts == ['c.B_mean', 'c.grid__dummy__v1', 'c.offset']
     # Listed constants prefer CLI to model file?
     assert "Constant Values" in captured.out
     assert "c.offset = -1.5" in captured.out
@@ -76,10 +76,10 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     # Test CLI summaries
     captured = capsys.readouterr().out
     print(captured)
-    assert "Params:     b, x, y" in captured
+    assert "Params:     p.b, p.x, p.y" in captured
     # assert "dummy g1, v1, v2" in captured
     # assert "rdummy c" in captured
-    assert "Params:     b, x, y" in captured
+    assert "Params:     p.b, p.x, p.y" in captured
     assert "l.dummy__g1 = 2.5*(5+p.x) + l.dummy__v1" in captured
     assert "Normal(l.dummy__v2 | 3.0, 1.0)" in captured
     assert "Normal(l.rdummy__c | 0.0, 1.0)" in captured
