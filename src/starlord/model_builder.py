@@ -329,7 +329,7 @@ class ModelBuilder():
         # Identifies deferred variables of the form "d.foo.bar"
         vars = []
         replace_grids = partial(ModelBuilder._replace_grid_name, accum=vars)
-        source = re.sub(r"d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?", replace_grids, source)
+        source = re.sub(r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?", replace_grids, source)
         return vars, source
 
     @staticmethod
