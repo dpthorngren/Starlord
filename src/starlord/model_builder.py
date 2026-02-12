@@ -58,7 +58,8 @@ class ModelBuilder():
                 self.__gen__.prior(param, dist, params)
             self.__gen__.auto_constants = self.auto_constants.copy()
             self.__gen__.constant_types = self.constant_types.copy()
-            print("")
+            if self.verbose:
+                print("")
         return self.__gen__
 
     @property
@@ -408,112 +409,121 @@ class ModelBuilder():
 
 
 class DeferredResolver:
-    deferred_input_regex = r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*)(-\d+)?)?"
-    deferred_key_regex = r"{(\w+(?:\.\w+)?)}"
+    # Matches deferred variables like d.foo, d.grid.foo, or d.grid.1-foo
+    process_input = re.compile(r"(?<!\w)d(?:\.([a-zA-Z_]\w+))?\.(?:([a-z\d]+)-)?([a-zA-Z1-9]\w*)")
+    # Matches deferred variable keys like {foo}, {grid__foo}, or {grid__1__foo}
+    get_deferred_keys = re.compile(r"{(?:(\w+?)__)?(?:([a-z\d]+)__)?(\w+)}")
+    # Same as above but omits brackets for initial input keys in resolve_all
+    process_target = re.compile(r"(?:(\w+?)__)?(?:([a-z\d]+)__)?(\w+)")
 
     def __init__(self, user_map: dict[str, str], verbose=False):
         self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}
         self.verbose = verbose
         # Lists dvars already being processed, to detect circular dependencies.
         self.stack: list[str] = []
-        # Components required by the resolution (grids, intermediate variables)
-        # Structured as (grid, key, code)
-        self.new_components: list[Tuple[str, str, str]] = []
+        # Generated components (e.g. grid interpolators), structured as (grid, key, code)
+        self.new_components: list[Tuple[str, str, str, str]] = []
         # Output mapping of dvars to the value to sub in for them
         self.def_map: dict[str, str] = {}
 
-    def resolve_all(self, dvars) -> None:
+    def resolve_all(self, dvars: set[str]) -> None:
+        dvars = {d.strip(" {}").removeprefix("d.") for d in dvars}
         unresolved = dvars - set(self.def_map.keys())
         while len(unresolved) > 0:
-            self.resolve_recursive(unresolved.pop())
+            match = DeferredResolver.process_target.fullmatch(unresolved.pop())
+            assert match is not None
+            self.resolve_recursive(match)
             unresolved = dvars - set(self.def_map.keys())
 
-    def resolve_recursive(self, dvar: re.Match | str) -> str:
-        if type(dvar) is re.Match:
-            dvar = dvar.group(1)
-        assert type(dvar) is str
+    def resolve_recursive(self, dvar: re.Match[str]) -> str:
+        grid_name, index, name = dvar.groups()
+        key = dvar.group(0).strip("{}")
+        key_no_ind = name if grid_name is None else f"{grid_name}__{name}"
 
         # If symbol in mappings, just return that
-        if dvar in self.def_map.keys():
-            return self.def_map[dvar]
+        if key in self.def_map.keys():
+            return self.def_map[key]
 
         # Detect circular definitions
         assert dvar not in self.stack, f"The definition of {dvar} is circular."
-        self.stack.append(dvar)
+        self.stack.append(key)
 
         # Get the value to sub in for symbol
-        if dvar in self.user_map:
+        if key in self.user_map:
             # User-specified mapping for the variable takes priority
-            value = self.user_map[dvar]
+            assert index is None, f"Cannot index non-grid deferred variables ({key})."
+            value = self.user_map[key]
             _, value = DeferredResolver.extract_deferred(value)
-            value = re.sub(self.deferred_key_regex, self.resolve_recursive, value)
+            value = DeferredResolver.get_deferred_keys.sub(self.resolve_recursive, value)
         else:
             # Must be a grid variable
-            grid_name, key = dvar.split('__')
             grid = GridGenerator.get_grid(grid_name)
 
-            if key in grid.inputs:
+            if name in grid.inputs:
                 # Grid input, can directly substitute value
-                value = grid._get_input_map()[key]
-                _, value = DeferredResolver.extract_deferred(value)
-                value = re.sub(self.deferred_key_regex, self.resolve_recursive, value)
-            elif key in grid.outputs:
+                value = grid._get_input_map()[name]
+                _, value = DeferredResolver.extract_deferred(value, index)
+                value = DeferredResolver.get_deferred_keys.sub(self.resolve_recursive, value)
+            elif name in grid.outputs:
                 # Grid output, need an interpolation component
-                grid_var = f"grid__{grid_name}__{key}"
                 inputs_str = ", ".join([f"{{{grid_name}__{i}}}" for i in grid.inputs])
-                code = f"c.{grid_var}._interp{grid.ndim}d({inputs_str})"
-                code = re.sub(self.deferred_key_regex, self.resolve_recursive, code)
-                self.new_components.append((grid_name, key, code))
-                value = f"l.{grid_name}__{key}"
-            elif key in grid.derived:
+                code = f"c.grid__{key_no_ind}._interp{grid.ndim}d({inputs_str})"
+                code = DeferredResolver.get_deferred_keys.sub(self.resolve_recursive, code)
+                self.new_components.append((grid_name, index, name, code))
+                value = f"l.{key}"
+            elif name in grid.derived:
                 # Grid derived value, need assignment component
-                _, code = DeferredResolver.extract_deferred(grid.derived[key])
-                code = re.sub(self.deferred_key_regex, self.resolve_recursive, code)
-                self.new_components.append((grid_name, key, code))
-                value = f"l.{grid_name}__{key}"
+                _, code = DeferredResolver.extract_deferred(grid.derived[name], index)
+                code = DeferredResolver.get_deferred_keys.sub(self.resolve_recursive, code)
+                self.new_components.append((grid_name, index, name, code))
+                value = f"l.{key}"
             else:
-                raise ValueError(f"Key {key} not in grid {grid_name}.")
+                raise ValueError(f"Key {key_no_ind} not in grid {grid_name}.")
 
         if self.verbose:
-            print("d." + dvar.replace("__", ".").ljust(30), value)
+            print(("d." + key).ljust(30), value)
 
         # Value is now fully resolved, so record and return it.
-        self.def_map[dvar] = value
-        self.stack.remove(dvar)
+        self.def_map[key] = value
+        self.stack.remove(key)
         return value
 
     def push_components(self, target: ModelBuilder) -> None:
         try:
             target.__auto_generating__ = True
-            for grid_name, key, code in self.new_components:
-                grid_var = f"grid__{grid_name}__{key}"
+            for grid_name, index, name, code in self.new_components:
+                key = f"{grid_name}__{name}" if index is None else f"{grid_name}__{index}__{name}"
                 if code.startswith("c.grid__"):
-                    target.assign(f"l.{grid_name}__{key}", code)
-                    target.auto_constants[grid_var] = f"GridGenerator.get_grid('{grid_name}').build_grid('{key}')"
+                    grid_var = f"grid__{grid_name}__{name}"
+                    target.assign(key, code)
+                    target.auto_constants[grid_var] = f"GridGenerator.get_grid('{grid_name}').build_grid('{name}')"
                     target.constant_types[grid_var] = "GridInterpolator"
                 else:
-                    target.assign(f"l.{grid_name}__{key}", code)
-                target.__grids__.setdefault(grid_name, []).append(key)
+                    target.assign(key, code)
+                target.__grids__.setdefault(grid_name, []).append(name)
         finally:
             target.__auto_generating__ = False
 
     @staticmethod
-    def extract_deferred(source: str) -> Tuple[List[str], str]:
+    def extract_deferred(source: str, index: str = "") -> Tuple[List[str], str]:
         '''Extracts grid names from the source string and replaces them with deferred variables.'''
         # Identifies deferred variables of the form "d.foo.bar"
         vars = []
-        replace_grids = partial(DeferredResolver._replace_grid_name, accum=vars)
-        source = re.sub(r"(?<!\w)d\.([a-zA-Z_]\w+)(?:\.([a-zA-Z1-9]\w*))?", replace_grids, source)
+        replace_grids = partial(DeferredResolver._replace_grid_name, accum=vars, index_in=index)
+        source = DeferredResolver.process_input.sub(replace_grids, source)
         return vars, source
 
     @staticmethod
-    def _replace_grid_name(match, accum):
-        label, name = match.groups()
-        if name is not None:
-            assert label in GridGenerator.grids().keys()
-            var = f"{label}__{name}"
+    def _replace_grid_name(match, accum, index_in):
+        grid, index, name = match.groups()
+        if index == "i":
+            index = index_in if index_in else None
+        if grid is not None:
+            assert grid in GridGenerator.grids().keys(), f"Grid {grid} was not found."
+            var = f"{grid}__{name}" if index is None else f"{grid}__{index}__{name}"
             accum.append(var)
             return f"{{{var}}}"
         else:
-            accum.append(label)
-            return f"{{{label}}}"
+            assert index is None, "Can only use numbers for grid variables with multiple interpolations."
+            accum.append(name)
+            return f"{{{name}}}"

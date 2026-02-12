@@ -14,6 +14,10 @@ def test_deferred_handling(dummy_grids: Path):
     src = "{l.foo = d.ten**d.dummy.v1 + d.dummy.x + p.dont_catch + c.ditto"
     var, _ = DeferredResolver.extract_deferred(src)
     assert var == ["ten", "dummy__v1", "dummy__x"]
+    src = "d.fifty + d.dummy.i-v1 - d.rdummy.1-d"
+    var, out = DeferredResolver.extract_deferred(src, index="3")
+    assert out == "{fifty} + {dummy__3__v1} - {rdummy__1__d}"
+    assert var == ["fifty", "dummy__3__v1", "rdummy__1__d"]
 
 
 def test_model_builder_variables():
@@ -57,6 +61,18 @@ def test_deferred_resolver(dummy_grids: Path):
     assert resolver.def_map['rdummy__d'] == 'l.rdummy__d'
     assert resolver.def_map['foo'] == 'l.rdummy__d'
     assert len(resolver.new_components) == 4
+
+
+def test_multiple_resolution(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    vars, source = DeferredResolver.extract_deferred("d.rdummy.1-d")
+    assert vars == ["rdummy__1__d"]
+    assert source == "{rdummy__1__d}"
+    # Multiple-grid resolution
+    user_map = {'foo': 'd.rdummy.1-d', 'bar': 'd.rdummy.2-d'}
+    resolver = DeferredResolver(user_map, True)
+    resolver.resolve_all(set(["foo", "bar"]))
 
 
 def test_param_overrides(dummy_grids: Path):
