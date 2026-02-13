@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 # flake8: noqa
@@ -8,16 +9,34 @@ from starlord._config import config
 from starlord.model_builder import DeferredResolver
 
 
+def test_deferred_regex():
+    # Input processing regex
+    for s in ["cd.asdf", "c.invalid--234", "np.sin(p.foo--3)"]:
+        assert re.match(DeferredResolver.find_input_deferred, s) is None
+    s = "np.sin(d.foo.bar--3 + d.things + p.ignore) / c.stuff"
+    matches = list(re.finditer(DeferredResolver.find_input_deferred, s))
+    assert len(matches) == 2
+    assert matches[0].groups() == ("foo", "bar", "3")
+    assert matches[1].groups() == (None, "things", None)
+    match = re.search(DeferredResolver.find_input_deferred, "-3*+d.grid.things_1-5")
+    assert match is not None
+    assert tuple(match.groups()) == ("grid", "things_1", None)
+    match = re.search(DeferredResolver.find_input_deferred, "3.5/np.sin(d.grid.an_aggregate35--blend)--3")
+    assert match is not None
+    assert tuple(match.groups()) == ("grid", "an_aggregate35", "blend")
+    # TODO: Key processing regex
+
+
 def test_deferred_handling(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
-    src = "{l.foo = d.ten**d.dummy.v1 + d.dummy.x + p.dont_catch + c.ditto"
+    src = "l.foo = d.ten**d.dummy.v1 + d.dummy.x + p.dont_catch + c.ditto"
     var, _ = DeferredResolver.extract_deferred(src)
     assert var == ["ten", "dummy__v1", "dummy__x"]
-    src = "d.fifty + d.dummy.i-v1 - d.rdummy.1-d"
+    src = "d.fifty + d.dummy.v1--i-d.rdummy.d--1"
     var, out = DeferredResolver.extract_deferred(src, index="3")
-    assert out == "{fifty} + {dummy__3__v1} - {rdummy__1__d}"
-    assert var == ["fifty", "dummy__3__v1", "rdummy__1__d"]
+    assert out == "{fifty} + {dummy__v1--3}-{rdummy__d--1}"
+    assert var == ["fifty", "dummy__v1--3", "rdummy__d--1"]
 
 
 def test_model_builder_variables():
@@ -48,7 +67,7 @@ def test_recursive_grids(dummy_grids: Path):
 def test_deferred_resolver(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
-    user_map = {'foo': 'd.rdummy.d', "dummy__x": "p.x_modified", "dummy.y": "p.y_modified"}
+    user_map = {'foo': 'd.rdummy.d', "dummy.x": "p.x_modified", "dummy.y": "p.y_modified"}
     resolver = DeferredResolver(user_map, True)
     resolver.resolve_all(set(["foo"]))
     assert resolver.def_map['dummy__x'] == 'p.x_modified'
@@ -63,14 +82,14 @@ def test_deferred_resolver(dummy_grids: Path):
     assert len(resolver.new_components) == 4
 
 
-def test_multiple_resolution(dummy_grids: Path):
+def test_deferred_multiple(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
-    vars, source = DeferredResolver.extract_deferred("d.rdummy.1-d")
-    assert vars == ["rdummy__1__d"]
-    assert source == "{rdummy__1__d}"
+    vars, source = DeferredResolver.extract_deferred("d.rdummy.d--1")
+    assert vars == ["rdummy__d--1"]
+    assert source == "{rdummy__d--1}"
     # Multiple-grid resolution
-    user_map = {'foo': 'd.rdummy.1-d', 'bar': 'd.rdummy.2-d'}
+    user_map = {'foo': 'd.rdummy.d-1', 'bar': 'd.rdummy.d--2'}
     resolver = DeferredResolver(user_map, True)
     resolver.resolve_all(set(["foo", "bar"]))
 
