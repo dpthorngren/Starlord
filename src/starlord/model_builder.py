@@ -411,8 +411,8 @@ class ModelBuilder():
 class DeferredResolver:
     # Matches deferred variables like d.foo, d.grid.foo, or d.grid.1-foo
     find_input_deferred = re.compile(r"(?<!\w)d(?:\.([a-zA-Z_]\w+))?\.([a-zA-Z1-9]\w*)(?:--([a-z\d]+))?")
-    # Matches deferred variable keys like {foo}, {grid.foo}, or {grid.foo--1}
-    find_keys_deferred = re.compile(r"{(?:(\w+?)__)?(\w+)}(?:--([a-z\d]+))?")
+    # Matches deferred variable keys like {foo}, {grid__foo}, or {grid__foo--1}
+    find_keys_deferred = re.compile(r"{(?:(\w+?)__)?(\w+)(?:--([a-z\d]+))?}")
 
     def __init__(self, user_map: dict[str, str], verbose=False):
         self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}

@@ -14,17 +14,30 @@ def test_deferred_regex():
     for s in ["cd.asdf", "c.invalid--234", "np.sin(p.foo--3)"]:
         assert re.match(DeferredResolver.find_input_deferred, s) is None
     s = "np.sin(d.foo.bar--3 + d.things + p.ignore) / c.stuff"
-    matches = list(re.finditer(DeferredResolver.find_input_deferred, s))
+    matches = re.findall(DeferredResolver.find_input_deferred, s)
     assert len(matches) == 2
-    assert matches[0].groups() == ("foo", "bar", "3")
-    assert matches[1].groups() == (None, "things", None)
-    match = re.search(DeferredResolver.find_input_deferred, "-3*+d.grid.things_1-5")
+    assert matches[0] == ("foo", "bar", "3")
+    assert matches[1] == ("", "things", "")
+    match = DeferredResolver.find_input_deferred.search("-3*+d.grid.things_1-5")
     assert match is not None
-    assert tuple(match.groups()) == ("grid", "things_1", None)
-    match = re.search(DeferredResolver.find_input_deferred, "3.5/np.sin(d.grid.an_aggregate35--blend)--3")
+    assert match.groups() == ("grid", "things_1", None)
+    match = DeferredResolver.find_input_deferred.search("3.5/np.sin(d.grid.an_aggregate35--blend)--3")
     assert match is not None
-    assert tuple(match.groups()) == ("grid", "an_aggregate35", "blend")
-    # TODO: Key processing regex
+    assert match.groups() == ("grid", "an_aggregate35", "blend")
+
+    # Key processing regex
+    match = DeferredResolver.find_keys_deferred.match("{grid__foo}")
+    assert match is not None
+    assert match.groups() == ("grid", "foo", None)
+    match = DeferredResolver.find_keys_deferred.match("{grid.foo}")
+    assert match is None
+    match = DeferredResolver.find_keys_deferred.match("{name--43}")
+    assert match is not None
+    assert match.groups() == (None, "name", "43")
+    matches = DeferredResolver.find_keys_deferred.findall("{gridname__col--i} + np.sin({var--3})")
+    assert len(matches) == 2
+    assert matches[0] == ("gridname", "col", "i")
+    assert matches[1] == ("", "var", "3")
 
 
 def test_deferred_handling(dummy_grids: Path):
@@ -109,8 +122,6 @@ def test_param_overrides(dummy_grids: Path):
     assert mappings["five"] == "5.0"
     assert mappings["dummy__y"] == "5.0 + c.fixed_y"
     assert mappings["dummy__v1"] == "l.dummy__v1"
-    # Running to resolve the grids
-    print(fitter.summary())
     assert fitter.code_generator is not None
     assert fitter.code_generator.params == ('p.x',)
     assert fitter.code_generator.locals == ('l.dummy__v1',)
