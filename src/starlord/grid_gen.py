@@ -224,7 +224,7 @@ class GridGenerator:
         self.provides = self.outputs + list(self.derived.keys())
         for k in self.inputs + self.outputs:
             assert k in self.data.files, f"Bad grid: {k} in _grid_spec but was not found."
-        self._input_mappings = {p: f"p.{p}" for p in self.inputs}
+        self._input_mappings = {p: f"p.{p}--i" for p in self.inputs}
         if '_input_mappings' in self.data.files:
             self._input_mappings.update(json.loads(str(self.data['_input_mappings'])))
 

@@ -413,6 +413,8 @@ class DeferredResolver:
     find_input_deferred = re.compile(r"(?<!\w)d(?:\.([a-zA-Z_]\w+))?\.([a-zA-Z1-9]\w*)(?:--([a-z\d]+))?")
     # Matches deferred variable keys like {foo}, {grid__foo}, or {grid__foo--1}
     find_keys_deferred = re.compile(r"{(?:(\w+?)__)?(\w+)(?:--([a-z\d]+))?}")
+    # Matches indexed code_generator varibles like "p.stuff--i" or "l.grid__var--3"
+    find_indexed_vars = re.compile(r"(?<!\w)([pcl])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
     def __init__(self, user_map: dict[str, str], verbose=False):
         self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}
@@ -449,6 +451,7 @@ class DeferredResolver:
         # Get the value to sub in for symbol
         if key in self.user_map:
             # User-specified mapping for the variable takes priority
+            # TODO: Make this allowed
             assert index is None, f"Cannot index non-grid deferred variables ({key})."
             value = self.user_map[key]
             _, value = DeferredResolver.extract_deferred(value)
@@ -464,17 +467,18 @@ class DeferredResolver:
                 value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
             elif name in grid.outputs:
                 # Grid output, need an interpolation component
-                inputs_str = ", ".join([f"{{{grid_name}__{i}}}" for i in grid.inputs])
+                inputs_str = ", ".join([f"d.{grid_name}__{i}--i" for i in grid.inputs])
                 code = f"c.grid__{grid_name}__{name}._interp{grid.ndim}d({inputs_str})"
+                _, code = DeferredResolver.extract_deferred(code, index)
                 code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
                 self.new_components.append((grid_name, index, name, code))
-                value = f"l.{key}"
+                value = f"l.{key.replace('--', '__')}"
             elif name in grid.derived:
                 # Grid derived value, need assignment component
                 _, code = DeferredResolver.extract_deferred(grid.derived[name], index)
                 code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
                 self.new_components.append((grid_name, index, name, code))
-                value = f"l.{key}"
+                value = f"l.{key.replace('--', '__')}"
             else:
                 raise ValueError(f"Key {name} not in grid {grid_name}.")
 
@@ -509,19 +513,35 @@ class DeferredResolver:
         vars = []
         replace_grids = partial(DeferredResolver._replace_grid_name, accum=vars, index_in=index)
         source = DeferredResolver.find_input_deferred.sub(replace_grids, source)
+        replace_vars = partial(DeferredResolver._replace_indexed_var, index_in=index)
+        source = DeferredResolver.find_indexed_vars.sub(replace_vars, source)
         return vars, source
 
     @staticmethod
-    def _replace_grid_name(match, accum, index_in):
+    def _replace_grid_name(match: re.Match, accum: list[str], index_in: Optional[str]) -> str:
         grid, name, index = match.groups()
-        if index == "i":
-            index = index_in if index_in else None
+        if index is None or (index == "i" and not index_in):
+            index = ""
+        elif index == "i":
+            index = f"--{index_in}"
+        else:
+            index = f"--{index}"
         if grid is not None:
             assert grid in GridGenerator.grids().keys(), f"Grid {grid} was not found."
-            var = f"{grid}__{name}" if index is None else f"{grid}__{name}--{index}"
+            var = f"{grid}__{name}{index}"
             accum.append(var)
             return f"{{{var}}}"
         else:
-            assert index is None, "Can only use numbers for grid variables with multiple interpolations."
             accum.append(name)
-            return f"{{{name}}}"
+            return f"{{{name}{index}}}"
+
+    @staticmethod
+    def _replace_indexed_var(match: re.Match, index_in: Optional[str]) -> str:
+        label, name, index = match.groups()
+        if index is None or (index == "i" and not index_in):
+            index = ""
+        elif index == "i":
+            index = f"__{index_in}"
+        else:
+            index = f"__{index}"
+        return f"{label}.{name}{index}"

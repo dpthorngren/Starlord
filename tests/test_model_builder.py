@@ -39,6 +39,18 @@ def test_deferred_regex():
     assert matches[0] == ("gridname", "col", "i")
     assert matches[1] == ("", "var", "3")
 
+    # Variable index extraction regex
+    match = DeferredResolver.find_indexed_vars.match("p.foo--3")
+    assert match is not None
+    assert match.groups() == ("p", "foo", "3")
+    match = DeferredResolver.find_indexed_vars.match("l.things--i")
+    assert match is not None
+    assert match.groups() == ("l", "things", "i")
+    matches = DeferredResolver.find_indexed_vars.findall("c.something--1 - c.stuff--mean")
+    assert len(matches) == 2
+    assert matches[0] == ("c", "something", "1")
+    assert matches[1] == ("c", "stuff", "mean")
+
 
 def test_deferred_handling(dummy_grids: Path):
     config.grid_dir = dummy_grids
@@ -84,6 +96,7 @@ def test_deferred_resolver(dummy_grids: Path):
     resolver = DeferredResolver(user_map, True)
     resolver.resolve_all(set(["foo"]))
     assert resolver.def_map['dummy__x'] == 'p.x_modified'
+    assert resolver.def_map['dummy__x'] == 'p.x_modified'
     assert resolver.def_map['dummy__y'] == 'p.y_modified'
     assert resolver.def_map['dummy__v1'] == 'l.dummy__v1'
     assert resolver.def_map['dummy__g1'] == 'l.dummy__g1'
@@ -102,10 +115,20 @@ def test_deferred_multiple(dummy_grids: Path):
     assert vars == ["rdummy__d--1"]
     assert source == "{rdummy__d--1}"
     # Multiple-grid resolution
-    user_map = {'foo': 'd.rdummy.d-1', 'bar': 'd.rdummy.d--2'}
+    user_map = {'foo': 'd.rdummy.d--1', 'bar': 'd.rdummy.d--2'}
     resolver = DeferredResolver(user_map, True)
     resolver.resolve_all(set(["foo", "bar"]))
-
+    assert "i" not in resolver.def_map.values()
+    assert resolver.def_map["dummy__v1--1"] == "l.dummy__v1__1"
+    assert resolver.def_map["dummy__g1--1"] == "l.dummy__g1__1"
+    assert resolver.def_map["rdummy__d--1"] == "l.rdummy__d__1"
+    assert resolver.def_map["rdummy__c--1"] == "l.rdummy__c__1"
+    # X should be mapped by index, y should be a common variable
+    assert resolver.def_map["dummy__x--1"] == "p.x__1"
+    assert resolver.def_map["dummy__x--2"] == "p.x__2"
+    for k in resolver.def_map.keys():
+        if k.startswith("dummy__y"):
+            assert resolver.def_map[k] == "p.y"
 
 def test_param_overrides(dummy_grids: Path):
     config.grid_dir = dummy_grids
