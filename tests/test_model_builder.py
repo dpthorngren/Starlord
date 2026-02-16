@@ -93,7 +93,7 @@ def test_deferred_resolver(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     user_map = {'foo': 'd.rdummy.d', "dummy.x": "p.x_modified", "dummy.y": "p.y_modified"}
-    resolver = DeferredResolver(user_map, True)
+    resolver = DeferredResolver(user_map, verbose=True)
     resolver.resolve_all(set(["foo"]))
     assert resolver.def_map['dummy__x'] == 'p.x_modified'
     assert resolver.def_map['dummy__x'] == 'p.x_modified'
@@ -115,8 +115,8 @@ def test_deferred_multiple(dummy_grids: Path):
     assert vars == ["rdummy__d--1"]
     assert source == "{rdummy__d--1}"
     # Multiple-grid resolution
-    user_map = {'foo': 'd.rdummy.d--1', 'bar': 'd.rdummy.d--2'}
-    resolver = DeferredResolver(user_map, True)
+    user_map = {'foo': '10*d.rdummy.d--1-3', 'bar': '3**d.rdummy.d--2-2'}
+    resolver = DeferredResolver(user_map, verbose=True)
     resolver.resolve_all(set(["foo", "bar"]))
     assert "i" not in resolver.def_map.values()
     assert resolver.def_map["dummy__v1--1"] == "l.dummy__v1__1"
@@ -129,6 +129,33 @@ def test_deferred_multiple(dummy_grids: Path):
     for k in resolver.def_map.keys():
         if k.startswith("dummy__y"):
             assert resolver.def_map[k] == "p.y"
+
+
+def test_deferred_composites(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    multi = dict(rdummy=2)
+    resolver = DeferredResolver({}, multi, verbose=True)
+    resolver.resolve_all(set(['d.rdummy.d--mean', 'd.rdummy.d--sum', 'd.rdummy.d--blend']))
+    assert "p.y__1" not in resolver.def_map.values()
+    assert "p.x__1" in resolver.def_map.values()
+    assert resolver.def_map["rdummy__d--blend"] == "l.rdummy__d__blend"
+    assert resolver.def_map["rdummy__d--mean"] == "l.rdummy__d__mean"
+    assert resolver.def_map["dummy__x--1"] == "p.x__1"
+    assert resolver.def_map["dummy__x--2"] == "p.x__2"
+    assert resolver.def_map["dummy__y--1"] == "p.y"
+    assert resolver.def_map["dummy__y--2"] == "p.y"
+    for c in resolver.new_components:
+        print(c)
+    expected = ("rdummy", "1", "d", "math.exp(l.rdummy__c__1)")
+    assert resolver.new_components.count(expected) == 1
+    expected = ("rdummy", "mean", "d", "(l.rdummy__d__1 + l.rdummy__d__2) / 2")
+    assert expected in resolver.new_components
+    expected = ("rdummy", "sum", "d", "l.rdummy__d__1 + l.rdummy__d__2")
+    assert expected in resolver.new_components
+    expected = ("rdummy", "blend", "d", "math.log(math.exp(l.rdummy__d__1) + math.exp(l.rdummy__d__2))")
+    assert expected in resolver.new_components
+
 
 def test_param_overrides(dummy_grids: Path):
     config.grid_dir = dummy_grids

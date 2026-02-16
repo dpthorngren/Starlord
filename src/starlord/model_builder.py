@@ -398,7 +398,8 @@ class ModelBuilder():
         dvars = dvars.union(*[i[0] for i in self._constraints])
 
         # Set up the resolver and solve
-        resolver = DeferredResolver(self.user_mappings, self.verbose)
+        # TODO: Pass multiplicity
+        resolver = DeferredResolver(self.user_mappings, {}, self.verbose)
         resolver.resolve_all(dvars)
 
         # Make components required by the resolved vars
@@ -416,8 +417,9 @@ class DeferredResolver:
     # Matches indexed code_generator varibles like "p.stuff--i" or "l.grid__var--3"
     find_indexed_vars = re.compile(r"(?<!\w)([pcl])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
-    def __init__(self, user_map: dict[str, str], verbose=False):
+    def __init__(self, user_map: dict[str, str], multiplicity: dict[str, int] = {}, verbose=False):
         self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}
+        self.multiplicity = multiplicity
         self.verbose = verbose
         # Lists dvars already being processed, to detect circular dependencies.
         self.stack: list[str] = []
@@ -451,11 +453,30 @@ class DeferredResolver:
         # Get the value to sub in for symbol
         if key in self.user_map:
             # User-specified mapping for the variable takes priority
-            # TODO: Make this allowed
-            assert index is None, f"Cannot index non-grid deferred variables ({key})."
             value = self.user_map[key]
-            _, value = DeferredResolver.extract_deferred(value)
+            _, value = DeferredResolver.extract_deferred(value, index)
             value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
+        elif index is not None and not re.fullmatch(r"\d+", index):
+            # Composite deferred value, set a local var and resolve the assignment later
+            mkey = grid_name if grid_name else name
+            assert mkey in self.multiplicity, f"Multiplicity (number of interpolations) was not specific for key {mkey}"
+            multi = self.multiplicity[mkey]
+            key_no_index = f"{grid_name}.{name}" if grid_name else name
+            code = ""
+            if index.lower() == "sum":
+                code = " + ".join([f"d.{key_no_index}--{i+1}" for i in range(multi)])
+            elif index.lower() == "mean":
+                code = " + ".join([f"d.{key_no_index}--{i+1}" for i in range(multi)])
+                code = f"({code}) / {multi}"
+            elif index.lower() in "blend":
+                code = " + ".join([f"math.exp(d.{key_no_index}--{i+1})" for i in range(multi)])
+                code = f"math.log({code})"
+            else:
+                raise ValueError(f"Composite name {index} in {key} not recognized.")
+            _, code = DeferredResolver.extract_deferred(code, index)
+            code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
+            self.new_components.append((grid_name, index, name, code))
+            value = f"l.{key.replace('--', '__')}"
         else:
             # Must be a grid variable
             grid = GridGenerator.get_grid(grid_name)
