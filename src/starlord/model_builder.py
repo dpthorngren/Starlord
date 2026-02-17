@@ -44,7 +44,7 @@ class ModelBuilder():
             deferred_map = self._resolve_deferred()
             if self.verbose:
                 print(f"\n    {self.txt.underline}Code Generation{self.txt.end}")
-            self.__gen__ = CodeGenerator(self.verbose)
+            self.__gen__ = CodeGenerator(self.verbose, self.fancy_text)
             for deferred_vars, expr in self._expressions:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
                 self.__gen__.expression(expr.format_map(deferred_map))
@@ -399,12 +399,14 @@ class ModelBuilder():
 
         # Set up the resolver and solve
         # TODO: Pass multiplicity
-        resolver = DeferredResolver(self.user_mappings, {}, self.verbose)
+        resolver = DeferredResolver(self.user_mappings, {}, self.verbose, self.fancy_text)
         resolver.resolve_all(dvars)
 
         # Make components required by the resolved vars
         self.__assignments_gen__ = []
         self.__constraints_gen__ = []
+        if self.verbose:
+            print(f"\n    {self.txt.underline}Generated Components{self.txt.end}")
         resolver.push_components(self)
         return resolver.def_map
 
@@ -417,10 +419,18 @@ class DeferredResolver:
     # Matches indexed code_generator varibles like "p.stuff--i" or "l.grid__var--3"
     find_indexed_vars = re.compile(r"(?<!\w)([pcl])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
-    def __init__(self, user_map: dict[str, str], multiplicity: dict[str, int] = {}, verbose=False):
+    @property
+    def txt(self) -> _TextFormatCodes_:
+        if self.fancy_text:
+            return config.text_format
+        return config.text_format_off
+
+    def __init__(self, user_map: dict[str, str], multiplicity: dict[str, int] = {}, verbose=False, fancy_text=False):
         self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}
         self.multiplicity = multiplicity
         self.verbose = verbose
+        self.fancy_text = fancy_text
+        self.log: list[str] = []
         # Lists dvars already being processed, to detect circular dependencies.
         self.stack: list[str] = []
         # Generated components (e.g. grid interpolators), structured as (grid, key, code)
@@ -437,6 +447,8 @@ class DeferredResolver:
             assert match is not None, target
             self.resolve_recursive(match)
             unresolved = dvars - set(self.def_map.keys())
+        if self.verbose:
+            print(CodeGenerator.fancy_print("\n".join(self.log[::-1]), self.txt))
 
     def resolve_recursive(self, dvar: re.Match[str]) -> str:
         grid_name, name, index = dvar.groups()
@@ -503,10 +515,8 @@ class DeferredResolver:
             else:
                 raise ValueError(f"Key {name} not in grid {grid_name}.")
 
-        if self.verbose:
-            print(("d." + key).ljust(30), value)
-
         # Value is now fully resolved, so record and return it.
+        self.log.append(("  " * (len(self.stack) - 1) + f"d.{key} ").ljust(40) + value)
         self.def_map[key] = value
         self.stack.remove(key)
         return value

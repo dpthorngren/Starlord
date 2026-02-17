@@ -15,7 +15,7 @@ from typing import NamedTuple, Optional
 
 import cython
 
-from ._config import __version__, config
+from ._config import __version__, _TextFormatCodes_, config
 from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
 
 _VarCache = NamedTuple(
@@ -26,6 +26,12 @@ class CodeGenerator:
     '''A class for generated log_likelihood, log_prior, and prior_ppf functions for use in MCMC fitting.'''
 
     _dynamic_modules_: dict = {}
+
+    @property
+    def txt(self) -> _TextFormatCodes_:
+        if self.fancy_text:
+            return config.text_format
+        return config.text_format_off
 
     @property
     def variables(self) -> _VarCache:
@@ -56,8 +62,9 @@ class CodeGenerator:
     def mapping(self) -> dict[str, str]:
         return self.variables.map
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, fancy_text=False):
         self.verbose: bool = verbose
+        self.fancy_text = fancy_text
         self._like_components = []
         self._prior_components = []
         self.imports: list[str] = [
@@ -201,35 +208,30 @@ class CodeGenerator:
         return CodeGenerator._load_module(hash)
 
     def summary(self, fancy=False) -> str:
-        txt = config.text_format if fancy else config.text_format_off
         result: list[str] = []
-        result += [f"    {txt.underline}Variables{txt.end}"]
+        result += [f"    {self.txt.underline}Variables{self.txt.end}"]
         if self.params:
             result += ["Params:".ljust(12) + ", ".join([p for p in self.params])]
         if self.constants:
             result += ["Constants:".ljust(12) + ", ".join([c for c in self.constants])]
         if self.locals:
             result += ["Locals:".ljust(12) + ", ".join([loc for loc in self.locals])]
-        result += [f"\n    {txt.underline}Forward Model{txt.end}"]
+        result += [f"\n    {self.txt.underline}Forward Model{self.txt.end}"]
         likelihood = []
         for comp in self._sort_by_dependency(self._like_components):
             if type(comp) is DistributionComponent:
                 likelihood.append(comp.display())
             else:
                 result.append(comp.display().format(**self.mapping))
-        result += [f"\n    {txt.underline}Likelihood{txt.end}"]
+        result += [f"\n    {self.txt.underline}Likelihood{self.txt.end}"]
         result += [str(i) for i in likelihood]
-        result += [f"\n    {txt.underline}Prior{txt.end}"]
+        result += [f"\n    {self.txt.underline}Prior{self.txt.end}"]
         prior_comps = sorted(self._prior_components, key=lambda c: "_".join(sorted(c.vars)))
         result += [c.display() for c in prior_comps]
         result_str = "\n".join(result)
         # Highlight the output, if requested
         if fancy:
-            result_str = re.sub(r"(?<!\w)(p\.\w+)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", result_str, flags=re.M)
-            result_str = re.sub(r"(?<!\w)(c\.\w+)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", result_str, flags=re.M)
-            result_str = re.sub(r"(?<!\w)(l\.\w+)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", result_str, flags=re.M)
-            result_str = re.sub(
-                r"((<!\w)[+-]?([0-9]*[.])?[0-9]+)}", f"{txt.blue}\\g<1>{txt.end}", result_str, flags=re.M)
+            result_str = CodeGenerator.fancy_print(result_str, self.txt)
         return result_str
 
     def expression(self, expr: str) -> None:
@@ -256,7 +258,7 @@ class CodeGenerator:
         requires = variables - provides
         comp = Component(requires, provides, code)
         if self.verbose:
-            print("\n".join([line for line in str(comp).split("\n")]))
+            print(CodeGenerator.fancy_print("\n".join([line for line in str(comp).split("\n")]), self.txt))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -266,7 +268,7 @@ class CodeGenerator:
         code, variables = self._extract_params(expr)
         comp = AssignmentComponent.create(var, code, variables - {var})
         if self.verbose:
-            print(comp.display())
+            print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -276,7 +278,7 @@ class CodeGenerator:
         pars: list[Symb] = [Symb(i) for i in params]
         comp = DistributionComponent.create(var, dist, pars)
         if self.verbose:
-            print(comp.display())
+            print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
@@ -286,9 +288,18 @@ class CodeGenerator:
         pars: list[Symb] = [Symb(i) for i in params]
         comp = Prior.create(var, dist, pars)
         if self.verbose:
-            print(comp.display())
+            print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._prior_components.append(comp)
         self._vars_out_of_date = True
+
+    @staticmethod
+    def fancy_print(source, txt):
+        source = re.sub(r"(?<!\w)(d\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.red}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(p\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(c\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(l\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\033\[)(?<![\w\\])([+-]?(?:[0-9]*[.])?[0-9]+)", f"{txt.blue}\\g<1>{txt.end}", source)
+        return source
 
     @staticmethod
     def _sort_by_dependency(components: list[Component]) -> list[Component]:
