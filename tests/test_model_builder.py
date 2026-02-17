@@ -10,6 +10,26 @@ from starlord._config import config
 from starlord.model_builder import DeferredResolver
 
 
+def test_builder_regex():
+    match = starlord.ModelBuilder.overridable_regex.fullmatch("foo.bar--3")
+    assert match is None
+    match = starlord.ModelBuilder.overridable_regex.fullmatch("foo__bar--3")
+    assert match is not None
+    assert match.groups() == ("foo", "bar", "3")
+    match = starlord.ModelBuilder.overridable_regex.fullmatch("long_var_name")
+    assert match is not None
+    assert match.groups() == (None, "long_var_name", None)
+    match = starlord.ModelBuilder.varname_regex.fullmatch("p.foo")
+    assert match is not None
+    match = starlord.ModelBuilder.varname_regex.fullmatch("c.stuff_things")
+    assert match is not None
+    match = starlord.ModelBuilder.varname_regex.fullmatch("c__stuff_things")
+    assert match is None
+    assert starlord.ModelBuilder.is_valid_param("p.asdf_dh--3")
+    assert starlord.ModelBuilder.is_valid_param("l.asdf__dh__3")
+    assert starlord.ModelBuilder.is_valid_param("c.grid__made_up__var--blend")
+
+
 def test_deferred_regex():
     # Input processing regex
     for s in ["cd.asdf", "c.invalid--234", "np.sin(p.foo--3)"]:
@@ -154,7 +174,7 @@ def test_deferred_composites(dummy_grids: Path):
     assert expected in resolver.new_components
     expected = ("rdummy", "sum", "d", "l.rdummy__d__1 + l.rdummy__d__2")
     assert expected in resolver.new_components
-    expected = ("rdummy", "blend", "d", "math.log(math.exp(l.rdummy__d__1) + math.exp(l.rdummy__d__2))")
+    expected = ("rdummy", "blend", "d", "-2.5*math.log10(10**(-l.rdummy__d__1/2.5) + 10**(-l.rdummy__d__2/2.5))")
     assert expected in resolver.new_components
 
 

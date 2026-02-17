@@ -37,6 +37,11 @@ class ModelBuilder():
     the model with :meth:`build_sampler`.
     '''
 
+    # Valid inputs to override_input satisfy this regex, but it doesn't catch every bad case.
+    overridable_regex = re.compile(r"(?:([a-zA-Z]\w+)__)?([a-zA-Z]\w+)(?:--([a-zA-Z0-9]+))?")
+    # Valid variables names satisfy this regex
+    varname_regex = re.compile(r"([pcld]).([a-zA-Z1-9]\w*)(?:--([a-zA-Z0-9]+))?")
+
     @property
     def code_generator(self) -> CodeGenerator:
         if self.__gen__ is None:
@@ -150,7 +155,7 @@ class ModelBuilder():
                     assert type(override) is str
                     self.override_mapping(key, override)
         if "multiplicity" in model.keys():
-            for key, num in model['multiplicity']:
+            for key, num in model['multiplicity'].items():
                 if self.verbose:
                     print(f"override.{key} = {num}")
                 self.multiplicity[key] = num
@@ -183,14 +188,15 @@ class ModelBuilder():
         '''
         if self.verbose:
             print(f"  ModelBuilder.override_input('{key}', '{value}')")
-        assert re.fullmatch(r"[a-zA-Z]\w*(\.[a-zA-Z]\w*)?", key), key
-        if "." in key:
-            grid_name, input_name = key.split(".")
+        key = key.replace(".", "__")
+        match = ModelBuilder.overridable_regex.fullmatch(key)
+        assert match is not None, f"Invalid override key: {key}."
+        grid_name, name, index = match.groups()
+        if grid_name is not None:
+            assert grid_name in GridGenerator.grids(), f"Unrecognized grid name {grid_name} in override of {key}."
             grid = GridGenerator.get_grid(grid_name)
-            assert input_name in grid.inputs, f"Cannot override nonexistent input {input_name}"
-            key = f"{grid_name}__{input_name}"
+            assert name in (grid.provides + grid.inputs), f"Unrecognized grid var {name} in override of {key}."
         self._gen = None
-        _, value = DeferredResolver.extract_deferred(value)
         self.user_mappings[key] = value
 
     def expression(self, expr: str) -> None:
@@ -235,10 +241,11 @@ class ModelBuilder():
         '''
         if self.verbose:
             print(f"  ModelBuilder.assignment('{var}', {expr})")
-        assert re.fullmatch(r"({\w+}|(l\.)?[a-zA-Z]\w*)", var), var
         # l is implied if it is omitted.
-        if not (var.startswith("l.") or var.startswith("{")):
-            var = f"l.{var}"
+        if not var.startswith("l.") or var.startswith("{"):
+            assert "." not in var
+            var = "l." + var
+        ModelBuilder.is_valid_param(var)
         deferred_vars, expr = DeferredResolver.extract_deferred(expr)
         self._gen = None
         if self.__auto_generating__:
@@ -264,8 +271,7 @@ class ModelBuilder():
         if self.verbose:
             print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
         deferred_vars, var = DeferredResolver.extract_deferred(var)
-        # TODO Update to new regex check
-        # assert re.fullmatch(r"({\w+}|[pcl]\.[a-zA-Z]\w*)", var), f'Bad variable name {var}.'
+        assert ModelBuilder.is_valid_param(var), f"Bad variable name {var}."
         self._gen = None
         if self.__auto_generating__:
             self.__constraints_gen__.append((deferred_vars, var, dist, params))
@@ -284,6 +290,7 @@ class ModelBuilder():
         if not param.startswith("p."):
             assert "." not in param
             param = "p." + param
+        assert ModelBuilder.is_valid_param(param), f"Bad parameter name {param} for prior."
         if self.verbose:
             print(f"  ModelBuilder.prior('{param}', '{dist}', {params})")
         self._gen = None
@@ -416,6 +423,14 @@ class ModelBuilder():
         resolver.push_components(self)
         return resolver.def_map
 
+    @staticmethod
+    def is_valid_param(var: str) -> bool:
+        if DeferredResolver.find_keys_deferred.fullmatch(var):
+            return True
+        if ModelBuilder.varname_regex.fullmatch(var) is None:
+            return False
+        return True
+
 
 class DeferredResolver:
     # Matches deferred variables like d.foo, d.grid.foo, or d.grid.1-foo
@@ -470,8 +485,13 @@ class DeferredResolver:
 
         # Get the value to sub in for symbol
         if key in self.user_map:
-            # User-specified mapping for the variable takes priority
+            # User-specified mapping for the indexed variable takes priority
             value = self.user_map[key]
+            _, value = DeferredResolver.extract_deferred(value, index)
+            value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
+        elif f"{grid_name}__{name}" in self.user_map:
+            # Non-indexed user-map match
+            value = self.user_map[f"{grid_name}__{name}"]
             _, value = DeferredResolver.extract_deferred(value, index)
             value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
         elif index is not None and not re.fullmatch(r"\d+", index):
@@ -487,8 +507,8 @@ class DeferredResolver:
                 code = " + ".join([f"d.{key_no_index}--{i+1}" for i in range(multi)])
                 code = f"({code}) / {multi}"
             elif index.lower() in "blend":
-                code = " + ".join([f"math.exp(d.{key_no_index}--{i+1})" for i in range(multi)])
-                code = f"math.log({code})"
+                code = " + ".join([f"10**(-d.{key_no_index}--{i+1}/2.5)" for i in range(multi)])
+                code = f"-2.5*math.log10({code})"
             else:
                 raise ValueError(f"Composite name {index} in {key} not recognized.")
             _, code = DeferredResolver.extract_deferred(code, index)
