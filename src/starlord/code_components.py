@@ -13,7 +13,7 @@ class Symb(str):
             return super().__new__(cls, str(value))
         except ValueError:
             if type(source) is str:
-                source = source.strip("{ }")
+                source = source.strip("{ }").replace("-", "_")
                 if re.fullmatch(r"[pcl]\.[A-Za-z_]\w*", source):
                     return super().__new__(cls, source)
             raise ValueError(f'Could not interpret "{source}" as a symbol or literal.') from None

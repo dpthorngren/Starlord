@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+from pytest import raises
 # flake8: noqa
 from test_grids import dummy_grids
 
@@ -155,6 +156,25 @@ def test_deferred_composites(dummy_grids: Path):
     assert expected in resolver.new_components
     expected = ("rdummy", "blend", "d", "math.log(math.exp(l.rdummy__d__1) + math.exp(l.rdummy__d__2))")
     assert expected in resolver.new_components
+
+
+def test_multiple_model(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    fitter = starlord.ModelBuilder(True, True)
+    fitter.constraint("d.dummy.v1--mean", "normal", [.75, .1])
+    fitter.constraint("d.dummy.x--sum", "normal", [0, .5])
+    fitter.prior("p.x--1", "uniform", [-5, 0])
+    fitter.prior("p.x--2", "uniform", [0, 5])
+    fitter.prior("p.y", "uniform", [0.1, 10.])
+    with raises(AssertionError):
+        fitter.summary()
+    fitter.multiplicity['dummy'] = 2
+    print(fitter.summary())
+    assert fitter.code_generator.params == ('p.x__1', 'p.x__2', 'p.y')
+    assert fitter.code_generator.constants == ('c.grid__dummy__v1',)
+    expected = ('l.dummy__v1__1', 'l.dummy__v1__2', 'l.dummy__v1__mean', 'l.dummy__x__sum')
+    assert fitter.code_generator.locals == expected
 
 
 def test_param_overrides(dummy_grids: Path):

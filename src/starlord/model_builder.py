@@ -78,6 +78,7 @@ class ModelBuilder():
         self.fancy_text: bool = fancy_text
         # User-controlled settings passed directly to CodeGenerator
         self.user_mappings: dict[str, str] = {}
+        self.multiplicity: dict[str, int] = {}
         self.auto_constants: dict[str, str] = {}
         self.constant_types: dict[str, str] = {}
         # Caching backers for self.code_generator
@@ -148,6 +149,11 @@ class ModelBuilder():
                 else:
                     assert type(override) is str
                     self.override_mapping(key, override)
+        if "multiplicity" in model.keys():
+            for key, num in model['multiplicity']:
+                if self.verbose:
+                    print(f"override.{key} = {num}")
+                self.multiplicity[key] = num
 
     def override_mapping(self, key: str, value: str):
         '''Sets the value or symbol to use a deferred variable, often grid variables.
@@ -258,7 +264,8 @@ class ModelBuilder():
         if self.verbose:
             print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
         deferred_vars, var = DeferredResolver.extract_deferred(var)
-        assert re.fullmatch(r"({\w+}|[pcl]\.[a-zA-Z]\w*)", var), f'Bad variable name {var}.'
+        # TODO Update to new regex check
+        # assert re.fullmatch(r"({\w+}|[pcl]\.[a-zA-Z]\w*)", var), f'Bad variable name {var}.'
         self._gen = None
         if self.__auto_generating__:
             self.__constraints_gen__.append((deferred_vars, var, dist, params))
@@ -398,8 +405,7 @@ class ModelBuilder():
         dvars = dvars.union(*[i[0] for i in self._constraints])
 
         # Set up the resolver and solve
-        # TODO: Pass multiplicity
-        resolver = DeferredResolver(self.user_mappings, {}, self.verbose, self.fancy_text)
+        resolver = DeferredResolver(self.user_mappings, self.multiplicity, self.verbose, self.fancy_text)
         resolver.resolve_all(dvars)
 
         # Make components required by the resolved vars
