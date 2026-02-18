@@ -121,12 +121,12 @@ class CodeGenerator:
         result.append("    self._forward_model(params)")
         ret_locals = ", ".join([f"{loc.name}={self.mapping[loc.var]}" for loc in self.locals])
         result.append(f"    return dict({ret_locals})\n")
-        result.append("cpdef void _postprocess(self, double[:,:] params, double[:,:] out):")
+        result.append("cpdef void postprocess(self, double[:,:] params, double[:,:] out):")
         result.append("    for i in range(params.shape[0]):")
         result.append("        self._forward_model(params[i])")
         for i, var in enumerate(self.outputs):
             var, _ = CodeGenerator._extract_params(var)
-            result.append(f"        out[i] = {var}".format(**self.mapping))
+            result.append(f"        out[i, {i}] = {var}".format(**self.mapping))
         result.append("    return\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
@@ -178,6 +178,7 @@ class CodeGenerator:
         # Write the function
         result.append(f"def __init__({args}):")
         result.append(f"    self.param_names = {[p.name for p in self.params]}")
+        result.append(f"    self.output_names = {[i[2:] for i in self.outputs]}")
         result += definitions
         result = ["    " + r for r in result]
         return "\n".join(result)
@@ -192,6 +193,7 @@ class CodeGenerator:
         # Class and constant declarations
         result.append("cdef class Model:")
         result.append("    cdef public object param_names")
+        result.append("    cdef public object output_names")
         for c in self.constants:
             ct = self.constant_types.get(c.name, "double")
             cm = self.mapping[c.var][5:]

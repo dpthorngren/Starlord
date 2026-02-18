@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from types import ModuleType
-from typing import Callable
+from typing import Callable, Optional
 
 import dynesty
 import emcee
@@ -11,7 +11,9 @@ import numpy as np
 from dynesty.results import Results as DynestyResults
 
 ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
-_dummyModel = namedtuple("DummyModel", ['param_names', 'forward_model', 'log_like', 'prior_transform', 'log_prior'])
+_dummyModel = namedtuple(
+    "DummyModel",
+    ['param_names', 'forward_model', 'log_like', 'prior_transform', 'log_prior', 'output_names', 'postprocess'])
 
 
 class _Sampler(ABC):
@@ -19,6 +21,7 @@ class _Sampler(ABC):
     ndim: int
     param_names: list[str]
     model: _dummyModel
+    post: Optional[np.ndarray]
 
     @property
     @abstractmethod
@@ -40,13 +43,21 @@ class _Sampler(ABC):
     def summary(self) -> str:
         # TODO: Convergence statistics
         stats = self.stats()
-        out = ["     Name".ljust(16) + "Mean".rjust(12) + "Std".rjust(12)]
+        out = ["     Name".ljust(29) + "Mean".rjust(12) + "Std".rjust(12)]
         out[0] += "16%".rjust(12) + "50%".rjust(12) + "84%".rjust(12)
         for i in range(self.ndim):
-            line = f"{i:4d} {self.param_names[i]:11}"
+            line = f"{i:4d} {self.param_names[i]:24}"
             line += f" {stats.mean[i]:11.4g} {stats.std[i]:11.4g}"
             line += f" {stats.p16[i]:11.4g} {stats.p50[i]:11.4g} {stats.p84[i]:11.4g}"
             out += [line]
+        if self.model.output_names and self.post is not None:
+            out += [89 * "-"]
+            for i, name in enumerate(self.model.output_names):
+                i = i + self.ndim
+                line = f"{i:4d} {name:24}"
+                line += f" {stats.mean[i]:11.4g} {stats.std[i]:11.4g}"
+                line += f" {stats.p16[i]:11.4g} {stats.p50[i]:11.4g} {stats.p84[i]:11.4g}"
+                out += [line]
         return "\n".join(out)
 
 
@@ -106,19 +117,23 @@ class SamplerEnsemble(_Sampler):
             [self.prior_transform(s) for s in args['initial_state']]
         args['nsteps'] += self.burn_in
         self.sampler.run_mcmc(**args)
+        post = self.results
+        assert type(post) is np.ndarray
+        postprocessed = np.zeros((post.shape[0], len(self.model.output_names)))
+        self.model.postprocess(post, postprocessed)
+        self.post = np.hstack([post, postprocessed])
 
     def stats(self) -> ResultStats:
-        results = self.results
-        assert type(results) is np.ndarray, "Must run sampler before computing stats!"
-        mean = results.mean(axis=0)
-        std = results.std(axis=0)
-        cov = np.cov(results.T)
+        assert type(self.post) is np.ndarray, "Must run sampler before computing stats!"
+        mean = self.post.mean(axis=0)
+        std = self.post.std(axis=0)
+        cov = np.cov(self.post.T)
         std = np.sqrt(np.diag(cov))
-        q = np.quantile(results, [.16, .5, .84], axis=0)
+        q = np.quantile(self.post, [.16, .5, .84], axis=0)
         return ResultStats(mean, cov, std, q[0], q[1], q[2])
 
     def save_results(self, filename: str):
-        np.savez_compressed(filename, samples=self.results)  # type: ignore
+        np.savez_compressed(filename, samples=self.post)  # type: ignore
 
 
 class SamplerNested(_Sampler):
