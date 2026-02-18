@@ -73,6 +73,7 @@ class CodeGenerator:
         ]
         self.auto_constants = {}
         self.constant_types = {}
+        self.outputs: list[str] = []
         # Lazily-updated property backer
         self.__variables__: Optional[_VarCache] = None
 
@@ -120,6 +121,13 @@ class CodeGenerator:
         result.append("    self._forward_model(params)")
         ret_locals = ", ".join([f"{loc.name}={self.mapping[loc.var]}" for loc in self.locals])
         result.append(f"    return dict({ret_locals})\n")
+        result.append("cpdef void _postprocess(self, double[:,:] params, double[:,:] out):")
+        result.append("    for i in range(params.shape[0]):")
+        result.append("        self._forward_model(params[i])")
+        for i, var in enumerate(self.outputs):
+            var, _ = CodeGenerator._extract_params(var)
+            result.append(f"        out[i] = {var}".format(**self.mapping))
+        result.append("    return\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
 

@@ -41,6 +41,8 @@ class ModelBuilder():
     overridable_regex = re.compile(r"(?:([a-zA-Z]\w+)__)?([a-zA-Z]\w+)(?:--([a-zA-Z0-9]+))?")
     # Valid variables names satisfy this regex
     varname_regex = re.compile(r"([pcld]).([a-zA-Z1-9]\w*)(?:--([a-zA-Z0-9]+))?")
+    # Only local and deferred variables are valid outputs
+    outname_regex = re.compile(r"(l|d.[a-zA-Z]\w+).[a-zA-Z1-9]\w*(--[a-zA-Z0-9]+)?")
 
     @property
     def code_generator(self) -> CodeGenerator:
@@ -63,6 +65,7 @@ class ModelBuilder():
                 self.__gen__.prior(param, dist, params)
             self.__gen__.auto_constants = self.auto_constants.copy()
             self.__gen__.constant_types = self.constant_types.copy()
+            self.__gen__.outputs = [i.format(**deferred_map) for i in self.outputs]
             if self.verbose:
                 print("")
         return self.__gen__
@@ -86,6 +89,7 @@ class ModelBuilder():
         self.multiplicity: dict[str, int] = {}
         self.auto_constants: dict[str, str] = {}
         self.constant_types: dict[str, str] = {}
+        self.outputs: list[str] = []
         # Caching backers for self.code_generator
         self.__gen__: Optional[CodeGenerator] = None
         self.__grids__: dict[str, list[str]] = {}
@@ -159,6 +163,13 @@ class ModelBuilder():
                 if self.verbose:
                     print(f"override.{key} = {num}")
                 self.multiplicity[key] = num
+        if "outputs" in model.keys():
+            for key in model['outputs']:
+                key = key.strip()
+                match = self.outname_regex.fullmatch(key)
+                _, key = DeferredResolver.extract_deferred(key)
+                assert match is not None, f"Invalid output key {key}."
+                self.outputs.append(key)
 
     def override_mapping(self, key: str, value: str):
         '''Sets the value or symbol to use a deferred variable, often grid variables.
@@ -410,6 +421,7 @@ class ModelBuilder():
         dvars = dvars.union(*[i[0] for i in self._expressions])
         dvars = dvars.union(*[i[0] for i in self._assignments])
         dvars = dvars.union(*[i[0] for i in self._constraints])
+        dvars = dvars.union([i for i in self.outputs if i.startswith("{")])
 
         # Set up the resolver and solve
         resolver = DeferredResolver(self.user_mappings, self.multiplicity, self.verbose, self.fancy_text)
