@@ -19,6 +19,9 @@ prior.logMass0 = ["uniform", -0.5, 0.5]
 prior.feh0 = ["uniform", -0.2, 0.5]
 prior.parallax = [15.0153, 0.03612]
 
+# Outputs to calculate
+outputs = ["d.mistTracks.logRadius", "d.mistTracks.logG", "d.mistTracks.logL"]
+
 [sampling]
 sampler = "emcee"
 emcee_init.nwalkers = 32
