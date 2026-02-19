@@ -119,6 +119,11 @@ class ModelBuilder():
         '''
         if self.verbose:
             print(f"    {self.txt.underline}Model Processing{self.txt.end}")
+        if "multiplicity" in model.keys():
+            for key, num in model['multiplicity'].items():
+                if self.verbose:
+                    print(f"multiplicity.{key} = {num}")
+                self.multiplicity[key] = num
         if "expr" in model.keys():
             for name, code in model['expr'].items():
                 if self.verbose:
@@ -145,6 +150,10 @@ class ModelBuilder():
             if grid in model.keys():
                 for key, value in model[grid].items():
                     assert len(value) in [2, 3]
+                    if grid in self.multiplicity.keys():
+                        assert "--" in key, f"No index for multi-interpolated grid {grid}.{key}"
+                    else:
+                        assert "--" not in key, f"Unexpected indexing of single-interpolated grid {grid}.{key}"
                     if self.verbose:
                         print(f"d.{grid}.{key} = {value}")
                     self._unpack_distribution(f"d.{grid}.{key}", value)
@@ -158,11 +167,6 @@ class ModelBuilder():
                 else:
                     assert type(override) is str
                     self.override_mapping(key, override)
-        if "multiplicity" in model.keys():
-            for key, num in model['multiplicity'].items():
-                if self.verbose:
-                    print(f"override.{key} = {num}")
-                self.multiplicity[key] = num
         if "outputs" in model.keys():
             for key in model['outputs']:
                 key = key.strip()
