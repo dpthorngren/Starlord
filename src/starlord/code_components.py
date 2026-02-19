@@ -59,6 +59,9 @@ class Component:
     def generate_code(self) -> str:
         return self.code
 
+    def __lt__(self, other) -> bool:
+        return ", ".join(sorted(list(self.provides))) < ", ".join(sorted(list(other.provides)))
+
 
 @dataclass(frozen=True)
 class AssignmentComponent(Component):

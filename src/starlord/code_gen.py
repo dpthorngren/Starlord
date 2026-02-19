@@ -112,6 +112,7 @@ class CodeGenerator:
         result.append("cdef void _forward_model(self, double[:] params):")
         # Generate the code for each component, sorted to satisfy their interdependencies
         components = [c for c in self._like_components if type(c) is not DistributionComponent]
+        components = sorted(components)
         components = self._sort_by_dependency(components)
         for comp in components:
             code: str = comp.generate_code().format(**self.mapping)
