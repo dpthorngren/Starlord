@@ -264,11 +264,10 @@ class GridGenerator:
         '''
         txt = config.text_format if fancy_text else config.text_format_off
         print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
-        print("   ", "Input".ljust(10), "Min".rjust(10), "Max".rjust(10), end=" ")
-        print("Length".rjust(10), "    Default Mapping")
+        print("    Input                       Min        Max     Length     Default Mapping")
         for i, name in enumerate(self.inputs):
             print(
-                f"{i:>3d} {txt.bold}{name:<10s}{txt.end}",
+                f"{i:>3d} {txt.bold}{name:<20s}{txt.end}",
                 f"{self.bounds[i, 0]:>10.4n}",
                 f"{self.bounds[i, 1]:>10.4n}",
                 f"{self.shape[i]:>10n}    ",
@@ -276,13 +275,21 @@ class GridGenerator:
             )
         print(f"{txt.underline}Outputs{txt.end}")
         if len(self.outputs) < 12 or full:
-            print(*[f"    {i}" for i in self.outputs], sep="\n")
+            print("    Output                      Min        Max")
+            for i, out in enumerate(self.outputs):
+                i += len(self.inputs)
+                print(f"{i:>3d} {out:20} {self.bounds[i, 0]:>10.4n} {self.bounds[i, 1]:>10.4n}")
         else:
             print(*[f"    {i}" for i in self.outputs[:12]], sep="\n")
             print(f"    [+{len(self.outputs)-12} more]")
         print(f"{txt.underline}Derived{txt.end}")
         if len(self.derived) < 12 or full:
-            print(*[f"    {i}" for i in self.derived], sep="\n")
+            print("    Derived              Code")
+            for i, der in enumerate(self.derived):
+                i += len(self.inputs) + len(self.outputs)
+                code = self.derived[der].split("\n")[0]
+                code = code if len(code) < 80 else code[:80] + " ..."
+                print(f"{i:>3d} {der:20} {code}")
         else:
             print(*[f"    {i}" for i in self.derived.keys()][:12], sep="\n")
             print(f"    [+{len(self.derived)-12} more]")

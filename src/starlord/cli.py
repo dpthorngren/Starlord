@@ -94,7 +94,7 @@ def main():
             print(key, value, sep=": ")
         print("")
 
-    # === Setup the Model ===
+    # === Set up the Model ===
     assert "model" in settings.keys(), "No model information was specified."
     builder = ModelBuilder(args.verbose, not args.plain_text)
     builder.set_from_dict(settings['model'])
