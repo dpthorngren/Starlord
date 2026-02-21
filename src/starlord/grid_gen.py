@@ -100,10 +100,12 @@ class GridGenerator:
         if derived:
             grid_spec += "; "
             grid_spec += ", ".join(derived.keys())
-        bounds = np.column_stack([
-            [np.min(i) for i in inputs.values()],
-            [np.max(i) for i in inputs.values()],
-        ])
+        bounds = []
+        for i in inputs.values():
+            bounds.append([np.min(i), np.max(i)])
+        for k in sorted(outputs.keys()):
+            bounds.append([np.nanmin(outputs[k]), np.nanmax(outputs[k])])
+        bounds = np.array(bounds)
         inout_arrays = dict(inputs)
         inout_arrays.update(outputs)
         filepath = str(config.grid_dir / grid_name) if "/" not in grid_name else grid_name
