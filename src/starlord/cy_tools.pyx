@@ -28,6 +28,16 @@ cpdef double gamma_lpdf(double x, double alpha, double lamb) noexcept:
 
 cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept:
     return special.gammaincinv(alpha, p)/lamb
+
+cpdef double exponential_lpdf(double x, double rate) noexcept:
+    if x < 0.:
+        return -math.INFINITY
+    return math.log(rate) - rate*x
+
+cpdef double exponential_ppf(double p, double rate) noexcept:
+    if p > 1 or p < 0 or rate < 0:
+        return math.NAN
+    return -math.log(1 - p) / rate
     
 cdef class GridInterpolator:
     '''An interpolator for gridded data, optimized for use in Cython.'''

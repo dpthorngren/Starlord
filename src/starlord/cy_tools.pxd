@@ -11,6 +11,8 @@ cpdef double beta_lpdf(double x, double alpha, double beta) noexcept
 cpdef double beta_ppf(double p, double alpha, double beta) noexcept
 cpdef double gamma_lpdf(double x, double alpha, double lamb) noexcept
 cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept
+cpdef double exponential_lpdf(double x, double rate) noexcept
+cpdef double exponential_ppf(double p, double rate) noexcept
 
 cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w) noexcept
 cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept

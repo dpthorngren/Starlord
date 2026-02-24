@@ -285,7 +285,7 @@ class CodeGenerator:
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
         var = Symb(var)
-        assert len(params) == 2
+        assert len(params) == 2 or len(params) == 1 and dist == "exponential"
         pars: list[Symb] = [Symb(i) for i in params]
         comp = DistributionComponent.create(var, dist, pars)
         if self.verbose:
@@ -295,7 +295,7 @@ class CodeGenerator:
 
     def prior(self, var: str, dist: str, params: list[str | float]):
         var = Symb(var)
-        assert len(params) == 2
+        assert len(params) == 2 or len(params) == 1 and dist == "exponential"
         pars: list[Symb] = [Symb(i) for i in params]
         comp = Prior.create(var, dist, pars)
         if self.verbose:

@@ -81,7 +81,7 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     # assert "rdummy c" in captured
     assert "Params:     p.b, p.x, p.y" in captured
     assert "l.dummy__g1 = 2.5*(5+p.x) + l.dummy__v1" in captured
-    assert "Normal(l.dummy__v2 | 3.0, 1.0)" in captured
+    assert "Exponential(l.dummy__v2 | 1.0)" in captured
     assert "Normal(l.rdummy__c | 0.0, 1.0)" in captured
     # Test CLI
     monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/dummy_grid.toml', '-dpt', '"0.5,3.5,5.5"'])
@@ -94,7 +94,7 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     assert "\nl.dummy__v1  5.1" in captured
     assert "\nl.dummy__v2  24.7" in captured
     assert "\nl.rdummy__c  30.1" in captured
-    assert "\nlog_like     -694.3" in captured
+    assert "\nlog_like     -481.4" in captured
     assert "\nlog_prior    -49.2" in captured
     # Test that the retrieval runs (it's nonsense, so ignore output values)
     outfile = config.grid_dir / "dummy_out.npz"

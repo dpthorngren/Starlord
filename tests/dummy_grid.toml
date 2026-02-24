@@ -1,6 +1,6 @@
 [model]
 rdummy.c = ["normal", 0.0, 1.0]
-dummy.v2 = ["normal", 3.0, 1.0]
+dummy.v2 = ["exponential", 1.0]
 
 prior.b = ["normal", 1.5, 0.1]
 prior.x = ['normal', 3.0, 0.5]

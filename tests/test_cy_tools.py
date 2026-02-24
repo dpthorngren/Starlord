@@ -27,6 +27,9 @@ def test_lpdf():
         assert stats.gamma.logpdf(x, 15., scale=1. / 20.) == approx(cy_tools.gamma_lpdf(x, 15., 20.), rel=1e-12)
         assert stats.gamma.logpdf(x, 500., scale=1. / 300.) == approx(cy_tools.gamma_lpdf(x, 500., 300.), rel=1e-12)
         assert stats.gamma.logpdf(x, 53.2, scale=1. / 48.5) == approx(cy_tools.gamma_lpdf(x, 53.2, 48.5), rel=1e-12)
+    assert cy_tools.exponential_lpdf(-1e-5, 3.) == -np.inf
+    for x in stats.uniform.rvs(0., 10., 100):
+        assert stats.expon.logpdf(x, scale=1. / 20.) == approx(cy_tools.exponential_lpdf(x, 20.), rel=1e-12)
 
 
 def test_ppf():
@@ -38,6 +41,8 @@ def test_ppf():
         assert cy_tools.beta_ppf(x, 230.3, 112.2) == approx(stats.beta.ppf(x, 230.3, 112.2))
         assert cy_tools.gamma_ppf(x, 25.3, 12.2) == approx(stats.gamma.ppf(x, 25.3, scale=1. / 12.2))
         assert cy_tools.gamma_ppf(x, 230.3, 112.2) == approx(stats.gamma.ppf(x, 230.3, scale=1. / 112.2))
+        assert cy_tools.exponential_ppf(x, 0.15) == approx(stats.expon.ppf(x, scale=1. / .15))
+        assert cy_tools.exponential_ppf(x, 13.25) == approx(stats.expon.ppf(x, scale=1. / 13.25))
 
 
 def test_gridding1d():
