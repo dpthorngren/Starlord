@@ -88,7 +88,7 @@ class DistributionComponent(Component):
     @classmethod
     def create(cls, var: Symb, dist: str, params: list[Symb]):
         dist = dist.lower()
-        assert dist in ["normal", "uniform", "beta", "gamma", "exponential"]
+        assert dist in ["normal", "uniform", "beta", "gamma", "exponential", "trunc_power"]
         requires: set[Symb] = set(p for p in params if not p.is_literal)
         requires = requires | {var}
         pars = [str(p) if p.is_literal else f"{{{p}}}" for p in params]
@@ -122,7 +122,7 @@ class Prior:
     @classmethod
     def create(cls, var: Symb, distribution: str, params: list[Symb]):
         distribution = distribution.lower()
-        assert distribution in ["normal", "uniform", "beta", "gamma", "exponential"]
+        assert distribution in ["normal", "uniform", "beta", "gamma", "exponential", "trunc_power"]
         return Prior(
             vars=[var],
             code_ppf="{vars} = " + distribution + "_ppf({vars}, {paramStr})",

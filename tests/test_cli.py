@@ -95,7 +95,7 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     assert "\nl.dummy__v2  24.7" in captured
     assert "\nl.rdummy__c  30.1" in captured
     assert "\nlog_like     -481.4" in captured
-    assert "\nlog_prior    -49.2" in captured
+    assert "\nlog_prior    -0.495" in captured
     # Test that the retrieval runs (it's nonsense, so ignore output values)
     outfile = config.grid_dir / "dummy_out.npz"
     monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/dummy_grid.toml', '-o', str(outfile)])

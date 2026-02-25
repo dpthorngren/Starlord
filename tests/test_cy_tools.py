@@ -30,19 +30,29 @@ def test_lpdf():
     assert cy_tools.exponential_lpdf(-1e-5, 3.) == -np.inf
     for x in stats.uniform.rvs(0., 10., 100):
         assert stats.expon.logpdf(x, scale=1. / 20.) == approx(cy_tools.exponential_lpdf(x, 20.), rel=1e-12)
+    assert cy_tools.trunc_power_lpdf(4.0, 0., 3.1, 6.6) == approx(-np.log(3.5))
+    for k in stats.uniform.rvs(.1, 3, 100):
+        baseline = cy_tools.trunc_power_lpdf(2.0, k, 1., 5.)
+        assert baseline == approx(cy_tools.trunc_power_lpdf(4.0, k, 1., 5.) - np.log(2**k), rel=1e-12)
+        baseline = cy_tools.trunc_power_lpdf(1.5, -k, 1., 5.)
+        assert baseline == approx(cy_tools.trunc_power_lpdf(3.0, -k, 1., 5.) + np.log(2**k), rel=1e-12)
+    baseline = cy_tools.trunc_power_lpdf(1.5, -1, 1., 5.)
+    assert baseline == approx(cy_tools.trunc_power_lpdf(3.0, -1, 1., 5.) - np.log(0.5), rel=1e-12)
 
 
 def test_ppf():
-    for x in stats.uniform.rvs(0., 1., 100):
-        assert cy_tools.normal_ppf(x, 1.3e4, 5.2e3) == approx(stats.norm.ppf(x, loc=1.3e4, scale=5.2e3), rel=1e-12)
-        assert cy_tools.normal_ppf(x, -1.2e-3, 5.2e-3) == approx(
-            stats.norm.ppf(x, loc=-1.2e-3, scale=5.2e-3), rel=1e-12)
-        assert cy_tools.beta_ppf(x, 25.3, 12.2) == approx(stats.beta.ppf(x, 25.3, 12.2))
-        assert cy_tools.beta_ppf(x, 230.3, 112.2) == approx(stats.beta.ppf(x, 230.3, 112.2))
-        assert cy_tools.gamma_ppf(x, 25.3, 12.2) == approx(stats.gamma.ppf(x, 25.3, scale=1. / 12.2))
-        assert cy_tools.gamma_ppf(x, 230.3, 112.2) == approx(stats.gamma.ppf(x, 230.3, scale=1. / 112.2))
-        assert cy_tools.exponential_ppf(x, 0.15) == approx(stats.expon.ppf(x, scale=1. / .15))
-        assert cy_tools.exponential_ppf(x, 13.25) == approx(stats.expon.ppf(x, scale=1. / 13.25))
+    for p in stats.uniform.rvs(0., 1., 100):
+        assert cy_tools.normal_ppf(p, 1.3e4, 5.2e3) == approx(stats.norm.ppf(p, loc=1.3e4, scale=5.2e3), rel=1e-12)
+        assert cy_tools.normal_ppf(p, -1.2e-3, 5.2e-3) == approx(
+            stats.norm.ppf(p, loc=-1.2e-3, scale=5.2e-3), rel=1e-12)
+        assert cy_tools.beta_ppf(p, 25.3, 12.2) == approx(stats.beta.ppf(p, 25.3, 12.2))
+        assert cy_tools.beta_ppf(p, 230.3, 112.2) == approx(stats.beta.ppf(p, 230.3, 112.2))
+        assert cy_tools.gamma_ppf(p, 25.3, 12.2) == approx(stats.gamma.ppf(p, 25.3, scale=1. / 12.2))
+        assert cy_tools.gamma_ppf(p, 230.3, 112.2) == approx(stats.gamma.ppf(p, 230.3, scale=1. / 112.2))
+        assert cy_tools.exponential_ppf(p, 0.15) == approx(stats.expon.ppf(p, scale=1. / .15))
+        assert cy_tools.exponential_ppf(p, 13.25) == approx(stats.expon.ppf(p, scale=1. / 13.25))
+        assert cy_tools.trunc_power_ppf(p, 0., 5, 10) == approx(5 + 5*p, rel=1e-12)
+        assert cy_tools.trunc_power_ppf(p, 1., 1, 2) == approx(np.sqrt(1 + 3*p))
 
 
 def test_gridding1d():

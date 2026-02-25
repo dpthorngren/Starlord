@@ -20,6 +20,7 @@ from .code_components import (AssignmentComponent, Component, DistributionCompon
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
+_num_params = {'normal': 2, 'uniform': 2, 'beta': 2, 'gamma': 2, 'exponential': 1, 'trunc_power': 3}
 
 
 class CodeGenerator:
@@ -285,7 +286,7 @@ class CodeGenerator:
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
         var = Symb(var)
-        assert len(params) == 2 or len(params) == 1 and dist == "exponential"
+        assert dist in _num_params.keys() and _num_params[dist] == len(params)
         pars: list[Symb] = [Symb(i) for i in params]
         comp = DistributionComponent.create(var, dist, pars)
         if self.verbose:
@@ -295,7 +296,7 @@ class CodeGenerator:
 
     def prior(self, var: str, dist: str, params: list[str | float]):
         var = Symb(var)
-        assert len(params) == 2 or len(params) == 1 and dist == "exponential"
+        assert dist in _num_params.keys() and _num_params[dist] == len(params)
         pars: list[Symb] = [Symb(i) for i in params]
         comp = Prior.create(var, dist, pars)
         if self.verbose:

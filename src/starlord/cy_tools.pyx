@@ -38,6 +38,25 @@ cpdef double exponential_ppf(double p, double rate) noexcept:
     if p > 1 or p < 0 or rate < 0:
         return math.NAN
     return -math.log(1 - p) / rate
+
+cpdef double trunc_power_lpdf(double x, double k, double a, double b) noexcept:
+    if (a <= 0 and k <= 0) or b < 0 or a < 0:
+        return math.NAN
+    if x < a or x > b:
+        return -math.INFINITY
+    if k == -1:
+        return -math.log(x * math.log(b/a))
+    return k*math.log(x) + math.log((k+1) / (b**(k+1) - a**(k+1)))
+
+cpdef double trunc_power_ppf(double p, double k, double a, double b) noexcept:
+    if (a <= 0 and k <= 0) or b < 0 or a < 0:
+        return math.NAN
+    if p > 1 or p < 0:
+        return math.NAN
+    if k == -1:
+        return a * (b/a)**p
+    k += 1
+    return (p * b**k + (1-p) * a**k)**(1./k)
     
 cdef class GridInterpolator:
     '''An interpolator for gridded data, optimized for use in Cython.'''
