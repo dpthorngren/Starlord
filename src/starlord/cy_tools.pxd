@@ -15,6 +15,8 @@ cpdef double exponential_lpdf(double x, double rate) noexcept
 cpdef double exponential_ppf(double p, double rate) noexcept
 cpdef double trunc_power_lpdf(double x, double k, double a, double b) noexcept
 cpdef double trunc_power_ppf(double p, double k, double a, double b) noexcept
+cpdef double trunc_normal_lpdf(double x, double mean, double sigma, double a, double b) noexcept
+cpdef double trunc_normal_ppf(double p, double mean, double sigma, double a, double b) noexcept
 
 cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w) noexcept
 cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept

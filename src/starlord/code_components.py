@@ -3,6 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+# The number of parameters for each type of distribution.
+_num_params = {'normal': 2, 'uniform': 2, 'beta': 2, 'gamma': 2, 'exponential': 1, 'trunc_power': 3, 'trunc_normal': 4}
+
 
 class Symb(str):
     '''Represents a single symbol or constant in the code generator.'''
@@ -88,7 +91,7 @@ class DistributionComponent(Component):
     @classmethod
     def create(cls, var: Symb, dist: str, params: list[Symb]):
         dist = dist.lower()
-        assert dist in ["normal", "uniform", "beta", "gamma", "exponential", "trunc_power"]
+        assert dist in _num_params.keys()
         requires: set[Symb] = set(p for p in params if not p.is_literal)
         requires = requires | {var}
         pars = [str(p) if p.is_literal else f"{{{p}}}" for p in params]
@@ -122,7 +125,7 @@ class Prior:
     @classmethod
     def create(cls, var: Symb, distribution: str, params: list[Symb]):
         distribution = distribution.lower()
-        assert distribution in ["normal", "uniform", "beta", "gamma", "exponential", "trunc_power"]
+        assert distribution in _num_params.keys()
         return Prior(
             vars=[var],
             code_ppf="{vars} = " + distribution + "_ppf({vars}, {paramStr})",

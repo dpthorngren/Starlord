@@ -16,11 +16,10 @@ from typing import NamedTuple, Optional
 import cython
 
 from ._config import __version__, _TextFormatCodes_, config
-from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
+from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb, _num_params)
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
-_num_params = {'normal': 2, 'uniform': 2, 'beta': 2, 'gamma': 2, 'exponential': 1, 'trunc_power': 3}
 
 
 class CodeGenerator:

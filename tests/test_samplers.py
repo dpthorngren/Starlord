@@ -16,7 +16,7 @@ def test_grid_retrieval(dummy_grids: Path):
     starlord.GridGenerator.reload_grids()
     builder = starlord.ModelBuilder(True)
     builder.assign("foo", "d.dummy.v1 + c.offset")
-    builder.constraint("l.foo", "normal", [0.5, 0.1])
+    builder.constraint("l.foo", "trunc_normal", [0.5, 0.1, -10, 10.])
     builder.constraint("d.dummy.g2", "normal", [0.5, 2.3])
     builder.constraint("d.dummy.v2", "normal", [1.5, 1.3])
     builder.prior("x", "uniform", [-5., 5.])
@@ -36,9 +36,9 @@ def test_grid_retrieval(dummy_grids: Path):
     print(out)
     v1 = np.sin(1.5) + 4.5
     assert out['dummy__v1'] == pytest.approx(v1, rel=.01)
-    v2 = 25. + np.cos(2.2*1.5) / np.sin(4.5)
+    v2 = 25. + np.cos(2.2 * 1.5) / np.sin(4.5)
     assert out['dummy__v2'] == pytest.approx(v2, rel=.01)
-    g1 = 2.5*(5+1.5) + v1
+    g1 = 2.5 * (5+1.5) + v1
     assert out['dummy__g1'] == pytest.approx(g1, rel=.01)
     g2 = 0.5 + np.log10(g1)
     assert out['dummy__g2'] == pytest.approx(g2, rel=.01)

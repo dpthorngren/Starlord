@@ -14,6 +14,13 @@ def test_lpdf():
         assert stats.norm.logpdf(x, 1., .5) == approx(cy_tools.normal_lpdf(x, 1., .5), rel=1e-12)
         assert stats.norm.logpdf(x, -10.1, 2.5) == approx(cy_tools.normal_lpdf(x, -10.1, 2.5), rel=1e-12)
         assert stats.norm.logpdf(x, 1e3, 1e2) == approx(cy_tools.normal_lpdf(x, 1e3, 1e2), rel=1e-12)
+
+        expect = stats.truncnorm.logpdf(x, 3., 4., 1., .5)
+        assert cy_tools.trunc_normal_lpdf(x, 1., .5, 3., 4.) == approx(expect, rel=1e-12)
+        expect = stats.truncnorm.logpdf(x, -15, -5, -10.1, 2.5)
+        assert cy_tools.trunc_normal_lpdf(x, -10.1, 2.5, -15, -5) == approx(expect, rel=1e-12)
+        expect = stats.truncnorm.logpdf(x, 5e2, 2e3, 1e3, 1e2)
+        assert cy_tools.trunc_normal_lpdf(x, 1e3, 1e2, 5e2, 2e3) == approx(expect, rel=1e-12)
     assert np.isnan(cy_tools.normal_lpdf(5., 2., -1.5))
     for x in stats.uniform.rvs(0., 1., 100):
         assert stats.beta.logpdf(x, 15., 20.) == approx(cy_tools.beta_lpdf(x, 15., 20.), rel=1e-12)
@@ -32,12 +39,12 @@ def test_lpdf():
         assert stats.expon.logpdf(x, scale=1. / 20.) == approx(cy_tools.exponential_lpdf(x, 20.), rel=1e-12)
     assert cy_tools.trunc_power_lpdf(4.0, 0., 3.1, 6.6) == approx(-np.log(3.5))
     for k in stats.uniform.rvs(.1, 3, 100):
-        baseline = cy_tools.trunc_power_lpdf(2.0, k, 1., 5.)
-        assert baseline == approx(cy_tools.trunc_power_lpdf(4.0, k, 1., 5.) - np.log(2**k), rel=1e-12)
-        baseline = cy_tools.trunc_power_lpdf(1.5, -k, 1., 5.)
-        assert baseline == approx(cy_tools.trunc_power_lpdf(3.0, -k, 1., 5.) + np.log(2**k), rel=1e-12)
-    baseline = cy_tools.trunc_power_lpdf(1.5, -1, 1., 5.)
-    assert baseline == approx(cy_tools.trunc_power_lpdf(3.0, -1, 1., 5.) - np.log(0.5), rel=1e-12)
+        expect = cy_tools.trunc_power_lpdf(2.0, k, 1., 5.)
+        assert cy_tools.trunc_power_lpdf(4.0, k, 1., 5.) - np.log(2**k) == approx(expect, rel=1e-12)
+        expect = cy_tools.trunc_power_lpdf(1.5, -k, 1., 5.)
+        assert cy_tools.trunc_power_lpdf(3.0, -k, 1., 5.) + np.log(2**k) == approx(expect, rel=1e-12)
+    expect = cy_tools.trunc_power_lpdf(1.5, -1, 1., 5.)
+    assert cy_tools.trunc_power_lpdf(3.0, -1, 1., 5.) - np.log(0.5) == approx(expect, rel=1e-12)
 
 
 def test_ppf():
@@ -53,6 +60,12 @@ def test_ppf():
         assert cy_tools.exponential_ppf(p, 13.25) == approx(stats.expon.ppf(p, scale=1. / 13.25))
         assert cy_tools.trunc_power_ppf(p, 0., 5, 10) == approx(5 + 5*p, rel=1e-12)
         assert cy_tools.trunc_power_ppf(p, 1., 1, 2) == approx(np.sqrt(1 + 3*p))
+        expect = stats.truncnorm.ppf(p, 0., 1., loc=-1.2e-3, scale=5.2e-3)
+        assert cy_tools.trunc_normal_ppf(p, -1.2e-3, 5.2e-3, -1.2e-3, -1.2e-3 + 5.2e-3) == approx(expect, rel=1e-12)
+        expect = stats.truncnorm.ppf(p, -1.3e4 / 5.2e3, np.inf, loc=1.3e4, scale=5.2e3)
+        assert cy_tools.trunc_normal_ppf(p, 1.3e4, 5.2e3, 0, np.inf) == approx(expect, rel=1e-12)
+        expect = stats.norm.ppf(p, 3.5, .53)
+        assert cy_tools.trunc_normal_ppf(p, 3.5, .53, -np.inf, np.inf) == approx(expect, rel=1e-12)
 
 
 def test_gridding1d():

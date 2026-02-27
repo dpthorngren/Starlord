@@ -57,6 +57,30 @@ cpdef double trunc_power_ppf(double p, double k, double a, double b) noexcept:
         return a * (b/a)**p
     k += 1
     return (p * b**k + (1-p) * a**k)**(1./k)
+
+cpdef double trunc_normal_lpdf(double x, double mean, double sigma, double a, double b) noexcept:
+    if a >= b:
+        return math.NAN
+    elif x < a or x > b:
+        return -math.INFINITY
+    x = (x-mean) / sigma
+    a = (a-mean) / sigma
+    a = math.erfc(-a/math.sqrt(2.))/2.
+    b = (b-mean) / sigma
+    b = math.erfc(-b/math.sqrt(2.))/2.
+    return -(x-mean)**2/(2*sigma*sigma) - .5*math.log(2*math.M_PI*sigma*sigma) - math.log(b-a)
+
+cpdef double trunc_normal_ppf(double p, double mean, double sigma, double a, double b) noexcept:
+    if a >= b:
+        return math.NAN
+    if p > 1 or p < 0:
+        return math.NAN
+    a = (a-mean) / sigma
+    a = math.erfc(-a/math.sqrt(2.))/2.
+    b = (b-mean) / sigma
+    b = math.erfc(-b/math.sqrt(2.))/2.
+    p = p*(b-a) + a
+    return -math.sqrt(2.) * special.erfcinv(2.*p)*sigma + mean
     
 cdef class GridInterpolator:
     '''An interpolator for gridded data, optimized for use in Cython.'''
