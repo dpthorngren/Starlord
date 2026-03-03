@@ -1,0 +1,54 @@
+[model]
+# There are two stars in the system, so we need to interpolate the MIST grid twice.
+multiplicity.mist = 2
+# All photometry is blended, so use "--blend" instead of "--1" or "--2"
+mist.Gaia_G_EDR3--blend = [10.0955, 0.0039]
+mist.GALEX_NUV--blend = [15.8431, 0.05310]
+mist.SkyMapper_u--blend = [12.0033, 0.0325]
+mist.SkyMapper_g--blend = [10.2842, 0.0477]
+mist.SkyMapper_r--blend = [9.9401, 0.0718]
+mist.SkyMapper_i--blend = [9.5456, 0.0669]
+mist.SkyMapper_z--blend = [9.52800, 0.1022]
+mist.2MASS_J--blend = [8.7659, 0.0320]
+mist.2MASS_H--blend = [8.3739, 0.0430]
+mist.WISE_W1--blend = [8.5299, 0.0504]
+mist.WISE_W2--blend = [8.5699, 0.0502]
+
+# Require the second star to be of lower mass (to disambiguate the indices)
+var.mass_difference = ["p.logMass0--1 - p.logMass0--2", "uniform", 0, 10]
+
+# Ignore the distinction between surface and inital bulk [Fe/H]
+override.mist.feh = "p.feh0--i"
+
+# Instruct Starlord to use separate metallicities, ages, paralaxxes, and extinctions
+override.mistTracks.feh0 = "p.feh0--i"
+override.mistTracks.logAge = "mistInvAge.logAge--i"
+override.mistInvAge.feh0 = "p.feh0--i"
+override.mistInvAge.logAge = "p.logAge--i"
+override.mist.parallax = "p.parallax--i"
+override.mist.Av = "p.Av--i"
+
+# All parameters are unshared
+prior.Av--1 = ["trunc_normal", 0.02687, 0.03, 0, 20]
+prior.Av--2 = ["trunc_normal", 0.02687, 0.03, 0, 20]
+prior.parallax--1 = [9.508, 0.018]
+prior.parallax--2 = [9.508, 0.018]
+prior.feh0--1 = ["uniform", -0.2, 0.5]
+prior.feh0--2 = ["uniform", -0.2, 0.5]
+prior.logAge--1 = ["uniform", -1.5, 1.2]
+prior.logAge--2 = ["uniform", -1.5, 1.2]
+prior.logMass0--1 = ["uniform", -0.5, 0.5]
+prior.logMass0--2 = ["uniform", -0.5, 0.5]
+
+# Outputs to calculate
+outputs = ["d.mistTracks.logRadius--1", "d.mistTracks.logG--1", "d.mistTracks.logL--1", "d.mistTracks.logTeff--1",
+           "d.mistTracks.logRadius--2", "d.mistTracks.logG--2", "d.mistTracks.logL--2", "d.mistTracks.logTeff--2"]
+
+[sampling]
+emcee_init.burn_in = 2000
+emcee_run.nsteps = 5000
+emcee_init.thin = 10
+
+[output]
+terminal=true
+file="wasp77.npz"

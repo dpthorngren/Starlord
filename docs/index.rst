@@ -4,10 +4,9 @@ Starlord Documentation
 .. toctree::
    :maxdepth: 2
 
-   quickstart
+   quickstart/index
    grids
    models
    sampling
-   stars
    bayes
    ref/index

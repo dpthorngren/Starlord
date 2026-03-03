@@ -449,6 +449,11 @@ class ModelBuilder():
 
 
 class DeferredResolver:
+    '''Resolves the dependencies of variables specified like "d.grid.foo", including
+    user overrides, indexing (for multiple grid interpolations), and blending.  It
+    can optionally generate the required code_generator components and produce
+    a log file of the solution.'''
+
     # Matches deferred variables like d.foo, d.grid.foo, or d.grid.1-foo
     find_input_deferred = re.compile(r"(?<!\w)d(?:\.([a-zA-Z_]\w+))?\.([a-zA-Z1-9]\w*)(?:--([a-z\d]+))?")
     # Matches deferred variable keys like {foo}, {grid__foo}, or {grid__foo--1}

@@ -2,6 +2,8 @@ Internal Classes
 ====================
 These classes are almost never necessary for users to interact with, but are documented here for completeness.
 
+.. autoclass:: starlord.model_builder::DeferredResolver
+
 .. autoclass:: starlord.CodeGenerator
 
 .. autoclass:: starlord.code_components::Component

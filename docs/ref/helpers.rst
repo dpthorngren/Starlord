@@ -11,3 +11,9 @@ In addition to the below functions, the ``lapack``, ``blas``, ``special`` librar
 .. autofunction:: starlord.cy_tools::beta_ppf
 .. autofunction:: starlord.cy_tools::gamma_lpdf
 .. autofunction:: starlord.cy_tools::gamma_ppf
+.. autofunction:: starlord.cy_tools::exponential_lpdf
+.. autofunction:: starlord.cy_tools::exponential_ppf
+.. autofunction:: starlord.cy_tools::trunc_power_lpdf
+.. autofunction:: starlord.cy_tools::trunc_power_ppf
+.. autofunction:: starlord.cy_tools::trunc_normal_lpdf
+.. autofunction:: starlord.cy_tools::trunc_normal_ppf

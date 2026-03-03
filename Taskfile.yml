@@ -53,4 +53,5 @@ tasks:
     generates:
       - docs/build/html/index.html
     cmds:
+      - rm -rf docs/build/html/
       - sphinx-build docs/ docs/build/html/

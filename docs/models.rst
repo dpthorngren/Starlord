@@ -1,6 +1,6 @@
 Defining a Model
 ====================
-Bayesian models are defined by their likelihoods, the model parameters, and the priors thereof.  Starlord's model specification system attempts to cut as much of the boilerplate out of this as possible, especially where there are grids to be interpolated.  This section describes how this specification system works, but you might also find the examples in :doc:`quickstart` and :doc:`stars` helpful, as well as the API documentation for :class:`starlord.ModelBuilder`.
+Bayesian models are defined by their likelihoods, the model parameters, and the priors thereof.  Starlord's model specification system attempts to cut as much of the boilerplate out of this as possible, especially where there are grids to be interpolated.  This section describes how this specification system works, but you might also find the examples in :doc:`quickstart/index` and :doc:`quickstart/stars` helpful, as well as the API documentation for :class:`starlord.ModelBuilder`.
 
 A key feature of Starlord's model specification is the *implicit declaration of variables*.  If you use a variable, Starlord will infer its purpose from the prefix (every valid variable is of the form ```type.varname```) and generate code accordingly.  That is, you do not need to list your model parameters, constants, or grid outputs, you just *use them* and Starlord will handle it.  The types of variables are:
 
@@ -9,7 +9,7 @@ A key feature of Starlord's model specification is the *implicit declaration of 
    change.
 :Local Variables: ``l.[name]`` these are calculated for each log likelihood call
    but not recorded
-:Grid Variables: ``[grid_name].[output_name]``, these indicate a value obtained by interpolating from the specified grid.
+:Grid Variables: ``d.[grid_name].[output_name]``, these indicate a value obtained by interpolating from the specified grid.
 
 These variables are used in defining the model via one of the five valid entries for the ``[model]`` section of the TOML file:
 
@@ -36,7 +36,7 @@ The likelihood terms describe how our data constrains the model posterior.  For 
     ExampleGrid.B = ['uniform', 0, 5.0]
     ExampleGrid.C = ['normal', -0.5, 0.05]
 
-The syntax is ``grid_name.output_name = ['distribution_name', param_1, param_2, ...]``, and the supported distributions are ``normal``, ``uniform``, ``gamma``, and ``beta``.
+The syntax is ``grid_name.output_name = ['distribution_name', param_1, param_2, ...]``, and the supported distributions are ``normal``, ``uniform``, ``gamma``, ``beta``, ``trunc_normal``, and ``trunc_power``.
 
 .. tip::
 
@@ -47,9 +47,9 @@ If you're building a model using the Python API (see :doc:`ref/index`), the func
 .. code-block:: python
 
     builder = starlord.ModelBuilder()
-    builder.constraint('ExampleGrid.A', 'normal', [1.5, 0.2])
-    builder.constraint('ExampleGrid.B', 'normal', [2.3, 0.15])
-    builder.constraint('ExampleGrid.C', 'normal', [-0.5, 0.05])
+    builder.constraint('d.ExampleGrid.A', 'normal', [1.5, 0.2])
+    builder.constraint('d.ExampleGrid.B', 'normal', [2.3, 0.15])
+    builder.constraint('d.ExampleGrid.C', 'normal', [-0.5, 0.05])
 
 Local Variables
 --------------------
@@ -74,7 +74,7 @@ In some cases, you want to do something that doesn't fall into the other categor
 
     expr.x = """
     print(p.x, p.y, p.z)
-    print(ExampleGrid.A, ExampleGrid.B, ExampleGrid.C)"
+    print(d.ExampleGrid.A, d.ExampleGrid.B, d.ExampleGrid.C)"
     """
 
 Or in Python:
@@ -83,7 +83,7 @@ Or in Python:
 
     builder.expression("""
     print(p.x, p.y, p.z)
-    print(ExampleGrid.A, ExampleGrid.B, ExampleGrid.C)"
+    print(d.ExampleGrid.A, d.ExampleGrid.B, d.ExampleGrid.C)"
     """)
 
 Input Mapping Overrides
@@ -98,7 +98,7 @@ In Python the setup is nearly the same:
 
 .. code-block:: python
 
-   builder.override("ExampleGrid", "x", "2*p.y")
+   builder.override("d.ExampleGrid", "x", "2*p.y")
 
 Either way, the generated code would now interpolate at ``(2*p.y, p.y, p.z)`` instead of ``(p.x, p.y, p.z)``.
 
