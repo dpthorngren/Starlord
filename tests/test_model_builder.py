@@ -206,7 +206,7 @@ def test_param_overrides(dummy_grids: Path):
     fitter.override_mapping("five", "5.0")
     fitter.prior("p.x", "normal", [2., 5.])
     # Check deferred variable mappings
-    mappings = fitter._resolve_deferred()
+    mappings = fitter._resolve_deferred().def_map
     print(mappings)
     assert list(mappings.keys()) == ['dummy__x', 'five', 'dummy__y', 'dummy__v1']
     assert mappings["five"] == "5.0"

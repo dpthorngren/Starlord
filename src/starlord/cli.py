@@ -36,6 +36,8 @@ def main():
     output_group.add_argument("-c", "--code", action="store_true", help="Print code upon generation.")
     output_group.add_argument("-o", "--output", help="Set output file, overriding input file setting.")
     output_group.add_argument(
+        "--dep-graph", action="store_true", help="Render the deferred variable dependencies with graphviz.")
+    output_group.add_argument(
         "-a", "--analyze", "--analyse", action="store_true", help="Print analysis info for the model.")
     output_group.add_argument(
         "-t",
@@ -101,6 +103,9 @@ def main():
     if args.analyze:
         print(builder.summary())
         builder.validate_constants(consts, True)
+    if args.dep_graph:
+        outfile = pathlib.Path(args.input).stem
+        builder._resolve_deferred().render_graph(outfile + "_graph")
     if args.code:
         code = builder.generate_code()
         if not args.plain_text:

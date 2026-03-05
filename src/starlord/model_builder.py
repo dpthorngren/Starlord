@@ -48,7 +48,7 @@ class ModelBuilder():
     def code_generator(self) -> CodeGenerator:
         if self.__gen__ is None:
             self.__grids__ = {}
-            deferred_map = self._resolve_deferred()
+            deferred_map = self._resolve_deferred().def_map
             if self.verbose:
                 print(f"\n    {self.txt.underline}Code Generation{self.txt.end}")
             self.__gen__ = CodeGenerator(self.verbose, self.fancy_text)
@@ -414,7 +414,7 @@ class ModelBuilder():
             return SamplerEnsemble.create_from_module(mod, consts, **args)
         raise ValueError(f"Sampler type '{sampler_type}' was not recognized.")
 
-    def _resolve_deferred(self) -> dict[str, str]:
+    def _resolve_deferred(self) -> DeferredResolver:
         '''Gather deferred variables from the components and build a dict that resolves them.
         This also fills out generated components and the __grids__ listing.'''
         if self.verbose:
@@ -437,7 +437,7 @@ class ModelBuilder():
         if self.verbose:
             print(f"\n    {self.txt.underline}Generated Components{self.txt.end}")
         resolver.push_components(self)
-        return resolver.def_map
+        return resolver
 
     @staticmethod
     def is_valid_param(var: str) -> bool:
@@ -473,6 +473,7 @@ class DeferredResolver:
         self.verbose = verbose
         self.fancy_text = fancy_text
         self.log: list[str] = []
+        self.graph: dict[str, Tuple[list[str], str, str]] = {}
         # Lists dvars already being processed, to detect circular dependencies.
         self.stack: list[str] = []
         # Generated components (e.g. grid interpolators), structured as (grid, key, code)
@@ -508,12 +509,14 @@ class DeferredResolver:
         if key in self.user_map:
             # User-specified mapping for the indexed variable takes priority
             value = self.user_map[key]
-            _, value = DeferredResolver.extract_deferred(value, index)
+            dependencies, value = DeferredResolver.extract_deferred(value, index)
+            self.graph[key] = (dependencies, value, "")
             value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
         elif f"{grid_name}__{name}" in self.user_map:
             # Non-indexed user-map match
             value = self.user_map[f"{grid_name}__{name}"]
-            _, value = DeferredResolver.extract_deferred(value, index)
+            dependencies, value = DeferredResolver.extract_deferred(value, index)
+            self.graph[key] = (dependencies, value, "")
             value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
         elif index is not None and not re.fullmatch(r"\d+", index):
             # Composite deferred value, set a local var and resolve the assignment later
@@ -532,10 +535,11 @@ class DeferredResolver:
                 code = f"-2.5*math.log10({code})"
             else:
                 raise ValueError(f"Composite name {index} in {key} not recognized.")
-            _, code = DeferredResolver.extract_deferred(code, index)
+            dependencies, code = DeferredResolver.extract_deferred(code, index)
+            value = f"l.{key.replace('--', '__')}"
+            self.graph[key] = (dependencies, value, code)
             code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
             self.new_components.append((grid_name, index, name, code))
-            value = f"l.{key.replace('--', '__')}"
         else:
             # Must be a grid variable
             grid = GridGenerator.get_grid(grid_name)
@@ -543,22 +547,25 @@ class DeferredResolver:
             if name in grid.inputs:
                 # Grid input, can directly substitute value
                 value = grid._get_input_map()[name]
-                _, value = DeferredResolver.extract_deferred(value, index)
+                dependencies, value = DeferredResolver.extract_deferred(value, index)
+                self.graph[key] = (dependencies, value, "")
                 value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
             elif name in grid.outputs:
                 # Grid output, need an interpolation component
                 inputs_str = ", ".join([f"d.{grid_name}__{i}--i" for i in grid.inputs])
                 code = f"c.grid__{grid_name}__{name}._interp{grid.ndim}d({inputs_str})"
-                _, code = DeferredResolver.extract_deferred(code, index)
+                dependencies, code = DeferredResolver.extract_deferred(code, index)
+                value = f"l.{key.replace('--', '__')}"
+                self.graph[key] = (dependencies, value, code)
                 code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
                 self.new_components.append((grid_name, index, name, code))
-                value = f"l.{key.replace('--', '__')}"
             elif name in grid.derived:
                 # Grid derived value, need assignment component
-                _, code = DeferredResolver.extract_deferred(grid.derived[name], index)
+                dependencies, code = DeferredResolver.extract_deferred(grid.derived[name], index)
+                value = f"l.{key.replace('--', '__')}"
+                self.graph[key] = (dependencies, value, code)
                 code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
                 self.new_components.append((grid_name, index, name, code))
-                value = f"l.{key.replace('--', '__')}"
             else:
                 raise ValueError(f"Key {name} not in grid {grid_name}.")
 
@@ -583,6 +590,31 @@ class DeferredResolver:
                 target.__grids__.setdefault(grid_name, []).append(name)
         finally:
             target.__auto_generating__ = False
+
+    def render_graph(self, filename):
+        '''Render the dependency graph for deferred variables with graphviz.'''
+        assert self.def_map.keys() == self.graph.keys()
+        # Optional dependency, using local import
+        import graphviz
+        g = graphviz.Digraph("Deferred Variables", node_attr={'fontname': 'monospace', 'shape': 'box'})
+        for key, value in self.graph.items():
+            bgcolor = "#E5E5E5" if value[2] != "" else "white"
+            label = r"< <B>d." + key + r'</B><BR/>'
+            label += value[1] if value[2] == "" else value[2]
+            label += " >"
+            # Text processing for better graph appearance
+            label = label.replace("{", "d.").replace("}", "")
+            label = re.sub(r"c.grid__(\w*)__(\w*)._interp\dd", r"c.\g<1>__\g<2>", label)
+            label = re.sub(r"(?<!\w)(l(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="green">\g<1></FONT>', label)
+            label = re.sub(r"(?<!\w)(c(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="blue">\g<1></FONT>', label)
+            label = re.sub(r"(?<!\w)(p(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="#E1712B">\g<1></FONT>', label)
+            label = re.sub(r"(?<!\w)(d(\.|__)[a-zA-z.]\w*)", r'<FONT COLOR="red">\g<1></FONT>', label)
+            label = label.replace("__", ".")
+            # Add the node and link with all dependencies
+            g.node(key, label=label, fillcolor=bgcolor, style="filled")
+            for dest in value[0]:
+                g.edge(key, dest)
+        g.render(filename, cleanup=True)
 
     @staticmethod
     def extract_deferred(source: str, index: str = "") -> Tuple[List[str], str]:
