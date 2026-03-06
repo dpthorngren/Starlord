@@ -125,9 +125,16 @@ class CodeGenerator:
         result.append("cpdef void postprocess(self, double[:,:] params, double[:,:] out):")
         result.append("    for i in range(params.shape[0]):")
         result.append("        self._forward_model(params[i])")
+        # Params is 2d for this function only, so adjust mapping
+        postprocess_mapping = {}
+        for key, value in self.mapping.items():
+            if key.startswith("p__"):
+                postprocess_mapping[key] = f"params[i,{value[7:]}"
+            else:
+                postprocess_mapping[key] = value
         for i, var in enumerate(self.outputs):
             var, _ = CodeGenerator._extract_params(var)
-            result.append(f"        out[i, {i}] = {var}".format(**self.mapping))
+            result.append(f"        out[i, {i}] = {var}".format(**postprocess_mapping))
         result.append("    return\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
