@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from multiprocessing import Pool
 from types import ModuleType
 from typing import Callable, Optional
 
@@ -63,10 +64,16 @@ class _Sampler(ABC):
 
 class SamplerEnsemble(_Sampler):
     '''Thin wrapper for EMCEE's EnsembleSampler'''
-    sampler: emcee.EnsembleSampler
+    _sampler: emcee.EnsembleSampler | None
     prior_transform: Callable | None
     burn_in: int
     thin: int
+    init_args: dict
+
+    @property
+    def sampler(self):
+        assert self._sampler is not None, "Must run sampler before accessing results."
+        return self._sampler
 
     def __init__(
         self,
@@ -90,7 +97,8 @@ class SamplerEnsemble(_Sampler):
         args.setdefault('nwalkers', max(100, 5 * ndim))
         args.setdefault('ndim', ndim)
         args.setdefault('log_prob_fn', log_prob)
-        self.sampler = emcee.EnsembleSampler(**args)
+        self.init_args = args
+        self._sampler = None
 
     @classmethod
     def create_from_module(cls, module: ModuleType, constants: list, **args):
@@ -108,15 +116,21 @@ class SamplerEnsemble(_Sampler):
     def results(self) -> object:
         return self.sampler.get_chain(flat=True, discard=self.burn_in, thin=self.thin)
 
-    def run(self, **args):
-        args.setdefault('nsteps', 2500)
-        args.setdefault('progress', True)
-        if "initial_state" not in args:
+    def run(self, threads=1, **run_args):
+        run_args.setdefault('nsteps', 2500)
+        run_args.setdefault('progress', True)
+        if "initial_state" not in run_args:
             assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
-            args['initial_state'] = 0.3 + 0.4 * np.random.rand(self.sampler.nwalkers, self.ndim)
-            [self.prior_transform(s) for s in args['initial_state']]
-        args['nsteps'] += self.burn_in
-        self.sampler.run_mcmc(**args)
+            run_args['initial_state'] = 0.3 + 0.4 * np.random.rand(self.init_args['nwalkers'], self.ndim)
+            [self.prior_transform(s) for s in run_args['initial_state']]
+        run_args['nsteps'] += self.burn_in
+        if threads > 1:
+            with Pool(threads) as pool:
+                self._sampler = emcee.EnsembleSampler(pool=pool, **self.init_args)
+                self.sampler.run_mcmc(**run_args)
+        else:
+            self._sampler = emcee.EnsembleSampler(**self.init_args)
+            self.sampler.run_mcmc(**run_args)
         post = self.results
         assert type(post) is np.ndarray
         postprocessed = np.zeros((post.shape[0], len(self.model.output_names)))
