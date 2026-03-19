@@ -32,7 +32,7 @@ def test_grid_retrieval(dummy_grids: Path):
     sampler = builder.build_sampler("emcee", {'offset': 1.5})
 
     # Check the forward model works as expected (see test_grids.dummy_grids)
-    out = sampler.model.forward_model(np.array([1.5, 4.5]))
+    out = sampler.forward_model(np.array([1.5, 4.5]))
     print(out)
     v1 = np.sin(1.5) + 4.5
     assert out['dummy__v1'] == pytest.approx(v1, rel=.01)
@@ -47,7 +47,7 @@ def test_grid_retrieval(dummy_grids: Path):
 
     # Check that the results are reasonable
     sampler.run()
-    stats = sampler.stats()
+    stats = sampler.stats
     assert np.all(np.isfinite(stats.cov))
     for s in [stats.mean, stats.p16, stats.p50, stats.p84]:
         assert -5. <= s[0] <= 5.
@@ -98,7 +98,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     assert summary[2].startswith("   1")
 
     # Check against known mean, std
-    stats = sampler.stats()
+    stats = sampler.stats
     # Normal distribution
     s = 1. / (1. / 2.**2 + 1. / 10.**2)
     assert stats.mean[0] == pytest.approx(-1.5 + s * (5. / 2.**2 + 0. / 10.**2), rel=.05)
