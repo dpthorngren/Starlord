@@ -179,14 +179,12 @@ class CodeGenerator:
                 definitions.append("    else:")
                 definitions.append(f"        {cm} = {self.auto_constants[c.name]}")
             else:
-                args.append(f"{ct} {c[5:]}")
-                definitions.append(f"    {cm} = {c[5:]}")
+                args.append(f"{ct} {c[2:]}")
+                definitions.append(f"    {cm} = {c[2:]}")
         args.append("**args")
         args = ", ".join(args)
         # Write the function
         result.append(f"def __init__({args}):")
-        result.append(f"    self.param_names = {[p.name for p in self.params]}")
-        result.append(f"    self.output_names = {[i[2:] for i in self.outputs]}")
         result += definitions
         result = ["    " + r for r in result]
         return "\n".join(result)
@@ -200,13 +198,16 @@ class CodeGenerator:
 
         # Class and constant declarations
         result.append("cdef class Model:")
-        result.append("    cdef public object param_names")
-        result.append("    cdef public object output_names")
+        result.append("    # Static metadata")
+        result.append(f"    param_names = {[p.name for p in self.params]}")
+        result.append(f"    output_names = {[i[2:] for i in self.outputs]}")
+        result.append("\n    # Constants")
+
         for c in self.constants:
             ct = self.constant_types.get(c.name, "double")
             cm = self.mapping[c.var][5:]
             result.append(f"    cdef public {ct} {cm}")
-        result.append("")
+        result.append("\n    # Local variables")
 
         # Local variable declarations
         for loc in self.locals:
@@ -292,7 +293,7 @@ class CodeGenerator:
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
         var = Symb(var)
-        assert dist in _num_params.keys() and _num_params[dist] == len(params)
+        assert dist in _num_params.keys() and _num_params[dist] == len(params), dist
         pars: list[Symb] = [Symb(i) for i in params]
         comp = DistributionComponent.create(var, dist, pars)
         if self.verbose:
