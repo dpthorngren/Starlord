@@ -12,8 +12,8 @@ from dynesty.results import Results as DynestyResults
 ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
 _dummyModel = namedtuple(
     "DummyModel", [
-        'param_names', 'forward_model', 'log_like', 'log_prob', 'prior_transform', 'log_prior', 'output_names',
-        'postprocess'
+        'param_names', 'const_names', 'forward_model', 'log_like', 'log_prob', 'prior_transform', 'log_prior',
+        'output_names', 'postprocess'
     ])
 
 
@@ -28,17 +28,17 @@ class _Sampler:
     _stats: Optional[ResultStats]
 
     @property
-    def constants(self):
+    def constants(self) -> dict[str, float]:
         self._check_constants = True
         return self._constants
 
     @property
     def model(self) -> _dummyModel:
         if self._model is None:
-            self._model = self._model_class(*self._constants)
+            self._model = self._model_class(**self._constants)
         elif self._check_constants:
-            for key, value in self._constants:
-                setattr(self._model, key, value)
+            for key, value in self._constants.items():
+                setattr(self._model, "c__" + key, value)
         return self._model
 
     @property
@@ -48,6 +48,10 @@ class _Sampler:
     @property
     def output_names(self) -> list[str]:
         return self._model_class.output_names  # type: ignore
+
+    @property
+    def const_names(self) -> list[str]:
+        return self._model_class.const_names  # type: ignore
 
     @property
     def ndim(self) -> int:

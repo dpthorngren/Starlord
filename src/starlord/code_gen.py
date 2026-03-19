@@ -201,6 +201,7 @@ class CodeGenerator:
         result.append("    # Static metadata")
         result.append(f"    param_names = {[p.name for p in self.params]}")
         result.append(f"    output_names = {[i[2:] for i in self.outputs]}")
+        result.append(f"    const_names = {[c.name for c in self.constants]}")
         result.append("\n    # Constants")
 
         for c in self.constants:

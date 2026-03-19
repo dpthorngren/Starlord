@@ -23,6 +23,7 @@ def main():
         "input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
     parser.add_argument(
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
+    parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
     model_group = parser.add_argument_group("model options", "Modify the model, overriding input file settings.")
     model_group.add_argument(
@@ -136,13 +137,49 @@ def main():
         print("log_prior".ljust(padding), f"   {sampler.model.log_prior(test_case):.6}")
     if args.dry_run:
         return
-    sampler_args = settings['sampling'].get(sampler_type + "_run", {})
-    sampler.run(**sampler_args)
 
-    # === Write Outputs ===
     out: dict = {"terminal": False, "file": ""}
     out.update(settings['output'])
-    if out['terminal']:
-        print(sampler.summary())
-    if out['file'] != "":
-        sampler.save_results(out['file'])
+    if args.batch is not None:
+        path = pathlib.Path(args.batch)
+        data = np.genfromtxt(
+            path,
+            delimiter=",",
+            comments="#",
+            autostrip=True,
+            names=True,
+            dtype=None,
+            encoding="UTF-8",
+        )
+        columns = data.dtype.names
+        assert columns is not None, "Failed to read column names."
+        columns = [n for n in columns if n in sampler.const_names]
+        for i, row in enumerate(data):
+            name = str(i)
+            if data.dtype.names is not None and 'name' in data.dtype.names:
+                name = row['name']
+            info = []
+            for c in columns:
+                sampler.constants[c] = row[c]
+                info.append(f"{c} = {row[c]}")
+            if args.verbose:
+                print(name + ": ", ", ".join(info))
+            else:
+                print(name)
+            sampler_args = settings['sampling'].get(sampler_type + "_run", {})
+            sampler.run(**sampler_args)
+
+            # === Write Outputs ===
+            if out['terminal']:
+                print(sampler.summary())
+            if out['file'] != "":
+                sampler.save_results(out['file'] + "_" + name)
+    else:
+        sampler_args = settings['sampling'].get(sampler_type + "_run", {})
+        sampler.run(**sampler_args)
+
+        # === Write Outputs ===
+        if out['terminal']:
+            print(sampler.summary())
+        if out['file'] != "":
+            sampler.save_results(out['file'])

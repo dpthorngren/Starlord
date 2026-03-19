@@ -409,9 +409,9 @@ class ModelBuilder():
                 consts.append(constants[str(c[2:])])
         sampler_type = sampler_type.lower().strip()
         if sampler_type == "dynesty":
-            return SamplerNested(mod.Model, consts, **init_args)
+            return SamplerNested(mod.Model, constants, **init_args)
         elif sampler_type == "emcee":
-            return SamplerEnsemble(mod.Model, consts, **init_args)
+            return SamplerEnsemble(mod.Model, constants, **init_args)
         raise ValueError(f"Sampler type '{sampler_type}' was not recognized.")
 
     def _resolve_deferred(self) -> DeferredResolver:
