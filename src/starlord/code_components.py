@@ -116,7 +116,7 @@ class Prior:
 
     @property
     def requires(self) -> set[Symb]:
-        return set()
+        return set([p for p in self.params if not p.is_literal])
 
     @property
     def provides(self) -> set[Symb]:
@@ -146,5 +146,6 @@ class Prior:
 
     def generate_pdf(self) -> str:
         vars = [v.bracketed for v in self.vars]
-        fmt = dict(vars=", ".join(vars), params=self.params, paramStr=", ".join(self.params))
+        params = [p.bracketed for p in self.params]
+        fmt = dict(vars=", ".join(vars), params=self.params, paramStr=", ".join(params))
         return self.code_pdf.format(**fmt)
