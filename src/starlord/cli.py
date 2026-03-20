@@ -118,7 +118,7 @@ def main():
     if args.dry_run and not args.test_case:
         return
 
-    # === Run Sampler ==
+    # === Setup the Sampler ===
     sampler_type = settings['sampling'].get('sampler', "emcee")
     sampler_args = settings['sampling'].get(sampler_type + "_init", {})
     sampler = builder.build_sampler(sampler_type, constants=consts, **sampler_args)
@@ -138,8 +138,10 @@ def main():
     if args.dry_run:
         return
 
+    # === Run Sampler ==
     out: dict = {"terminal": False, "file": ""}
     out.update(settings['output'])
+    sampler_args = settings['sampling'].get(sampler_type + "_run", {})
     if args.batch is not None:
         path = pathlib.Path(args.batch)
         data = np.genfromtxt(
@@ -166,19 +168,20 @@ def main():
                 print(name + ": ", ", ".join(info))
             else:
                 print(name)
-            sampler_args = settings['sampling'].get(sampler_type + "_run", {})
-            sampler.run(**sampler_args)
+            try:
+                sampler.run(**sampler_args)
 
-            # === Write Outputs ===
-            if out['terminal']:
-                print(sampler.summary())
-            if out['file'] != "":
-                sampler.save_results(out['file'] + "_" + name)
+                # Write outputs
+                if out['terminal']:
+                    print(sampler.summary())
+                if out['file'] != "":
+                    sampler.save_results(out['file'] + "_" + name)
+            except Exception as e:
+                print(f"Error: {name} raised exception {e}")
     else:
-        sampler_args = settings['sampling'].get(sampler_type + "_run", {})
         sampler.run(**sampler_args)
 
-        # === Write Outputs ===
+        # Write Outputs
         if out['terminal']:
             print(sampler.summary())
         if out['file'] != "":

@@ -12,8 +12,8 @@ from dynesty.results import Results as DynestyResults
 ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
 _dummyModel = namedtuple(
     "DummyModel", [
-        'param_names', 'const_names', 'forward_model', 'log_like', 'log_prob', 'prior_transform', 'log_prior',
-        'output_names', 'postprocess'
+        'param_names', 'const_names', 'optional_consts', 'forward_model', 'log_like', 'log_prob', 'prior_transform',
+        'log_prior', 'output_names', 'postprocess'
     ])
 
 
@@ -52,6 +52,10 @@ class _Sampler:
     @property
     def const_names(self) -> list[str]:
         return self._model_class.const_names  # type: ignore
+
+    @property
+    def optional_consts(self) -> list[str]:
+        return self._model_class.optional_consts  # type: ignore
 
     @property
     def ndim(self) -> int:
@@ -100,6 +104,17 @@ class _Sampler:
         self._model = None
         self._stats = None
 
+    def validate_constants(self):
+        expected = set(self.const_names) - set(self.optional_consts)
+        missing = expected - set(self._constants.keys())
+        extra = set(self._constants.keys()) - expected
+        assert not missing, "Missing values for constant(s) " + ", ".join(missing)
+        if extra:
+            print("Warning, unused constants: " + ", ".join(extra))
+        for cname in expected:
+            val = self._constants[cname]
+            assert np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
+
     def summary(self) -> str:
         # TODO: Convergence statistics
         out = ["     Name".ljust(29) + "Mean".rjust(12) + "Std".rjust(12)]
@@ -142,6 +157,7 @@ class SamplerEnsemble(_Sampler):
         return self.sampler.get_chain(flat=True, discard=self.burn_in, thin=self.thin)
 
     def run(self, threads=1, **run_args):
+        self.validate_constants()
         # Propagate sampler settings
         init_args = self.init_args.copy()
         init_args.setdefault('nwalkers', max(100, 5 * self.ndim))
@@ -202,6 +218,7 @@ class SamplerNested(_Sampler):
         self._sampler = None
 
     def run(self, **run_args):
+        self.validate_constants()
         # Propagate sampler settings
         init_args = self.init_args.copy()
         init_args.setdefault('ndim', self.ndim)

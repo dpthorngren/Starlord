@@ -4,6 +4,8 @@ import re
 from functools import partial
 from typing import List, Optional, Tuple
 
+import numpy as np
+
 from ._config import _TextFormatCodes_, config
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
@@ -401,12 +403,12 @@ class ModelBuilder():
         '''
         mod = self.code_generator.compile()
         missing, _ = self.validate_constants(constants, self.verbose)
-        if missing:
-            raise KeyError("Missing values for constant(s): " + ", ".join(missing))
+        if self.verbose and missing:
+            print("Warning: Missing values for constant(s) " + ", ".join(missing))
         consts = []
         for c in self.code_generator.constants:
             if c[2:] not in self.code_generator.auto_constants.keys():
-                consts.append(constants[str(c[2:])])
+                consts.append(constants.get(str(c[2:]), np.nan))
         sampler_type = sampler_type.lower().strip()
         if sampler_type == "dynesty":
             return SamplerNested(mod.Model, constants, **init_args)

@@ -202,6 +202,7 @@ class CodeGenerator:
         result.append(f"    param_names = {[p.name for p in self.params]}")
         result.append(f"    output_names = {[i[2:] for i in self.outputs]}")
         result.append(f"    const_names = {[c.name for c in self.constants]}")
+        result.append(f"    optional_consts = {sorted(list(self.auto_constants.keys()))}")
         result.append("\n    # Constants")
 
         for c in self.constants:
