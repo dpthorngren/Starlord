@@ -25,15 +25,17 @@ pip install .
 ```
 Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
 
+> [!IMPORTANT]
+> The current version of Starlord does not come with any grids pre-installed, including the MIST grid the documentation references.  This is because I have not yet sought permission from their respective maintainers to redistribute them publicly.  For now, contact me (Daniel Thorngren) if you would like to use them.
+
 Roadmap
 --------------------
 This is a list of features I'd like to add, roughly ordered by priority and definitely subject to change.
 
- - **Multiple Grid Interpolations** -- Mainly for multiple star systems.
- - **Extra Outputs** -- E.g. list effective temperature even though it's not a model parameter.
  - **Prior Features** -- Truncated distributions and priors on transformed parameters.
- - **Implicit Variables** -- If mass is defined, then logMass or log_mass are pretty clear in their intent.
+ - **Stellar Physics Priors** -- Physically motivated priors for stars, such as the Chabrier (2003) stellar mass prior.
+ - **Optional Likelihood Terms** -- In batch operations, some stars may not always have the full set of photometric observations.  This would allow you to skip missing values in the likelihood without recompiling.
+ - **Implicit Variables** -- If mass is defined, then log_mass is pretty clear in its intent.
  - **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
  - **Vector Operations** -- Useful for more general Bayesian models.
  - **Python interpolation support** -- The grid system is faster than `scipy.RegularGridInterpolator`, but currently awkward to use directly in Python.
-
