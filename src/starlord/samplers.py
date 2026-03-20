@@ -137,6 +137,65 @@ class _Sampler:
                 out += [line]
         return "\n".join(out)
 
+    def run(self, **run_args):
+        raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
+
+    def save_results(self, filename):
+        raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
+
+    def batch_run(
+        self,
+        run_args: dict,
+        infile: str,
+        terminal_output: bool = True,
+        postfile: Optional[str] = None,
+        summaryfile: Optional[str] = None,
+    ) -> None:
+        data = np.genfromtxt(
+            infile,
+            delimiter=",",
+            comments="#",
+            autostrip=True,
+            names=True,
+            dtype=None,
+            encoding="UTF-8",
+        )
+        columns = data.dtype.names
+        assert columns is not None, "Failed to read column names."
+        columns = [n for n in columns if n in self.const_names]
+        nongrid_consts = [c for c in self.const_names if not c.startswith("grid__")]
+        summary_rows = []
+        for i, row in enumerate(data):
+            name = str(i)
+            if data.dtype.names is not None and 'name' in data.dtype.names:
+                name = row['name']
+            info = []
+            for c in columns:
+                self.constants[c] = row[c]
+                info.append(f"{c}={row[c]}")
+            print(f"({i+1}/{len(data)}) {name}: {', '.join(info)}")
+            try:
+                self.run(**run_args)
+                if terminal_output:
+                    print(self.summary())
+                if summaryfile is not None:
+                    stats = np.vstack([getattr(self.stats, c) for c in ('mean', 'std', 'p16', 'p50', 'p84')])
+                    stats = [f"{v:.6f}" for v in stats.T.flatten()]
+                    const_vals = [f"{self._constants[c]:.6f}" for c in nongrid_consts]
+                    summary_rows.append(name + ", " + ", ".join(const_vals + stats))
+                if postfile is not None:
+                    self.save_results(postfile + "_" + name.replace(" ", "_"))
+            except Exception as e:
+                print(f"Error: {name} raised exception {e}")
+        if summaryfile is not None:
+            assert summaryfile != infile, "Error: will not output to input csv file (would overwrite!)"
+            header = ["name"] + nongrid_consts
+            for p in self.param_names + self.output_names:
+                header += [p + stat for stat in ('_mean', '_std', '_p16', '_p50', '_p84')]
+            with open(summaryfile, 'w') as fd:
+                fd.write(", ".join(header) + "\n")
+                fd.write("\n".join(summary_rows))
+
 
 class SamplerEnsemble(_Sampler):
     '''Thin wrapper for EMCEE's EnsembleSampler'''

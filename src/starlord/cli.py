@@ -24,6 +24,7 @@ def main():
     parser.add_argument(
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
     parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
+    parser.add_argument("--batch-summary", help="File to write batch run summary information to as a csv.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
     model_group = parser.add_argument_group("model options", "Modify the model, overriding input file settings.")
     model_group.add_argument(
@@ -120,8 +121,8 @@ def main():
 
     # === Setup the Sampler ===
     sampler_type = settings['sampling'].get('sampler', "emcee")
-    sampler_args = settings['sampling'].get(sampler_type + "_init", {})
-    sampler = builder.build_sampler(sampler_type, constants=consts, **sampler_args)
+    run_args = settings['sampling'].get(sampler_type + "_init", {})
+    sampler = builder.build_sampler(sampler_type, constants=consts, **run_args)
     if args.test_case:
         test_case_str = args.test_case.replace('"', "").split(",")
         test_case = np.array([float(x) for x in test_case_str])
@@ -139,49 +140,13 @@ def main():
         return
 
     # === Run Sampler ==
-    out: dict = {"terminal": False, "file": ""}
+    out: dict = {"terminal": False, "file": None}
     out.update(settings['output'])
-    sampler_args = settings['sampling'].get(sampler_type + "_run", {})
+    run_args = settings['sampling'].get(sampler_type + "_run", {})
     if args.batch is not None:
-        path = pathlib.Path(args.batch)
-        data = np.genfromtxt(
-            path,
-            delimiter=",",
-            comments="#",
-            autostrip=True,
-            names=True,
-            dtype=None,
-            encoding="UTF-8",
-        )
-        columns = data.dtype.names
-        assert columns is not None, "Failed to read column names."
-        columns = [n for n in columns if n in sampler.const_names]
-        for i, row in enumerate(data):
-            name = str(i)
-            if data.dtype.names is not None and 'name' in data.dtype.names:
-                name = row['name']
-            info = []
-            for c in columns:
-                sampler.constants[c] = row[c]
-                info.append(f"{c} = {row[c]}")
-            if args.verbose:
-                print(name + ": ", ", ".join(info))
-            else:
-                print(name)
-            try:
-                sampler.run(**sampler_args)
-
-                # Write outputs
-                if out['terminal']:
-                    print(sampler.summary())
-                if out['file'] != "":
-                    sampler.save_results(out['file'] + "_" + name)
-            except Exception as e:
-                print(f"Error: {name} raised exception {e}")
+        sampler.batch_run(run_args, args.batch, out['terminal'], out['file'], args.batch_summary)
     else:
-        sampler.run(**sampler_args)
-
-        # Write Outputs
+        sampler.run(**run_args)
         if out['terminal']:
             print(sampler.summary())
         if out['file'] != "":
