@@ -26,6 +26,8 @@ class _Sampler:
     _post: Optional[np.ndarray]
     _model: Optional[_dummyModel]
     _stats: Optional[ResultStats]
+    _last_run_args: dict
+    _last_init_args: dict
 
     @property
     def constants(self) -> dict[str, float]:
@@ -103,6 +105,8 @@ class _Sampler:
         self._post = None
         self._model = None
         self._stats = None
+        self._last_init_args = {}
+        self._last_run_args = {}
 
     def validate_constants(self):
         expected = set(self.const_names) - set(self.optional_consts)
@@ -116,7 +120,6 @@ class _Sampler:
             assert np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
 
     def summary(self) -> str:
-        # TODO: Convergence statistics
         out = ["     Name".ljust(29) + "Mean".rjust(12) + "Std".rjust(12)]
         out[0] += "16%".rjust(12) + "50%".rjust(12) + "84%".rjust(12)
         for i in range(self.ndim):
@@ -146,15 +149,26 @@ class SamplerEnsemble(_Sampler):
         assert self._sampler is not None, "Must run sampler before accessing it."
         return self._sampler
 
+    @property
+    def results(self) -> object:
+        return self.sampler.get_chain(flat=True, discard=self.burn_in, thin=self.thin)
+
     def __init__(self, model_class, constants={}, burn_in=500, thin=1, **init_args) -> None:
         super().__init__(model_class, constants, **init_args)
         self._sampler = None
         self.burn_in = burn_in
         self.thin = thin
 
-    @property
-    def results(self) -> object:
-        return self.sampler.get_chain(flat=True, discard=self.burn_in, thin=self.thin)
+    def summary(self) -> str:
+        try:
+            convergence = self.sampler.get_autocorr_time(thin=self.thin, discard=self.burn_in)
+            convergence = max(convergence)
+            neff = self._last_run_args['nsteps'] / convergence
+            summary = f"Convergence: Tau = {convergence:.2f}; N/Tau = {neff:.2f}\n"
+        except emcee.autocorr.AutocorrError:
+            summary = "Too few samples to estimate convergence."
+        summary += super().summary()
+        return summary
 
     def run(self, threads=1, **run_args):
         self.validate_constants()
@@ -163,9 +177,11 @@ class SamplerEnsemble(_Sampler):
         init_args.setdefault('nwalkers', max(100, 5 * self.ndim))
         init_args.setdefault('ndim', self.ndim)
         init_args.setdefault('log_prob_fn', self.log_prob)
+        self._last_init_args = init_args.copy()
         run_args = run_args.copy()
-        run_args.setdefault('nsteps', 2500)
+        run_args.setdefault('nsteps', 5000)
         run_args.setdefault('progress', True)
+        self._last_run_args = run_args.copy()
 
         # Prepare an initial state matrix
         if "initial_state" not in run_args:
@@ -224,6 +240,8 @@ class SamplerNested(_Sampler):
         init_args.setdefault('ndim', self.ndim)
         init_args.setdefault('loglikelihood', self.log_like)
         init_args.setdefault('prior_transform', self.prior_transform)
+        self._last_init_args = init_args.copy()
+        self._last_run_args = run_args.copy()
         self._sampler = dynesty.NestedSampler(**init_args)
         self.sampler.run_nested(**run_args)
 
