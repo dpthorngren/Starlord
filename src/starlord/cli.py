@@ -149,5 +149,5 @@ def main():
         sampler.run(**run_args)
         if out['terminal']:
             print(sampler.summary())
-        if out['file'] != "":
+        if out['file'] is not None:
             sampler.save_results(out['file'])
