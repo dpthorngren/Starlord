@@ -16,8 +16,7 @@ from typing import NamedTuple, Optional
 import cython
 
 from ._config import __version__, _TextFormatCodes_, config
-from .code_components import (AssignmentComponent, Component,
-                              DistributionComponent, Prior, Symb, _num_params)
+from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb, _num_params)
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
@@ -203,7 +202,8 @@ class CodeGenerator:
         result.append("cdef class Model:")
         result.append("    # Static metadata")
         result.append(f"    param_names = {[p.name for p in self.params]}")
-        result.append(f"    output_names = {["log_like", "log_prior"] + [i[2:] for i in self.outputs]}")
+        outputs = ["log_like", "log_prior"] + [i[2:] for i in self.outputs]
+        result.append(f"    output_names = {outputs}")
         result.append(f"    const_names = {[c.name for c in self.constants]}")
         result.append(f"    optional_consts = {sorted(list(self.auto_constants.keys()))}")
         result.append("    # Code Info (set at load time)")
