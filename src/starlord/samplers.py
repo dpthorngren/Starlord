@@ -13,7 +13,7 @@ ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p8
 _dummyModel = namedtuple(
     "DummyModel", [
         'param_names', 'const_names', 'optional_consts', 'forward_model', 'log_like', 'log_prob', 'prior_transform',
-        'log_prior', 'output_names', 'postprocess'
+        'log_prior', 'output_names', 'postprocess', 'code', 'code_hash'
     ])
 
 
@@ -28,6 +28,7 @@ class _Sampler:
     _stats: Optional[ResultStats]
     _last_run_args: dict
     _last_init_args: dict
+    _last_constants: list[float]
 
     @property
     def constants(self) -> dict[str, float]:
@@ -53,7 +54,16 @@ class _Sampler:
 
     @property
     def const_names(self) -> list[str]:
-        return self._model_class.const_names  # type: ignore
+        return [c for c in self._model_class.const_names if not c.startswith("grid__")]  # type: ignore
+
+    @property
+    def grids_used(self) -> dict[str, list[str]]:
+        results = {}
+        for c in self._model_class.const_names:  # type: ignore
+            if c.startswith("grid__"):
+                _, grid_name, var = c.split("__")
+                results.setdefault(grid_name, []).append(var)
+        return results
 
     @property
     def optional_consts(self) -> list[str]:
@@ -107,6 +117,7 @@ class _Sampler:
         self._stats = None
         self._last_init_args = {}
         self._last_run_args = {}
+        self._last_constants = []
 
     def validate_constants(self):
         expected = set(self.const_names) - set(self.optional_consts)
@@ -142,6 +153,22 @@ class _Sampler:
 
     def save_results(self, filename):
         raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
+
+    def _save_contents(self) -> dict:
+        grids = self.grids_used
+        grid_vars = sum([[f"{gridname}__{key}" for key in keys] for gridname, keys in grids.items()], [])
+        return dict(
+            params=self.post[:, :self.ndim],
+            outputs=self.post[:, self.ndim:],
+            consts=self._last_constants,
+            output_names=self.output_names,
+            param_names=self.param_names,
+            const_names=self.const_names,
+            code=self.model.code[0],
+            code_hash=self.model.code_hash[0],
+            grids=list(grids),
+            grid_vars=grid_vars,
+        )
 
     def batch_run(
         self,
@@ -241,6 +268,7 @@ class SamplerEnsemble(_Sampler):
         run_args.setdefault('nsteps', 5000)
         run_args.setdefault('progress', True)
         self._last_run_args = run_args.copy()
+        self._last_constants = [getattr(self.model, f"c__{c}") for c in self.const_names if not c.startswith("grid")]
 
         # Prepare an initial state matrix
         if "initial_state" not in run_args:
@@ -272,7 +300,7 @@ class SamplerEnsemble(_Sampler):
 
     def save_results(self, filename: str):
         assert self.post is not None, "Cannot save results before running the sampler."
-        np.savez_compressed(filename, samples=self.post)
+        np.savez_compressed(filename, **self._save_contents())
 
 
 class SamplerNested(_Sampler):
@@ -302,6 +330,7 @@ class SamplerNested(_Sampler):
         self._last_init_args = init_args.copy()
         self._last_run_args = run_args.copy()
         self._sampler = dynesty.NestedSampler(**init_args)
+        self._last_constants = [getattr(self.model, f"c__{c}") for c in self.const_names if not c.startswith("grid")]
         self.sampler.run_nested(**run_args)
 
         # Process the results
@@ -310,15 +339,17 @@ class SamplerNested(_Sampler):
         postprocessed = np.zeros((post.shape[0], len(self.output_names)))
         self.postprocess(post, postprocessed)
         self._post = np.hstack([post, postprocessed])
-        samples = self.results['samples']
         weights = self.sampler.results.importance_weights()
-        mean, cov = dynesty.utils.mean_and_cov(samples, weights)
+        mean, cov = dynesty.utils.mean_and_cov(self._post, weights)
         std = np.sqrt(np.diag(cov))
         q = np.array([
-            dynesty.utils.quantile(samples[:, i], [0.16, 0.5, 0.84], weights=weights) for i in range(samples.shape[1])
+            dynesty.utils.quantile(self._post[:, i], [0.16, 0.5, 0.84], weights=weights)
+            for i in range(self._post.shape[1])
         ])
         self._stats = ResultStats(mean, cov, std, q[:, 0], q[:, 1], q[:, 2])
 
     def save_results(self, filename: str):
         # TODO: Citation info.
-        np.savez_compressed(filename, samples=self.post, weights=self.results.importance_weights())
+        result = self._save_contents()
+        result['weights'] = self.results.importance_weights()
+        np.savez_compressed(filename, **self._save_contents())

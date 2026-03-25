@@ -26,10 +26,20 @@ def test_grid_retrieval(dummy_grids: Path):
     # Check parameters
     code = builder.generate_code()
     print(code)
+    hash = starlord.CodeGenerator._compile_to_module(code)
+    print(hash)
     assert len(re.findall(r"l__dummy__v1 = ", code)) == 1
     assert builder.code_generator.locals == ('l.dummy__g1', 'l.dummy__g2', 'l.dummy__v1', 'l.dummy__v2', 'l.foo')
     assert builder.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__dummy__v2', 'c.offset')
     sampler = builder.build_sampler("emcee", {'offset': 1.5})
+
+    # Check the metadata is correct
+    assert sampler.model.param_names == ["x", "y"]
+    assert sampler.model.param_names == sampler.param_names
+    assert sampler.model.const_names == ["grid__dummy__v1", "grid__dummy__v2", "offset"]
+    assert sampler.model.code[0] == code
+    assert sampler.model.code_hash[0] == hash
+    assert sampler.grids_used == {'dummy': ['v1', 'v2']}
 
     # Check the forward model works as expected (see test_grids.dummy_grids)
     out = sampler.forward_model(np.array([1.5, 4.5]))
@@ -59,8 +69,17 @@ def test_grid_retrieval(dummy_grids: Path):
     outfile = dummy_grids / "test_grid_retrieval_samples.npz"
     sampler.save_results(str(outfile))
     saved_data = np.load(outfile)
-    assert "samples" in saved_data.files
-    assert np.all(saved_data['samples'] == sampler.results)
+    assert "params" in saved_data.files
+    assert np.all(saved_data['params'] == sampler.results)
+    assert np.all(saved_data['outputs'] == sampler.post[:, sampler.ndim:])
+    assert np.all(saved_data['param_names'] == np.array(sampler.param_names))
+    assert np.all(saved_data['output_names'] == np.array(sampler.output_names))
+    assert np.all(saved_data['const_names'] == np.array(sampler.const_names))
+    assert np.all(saved_data['code'] == np.array(code))
+    assert np.all(saved_data['code_hash'] == np.array(hash))
+    assert np.all(saved_data['grids'] == np.array(["dummy"]))
+    assert np.all(saved_data['grid_vars'] == np.array(["dummy__v1", "dummy__v2"]))
+    assert np.all(saved_data['consts'] == np.array([1.5]))
 
 
 @pytest.mark.flaky(reruns=3)
@@ -92,10 +111,11 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     sampler = builder.build_sampler("dynesty", {'offset': 1.5})
     sampler.run()
     summary = sampler.summary().splitlines()
-    assert len(summary) == 3
+    assert len(summary) == 6
     assert summary[0].startswith("     Name")
     assert summary[1].startswith("   0")
     assert summary[2].startswith("   1")
+    assert summary[3].startswith("-----")
 
     # Check against known mean, std
     stats = sampler.stats

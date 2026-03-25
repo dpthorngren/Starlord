@@ -16,7 +16,8 @@ from typing import NamedTuple, Optional
 import cython
 
 from ._config import __version__, _TextFormatCodes_, config
-from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb, _num_params)
+from .code_components import (AssignmentComponent, Component,
+                              DistributionComponent, Prior, Symb, _num_params)
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
@@ -125,6 +126,8 @@ class CodeGenerator:
         result.append("cpdef void postprocess(self, double[:,:] params, double[:,:] out):")
         result.append("    for i in range(params.shape[0]):")
         result.append("        self._forward_model(params[i])")
+        result.append("        out[i, 0] = self._log_like(params[i])")
+        result.append("        out[i, 1] = self.log_prior(params[i])")
         # Params is 2d for this function only, so adjust mapping
         postprocess_mapping = {}
         for key, value in self.mapping.items():
@@ -134,7 +137,7 @@ class CodeGenerator:
                 postprocess_mapping[key] = value
         for i, var in enumerate(self.outputs):
             var, _ = CodeGenerator._extract_params(var)
-            result.append(f"        out[i, {i}] = {var}".format(**postprocess_mapping))
+            result.append(f"        out[i, {i+2}] = {var}".format(**postprocess_mapping))
         result.append("    return\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
@@ -200,9 +203,12 @@ class CodeGenerator:
         result.append("cdef class Model:")
         result.append("    # Static metadata")
         result.append(f"    param_names = {[p.name for p in self.params]}")
-        result.append(f"    output_names = {[i[2:] for i in self.outputs]}")
+        result.append(f"    output_names = {["log_like", "log_prior"] + [i[2:] for i in self.outputs]}")
         result.append(f"    const_names = {[c.name for c in self.constants]}")
         result.append(f"    optional_consts = {sorted(list(self.auto_constants.keys()))}")
+        result.append("    # Code Info (set at load time)")
+        result.append("    code_hash = []")
+        result.append("    code = []")
         result.append("\n    # Constants")
 
         for c in self.constants:
@@ -449,5 +455,9 @@ class CodeGenerator:
         dynmod = util.module_from_spec(spec)
         assert spec.loader is not None, f"Couldn't load the module from file {libfile}"
         spec.loader.exec_module(dynmod)
+        if hasattr(dynmod, "Model"):
+            dynmod.Model.code_hash.append(hash)
+            codename = config.cache_dir / f"sl_gen_{hash}.pyx"
+            dynmod.Model.code.append(codename.read_text())
         CodeGenerator._dynamic_modules_[hash] = dynmod
         return dynmod
