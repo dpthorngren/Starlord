@@ -150,7 +150,7 @@ class GridGenerator:
         for filename in config.grid_dir.glob("*.npz"):
             try:
                 cls.register_grid(filename)
-            except ValueError:
+            except (ValueError, AssertionError):
                 pass  # Non-grid file, ignore it
 
     @classmethod
