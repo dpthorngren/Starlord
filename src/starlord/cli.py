@@ -85,6 +85,8 @@ def main():
     if args.output:
         settings['output']['file'] = args.output
     consts = settings['sampling'].get('const', {})
+    for key, value in consts.items():
+        consts[key] = float(value)
     for const_str in args.set_const:
         key, value = const_str.split("=")
         if key.startswith("c."):
