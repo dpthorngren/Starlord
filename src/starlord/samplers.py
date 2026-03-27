@@ -2,19 +2,16 @@ from __future__ import annotations
 
 from collections import namedtuple
 from multiprocessing import Pool
-from typing import Callable, Optional
+from typing import Callable, Optional, Type
 
 import dynesty
 import emcee
 import numpy as np
 from dynesty.results import Results as DynestyResults
 
+from .cy_tools import BaseModel
+
 ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
-_dummyModel = namedtuple(
-    "DummyModel", [
-        'param_names', 'const_names', 'optional_consts', 'forward_model', 'log_like', 'log_prob', 'prior_transform',
-        'log_prior', 'output_names', 'postprocess', 'code', 'code_hash'
-    ])
 
 
 class _Sampler:
@@ -22,9 +19,9 @@ class _Sampler:
     init_args: dict
     _constants: dict[str, float]
     _check_constants: bool
-    _model_class: Callable[..., _dummyModel]
+    _model_class: Type[BaseModel]
     _post: Optional[np.ndarray]
-    _model: Optional[_dummyModel]
+    _model: Optional[BaseModel]
     _stats: Optional[ResultStats]
     _last_run_args: dict
     _last_init_args: dict
@@ -36,7 +33,7 @@ class _Sampler:
         return self._constants
 
     @property
-    def model(self) -> _dummyModel:
+    def model(self) -> BaseModel:
         if self._model is None:
             self._model = self._model_class(**self._constants)
         elif self._check_constants:
@@ -46,20 +43,20 @@ class _Sampler:
 
     @property
     def param_names(self) -> list[str]:
-        return self._model_class.param_names  # type: ignore
+        return self._model_class.param_names
 
     @property
     def output_names(self) -> list[str]:
-        return self._model_class.output_names  # type: ignore
+        return self._model_class.output_names
 
     @property
     def const_names(self) -> list[str]:
-        return [c for c in self._model_class.const_names if not c.startswith("grid__")]  # type: ignore
+        return [c for c in self._model_class.const_names if not c.startswith("grid__")]
 
     @property
     def grids_used(self) -> dict[str, list[str]]:
         results = {}
-        for c in self._model_class.const_names:  # type: ignore
+        for c in self._model_class.const_names:
             if c.startswith("grid__"):
                 _, grid_name, var = c.split("__")
                 results.setdefault(grid_name, []).append(var)
@@ -67,7 +64,7 @@ class _Sampler:
 
     @property
     def optional_consts(self) -> list[str]:
-        return self._model_class.optional_consts  # type: ignore
+        return self._model_class.optional_consts
 
     @property
     def ndim(self) -> int:

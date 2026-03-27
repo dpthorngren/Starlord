@@ -307,3 +307,59 @@ cdef inline int _locatePoint_(double point, double[:] axis, int axLen, double* w
         weight -= i
     w[0] = weight
     return i
+
+
+cdef class BaseModel:
+    # Static metadata (Python objects)
+    # To be filled by subclass definition
+    param_names: list[str] = []
+    output_names: list[str] = []
+    var_names: list[str] = []
+    const_names: list[str] = []
+    optional_consts: list[str] = []
+    # To be filled by module loader at load time
+    code_hash: list[str] = []
+    code: list[str] = []
+
+    # ===== Functions overridden by subclasses =====
+    cpdef double[:] prior_transform(self, double[:] params):
+        return params
+
+    cpdef double log_prior(self, double[:] params):
+        return 0.0
+
+    cdef void _forward_model(self, double[:] params):
+        return
+
+    cdef double _log_like(self, double[:] params):
+        return -math.INFINITY
+
+    cpdef postprocess(self, double[:,:] params, double[:,:] out):
+        return
+
+    # ===== Functions not overridden by subclasses =====
+    cpdef dict forward_model(self, double[:] params):
+        self._forward_model(params)
+        return {k: getattr(self, "l__"+k) for k in self.var_names}
+
+    cpdef double log_like(self, double[:] params):
+        self._forward_model(params)
+        return self._log_like(params)
+
+    cpdef double log_prob(self, double[:] params):
+        return self.log_prior(params) + self.log_like(params)
+
+    cpdef load_constants(self, dict constants):
+        from starlord import GridGenerator
+        for c in self.const_names:
+            print(c)
+            if c in constants.keys():
+                setattr(self, f"c__{c}", constants[c])
+            elif c.startswith("grid__"):
+                _, grid, outname = c.split("__")
+                setattr(self, f"c__{c}", GridGenerator.get_grid(grid).build_grid(outname))
+            else:
+                raise ValueError(f"Value for constant {c} was not provided on initialization.")
+
+    def __init__(self, **constants):
+        self.load_constants(constants)

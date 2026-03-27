@@ -48,3 +48,25 @@ cdef class GridInterpolator:
     cpdef double _interp3d(self, double x, double y, double z) noexcept
     cpdef double _interp4d(self, double x, double y, double z, double u) noexcept
     cpdef double _interp5d(self, double x, double y, double z, double u, double v) noexcept
+
+cdef class BaseModel:
+
+    # ===== Functions overridden by subclasses =====
+    cpdef double[:] prior_transform(self, double[:] params)
+
+    cpdef double log_prior(self, double[:] params)
+
+    cdef void _forward_model(self, double[:] params)
+
+    cdef double _log_like(self, double[:] params)
+
+    cpdef postprocess(self, double[:,:] params, double[:,:] out)
+
+    # ===== Functions not overridden by subclasses =====
+    cpdef dict forward_model(self, double[:] params)
+
+    cpdef double log_like(self, double[:] params)
+
+    cpdef double log_prob(self, double[:] params)
+
+    cpdef load_constants(self, dict constants)

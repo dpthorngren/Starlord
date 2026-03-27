@@ -118,11 +118,7 @@ class CodeGenerator:
             code: str = comp.generate_code().format(**self.mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result[-1] = result[-1] + "\n"
-        result.append("cpdef dict forward_model(self, double[:] params):")
-        result.append("    self._forward_model(params)")
-        ret_locals = ", ".join([f"{loc.name}={self.mapping[loc.var]}" for loc in self.locals])
-        result.append(f"    return dict({ret_locals})\n")
-        result.append("cpdef void postprocess(self, double[:,:] params, double[:,:] out):")
+        result.append("cpdef postprocess(self, double[:,:] params, double[:,:] out):")
         result.append("    for i in range(params.shape[0]):")
         result.append("        self._forward_model(params[i])")
         result.append("        out[i, 0] = self._log_like(params[i])")
@@ -152,42 +148,6 @@ class CodeGenerator:
                 result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
         # Generate the user-facing wrapper function
-        result.append("cpdef double log_like(self, double[:] params):")
-        result.append("    self._forward_model(params)")
-        result.append("    return self._log_like(params)\n")
-        result = ["    " + r for r in result]
-        return "\n".join(result)
-
-    def generate_log_prob(self) -> str:
-        result: list[str] = []
-        result.append("cpdef double log_prob(self, double[:] params):")
-        result.append("    cdef double logP = self.log_prior(params)")
-        result.append("    logP += self.log_like(params)")
-        result.append("    return logP\n")
-        result = ["    " + r for r in result]
-        return "\n".join(result)
-
-    def generate_init(self) -> str:
-        result: list[str] = []
-        # Organize function arguments and constants to be set
-        args = ['self']
-        definitions = []
-        for c in self.constants:
-            ct = self.constant_types.get(c.name, "double")
-            cm = self.mapping[c.var]
-            if c.name in self.auto_constants:
-                definitions.append(f"    if '{c.name}' in args:")
-                definitions.append(f"        {cm} = args['{c.name}']")
-                definitions.append("    else:")
-                definitions.append(f"        {cm} = {self.auto_constants[c.name]}")
-            else:
-                args.append(f"{ct} {c[2:]}")
-                definitions.append(f"    {cm} = {c[2:]}")
-        args.append("**args")
-        args = ", ".join(args)
-        # Write the function
-        result.append(f"def __init__({args}):")
-        result += definitions
         result = ["    " + r for r in result]
         return "\n".join(result)
 
@@ -199,14 +159,14 @@ class CodeGenerator:
         result.append("\n".join(self.imports) + "\n")
 
         # Class and constant declarations
-        result.append("cdef class Model:")
+        result.append("cdef class Model(BaseModel):")
         result.append("    # Static metadata")
         result.append(f"    param_names = {[p.name for p in self.params]}")
         outputs = ["log_like", "log_prior"] + [i[2:] for i in self.outputs]
         result.append(f"    output_names = {outputs}")
+        result.append(f"    var_names = {[v.name for v in self.locals]}")
         result.append(f"    const_names = {[c.name for c in self.constants]}")
         result.append(f"    optional_consts = {sorted(list(self.auto_constants.keys()))}")
-        result.append("    # Code Info (set at load time)")
         result.append("    code_hash = []")
         result.append("    code = []")
         result.append("\n    # Constants")
@@ -222,12 +182,10 @@ class CodeGenerator:
             result.append(f"    cdef public double {self.mapping[loc.var][5:]}")
         result.append("")
 
-        result.append(self.generate_forward_model())
-        result.append(self.generate_log_like())
         result.append(self.generate_prior_ppf())
         result.append(self.generate_log_prior())
-        result.append(self.generate_log_prob())
-        result.append(self.generate_init())
+        result.append(self.generate_forward_model())
+        result.append(self.generate_log_like())
         return "\n".join(result) + "\n"
 
     def compile(self) -> ModuleType:
@@ -456,6 +414,7 @@ class CodeGenerator:
         assert spec.loader is not None, f"Couldn't load the module from file {libfile}"
         spec.loader.exec_module(dynmod)
         if hasattr(dynmod, "Model"):
+            assert len(dynmod.Model.code_hash) == 0
             dynmod.Model.code_hash.append(hash)
             codename = config.cache_dir / f"sl_gen_{hash}.pyx"
             dynmod.Model.code.append(codename.read_text())
