@@ -99,29 +99,36 @@ cdef class GridInterpolator:
                 processed.append(np.asarray(ax, np.float64))
         processed.append(values.flatten())
         self._data = np.concatenate(processed, dtype=np.float64)
-        # Fill in additional data based on dimension
+        self.__set_views__([len(i) for i in axes], [len(i) for i in processed])
+        # Write grid info for reference (not used for interpolation)
+        self.shape = (self.x_len, self.y_len, self.z_len, self.u_len, self.v_len)[:self.ndim]
+        self.bounds = np.zeros((self.ndim, 2))
+        for i in range(self.ndim):
+            self.bounds[i] = [min(axes[i]), max(axes[i])]
+
+    def __set_views__(self, axis_lens, data_lens):
         self.y_len = 1
         self.z_len = 1
         self.u_len = 1
         self.v_len = 1
-        start, stop = 0, len(processed[0])
-        self.x_len = len(axes[0])
+        start, stop = 0, data_lens[0]
+        self.x_len = axis_lens[0]
         self.x_axis = self._data[start:stop]
         if self.ndim > 1:
-            start, stop = stop, stop+len(processed[1])
-            self.y_len = len(axes[1])
+            start, stop = stop, stop+data_lens[1]
+            self.y_len = axis_lens[1]
             self.y_axis = self._data[start:stop]
         if self.ndim > 2:
-            start, stop = stop, stop+len(processed[2])
-            self.z_len = len(axes[2])
+            start, stop = stop, stop+data_lens[2]
+            self.z_len = axis_lens[2]
             self.z_axis = self._data[start:stop]
         if self.ndim > 3:
-            start, stop = stop, stop+len(processed[3])
-            self.u_len = len(axes[3])
+            start, stop = stop, stop+data_lens[3]
+            self.u_len = axis_lens[3]
             self.u_axis = self._data[start:stop]
         if self.ndim > 4:
-            start, stop = stop, stop+len(processed[4])
-            self.v_len = len(axes[4])
+            start, stop = stop, stop+data_lens[4]
+            self.v_len = axis_lens[4]
             self.v_axis = self._data[start:stop]
         self.u_stride = self.v_len
         self.z_stride = self.u_stride * self.u_len
@@ -129,11 +136,6 @@ cdef class GridInterpolator:
         self.x_stride = self.y_stride * self.y_len
         self.values = self._data[stop:]
         assert len(self.values) == self.x_stride * self.x_len
-        # Write grid info for reference (not used for interpolation)
-        self.shape = (self.x_len, self.y_len, self.z_len, self.u_len, self.v_len)[:self.ndim]
-        self.bounds = np.zeros((self.ndim, 2))
-        for i in range(self.ndim):
-            self.bounds[i] = [min(axes[i]), max(axes[i])]
 
     def __call__(self, arr):
         cdef int i
@@ -254,6 +256,29 @@ cdef class GridInterpolator:
         s -= self.y_stride
         a = _unit_interp3(self.values, s, self.z_stride, self.u_stride, 1, zw, uw, vw)
         return c*(1-xw) + xw*((1.-yw)*a + yw*b)
+
+    def __getstate__(self):
+        '''Prepares internal memory for pickling, necessary for multiprocessing.'''
+        axes = [self.x_axis]
+        data_lens = [len(self.x_axis)]
+        # Note: must not request the length of an uninitialized MemoryView, would cause crash
+        if self.ndim > 1:
+            data_lens.append(len(self.y_axis))
+        if self.ndim > 2:
+            data_lens.append(len(self.z_axis))
+        if self.ndim > 3:
+            data_lens.append(len(self.u_axis))
+        if self.ndim > 4:
+            data_lens.append(len(self.v_axis))
+        ax_lens = [self.x_len, self.y_len, self.z_len, self.u_len, self.v_len]
+        info = (self.ndim, self._data, self.bounds, self.shape, ax_lens, data_lens)
+        return info
+
+    def __setstate__(self, info):
+        '''Restores internal memory from pickle info, necessary for multiprocessing.'''
+        (self.ndim, self._data, self.bounds, self.shape, ax_lens, data_lens) = info
+        self.__set_views__(ax_lens, data_lens)
+        return
 
 cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept:
     cdef double a, b, c
