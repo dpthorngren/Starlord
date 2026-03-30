@@ -81,6 +81,13 @@ def test_grid_retrieval(dummy_grids: Path):
     assert np.all(saved_data['grid_vars'] == np.array(["dummy__v1", "dummy__v2"]))
     assert np.all(saved_data['consts'] == np.array([1.5]))
 
+    # Check the Pandas DataFrame reader
+    frame = starlord.load_to_frame(outfile)
+    assert set(frame.columns) == set(sampler.param_names + sampler.output_names)
+    assert 'weights' not in frame.columns
+    assert frame.shape == sampler.post.shape
+    assert np.all(frame.values == sampler.post)
+
 
 @pytest.mark.flaky(reruns=3)
 def test_retrieval(capsys: pytest.CaptureFixture):

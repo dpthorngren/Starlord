@@ -154,6 +154,7 @@ class _Sampler:
     def _save_contents(self) -> dict:
         grids = self.grids_used
         grid_vars = sum([[f"{gridname}__{key}" for key in keys] for gridname, keys in grids.items()], [])
+        # TODO: Citation info.
         return dict(
             params=self.post[:, :self.ndim],
             outputs=self.post[:, self.ndim:],
@@ -346,7 +347,58 @@ class SamplerNested(_Sampler):
         self._stats = ResultStats(mean, cov, std, q[:, 0], q[:, 1], q[:, 2])
 
     def save_results(self, filename: str):
-        # TODO: Citation info.
         result = self._save_contents()
         result['weights'] = self.results.importance_weights()
         np.savez_compressed(filename, **self._save_contents())
+
+
+def load_to_frame(filename, simplify_names=True, include_outputs=True):
+    '''Loads an npz file saved by Starlord into a Pandas Data Frame.
+
+    This requires that Pandas is installed, but this is not a required dependency so
+    that is not guaranteed by a standard install.
+
+    Args:
+        filename: The npz file to load in as a string.
+        simplify_names: Whether to remove grid names at the front of variable names and
+            combine underscores if the resulting resulting name is unambiguous (e.g.
+            "mist__logG__1" becomes "logG_1".
+        include_outputs: If true, includes generated outputs; otherwise only the actual
+            model parameters are loaded.
+
+    Returns:
+        A Pandas DataFrame with the output samples organized into rows and the parameters
+            and output variables as the columns.  If nested sampling was used, the weights
+            are included as an additional column.
+
+    Raises:
+        AssertionError: if expected entries in the npz file are missing, implying that the file
+            was not saved by Starlord.
+    '''
+    import pandas as pd
+
+    file = np.load(filename)
+    expected_keys = ['params', 'outputs', 'output_names', 'param_names']
+    assert all([k in file.files for k in expected_keys]), f"File {filename} does not appear to be a Starlord output."
+    data = file['params']
+    names = [str(i) for i in file['param_names']]
+    grids = file['grids']
+    if include_outputs:
+        data = np.hstack([data, file['outputs']])
+        if simplify_names:
+            for i in file['output_names']:
+                isplit = str(i).split("__")
+                if (len(isplit) > 1) and (isplit[0] in grids):
+                    simplified = "_".join(isplit[1:])
+                else:
+                    simplified = "_".join(isplit)
+                if simplified in names:
+                    names.append(i)
+                else:
+                    names.append(simplified)
+        else:
+            names += [str(i) for i in file['output_names']]
+    if 'weights' in file.files:
+        names.append("weights")
+        data = np.hstack([data, file['weights'][:, None]])
+    return pd.DataFrame(data, columns=names)  # type:ignore

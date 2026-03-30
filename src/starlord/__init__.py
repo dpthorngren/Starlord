@@ -4,9 +4,9 @@ from .code_gen import CodeGenerator
 from .cy_tools import GridInterpolator
 from .grid_gen import GridGenerator
 from .model_builder import ModelBuilder
-from .samplers import SamplerEnsemble, SamplerNested
+from .samplers import SamplerEnsemble, SamplerNested, load_to_frame
 
 __all__ = [
     "__version__", "ModelBuilder", "CodeGenerator", "_load_config", "SamplerNested", "cy_tools", "GridGenerator",
-    "GridInterpolator", "SamplerEnsemble"
+    "GridInterpolator", "SamplerEnsemble", "load_to_frame"
 ]
