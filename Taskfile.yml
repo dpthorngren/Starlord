@@ -24,7 +24,7 @@ tasks:
     desc: "Run flake8 linter"
     run: once
     cmds:
-      - flake8 . --count --show-source --statistics
+      - flake8 $(git ls-tree -r main --name-only | grep '.*py$') --count --show-source --statistics
 
   test:
     deps: [lint, devbuild]

@@ -249,7 +249,7 @@ class SamplerEnsemble(_Sampler):
             neff = self._last_run_args['nsteps'] / convergence
             summary = f"Convergence: Tau = {convergence:.2f}; N/Tau = {neff:.2f}\n"
         except emcee.autocorr.AutocorrError:
-            summary = "Too few samples to estimate convergence."
+            summary = "Too few samples to estimate convergence.\n"
         summary += super().summary()
         return summary
 

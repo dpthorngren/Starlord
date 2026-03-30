@@ -352,7 +352,6 @@ cdef class BaseModel:
     cpdef load_constants(self, dict constants):
         from starlord import GridGenerator
         for c in self.const_names:
-            print(c)
             if c in constants.keys():
                 setattr(self, f"c__{c}", constants[c])
             elif c.startswith("grid__"):
