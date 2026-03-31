@@ -25,6 +25,8 @@ def main():
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
     parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
     parser.add_argument("--batch-summary", help="File to write batch run summary information to as a csv.")
+    parser.add_argument(
+        "--batch-threads", default=1, type=int, help="Number of threads to run in parallel during a batch run.")
     parser.add_argument("--version", action="version", version=f"starlord {__version__}")
     model_group = parser.add_argument_group("model options", "Modify the model, overriding input file settings.")
     model_group.add_argument(
@@ -146,7 +148,7 @@ def main():
     out.update(settings['output'])
     run_args = settings['sampling'].get(sampler_type + "_run", {})
     if args.batch is not None:
-        sampler.batch_run(run_args, args.batch, out['terminal'], out['file'], args.batch_summary)
+        sampler.batch_run(run_args, args.batch, out['terminal'], out['file'], args.batch_summary, args.batch_threads)
     else:
         sampler.run(**run_args)
         if out['terminal']:

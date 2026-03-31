@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
+from functools import partial
 from multiprocessing import Pool
 from typing import Callable, Optional, Type
 
@@ -175,7 +176,9 @@ class _Sampler:
         terminal_output: bool = True,
         postfile: Optional[str] = None,
         summaryfile: Optional[str] = None,
-    ) -> None:
+        threads: int = 1,
+    ) -> np.ndarray:
+        # Read in the constants data from the provided file
         data = np.genfromtxt(
             infile,
             delimiter=",",
@@ -186,40 +189,68 @@ class _Sampler:
             encoding="UTF-8",
         )
         columns = data.dtype.names
-        assert columns is not None, "Failed to read column names."
-        columns = [n for n in columns if n in self.const_names]
+        assert columns is not None, f"Failed to read column names in {infile}."
+        columns = [n for n in columns if n in self.const_names + ['name']]
         nongrid_consts = [c for c in self.const_names if not c.startswith("grid__")]
-        summary_rows = []
-        for i, row in enumerate(data):
-            name = str(i)
-            if data.dtype.names is not None and 'name' in data.dtype.names:
-                name = row['name']
-            info = []
-            for c in columns:
-                self.constants[c] = row[c]
-                info.append(f"{c}={row[c]}")
-            print(f"({i+1}/{len(data)}) {name}: {', '.join(info)}")
-            try:
-                self.run(**run_args)
-                if terminal_output:
-                    print(self.summary())
-                if summaryfile is not None:
-                    stats = np.vstack([getattr(self.stats, c) for c in ('mean', 'std', 'p16', 'p50', 'p84')])
-                    stats = [f"{v:.6f}" for v in stats.T.flatten()]
-                    const_vals = [f"{self._constants[c]:.6f}" for c in nongrid_consts]
-                    summary_rows.append(name + ", " + ", ".join(const_vals + stats))
-                if postfile is not None:
-                    self.save_results(postfile + "_" + name.replace(" ", "_"))
-            except Exception as e:
-                print(f"Error: {name} raised exception {e}")
+        if "name" not in columns:
+            data['name'] = np.arange(len(data))
+        names = data['name'].copy()
+        work = [{c: row[c] for i, c in enumerate(columns)} for row in data]
+
+        task = partial(
+            self._run_single_,
+            run_args=run_args,
+            terminal_output=terminal_output,
+            postfile=postfile,
+            summary_cols=nongrid_consts,
+        )
+
+        if threads > 1:
+            with Pool(threads) as pool:
+                results = list(pool.map(task, work))
+        else:
+            results = list(map(task, work))
+
         if summaryfile is not None:
             assert summaryfile != infile, "Error: will not output to input csv file (would overwrite!)"
+            assert results is not None
             header = ["name"] + nongrid_consts
             for p in self.param_names + self.output_names:
                 header += [p + stat for stat in ('_mean', '_std', '_p16', '_p50', '_p84')]
+            summary_rows = []
+            for name, input, output in zip(names, work, results):
+                assert output is not None
+                row = [name]
+                row += [f"{input[c]:.6f}" for c in nongrid_consts]
+                row += [f"{v:.6f}" for v in output]
+                summary_rows.append(", ".join(row))
             with open(summaryfile, 'w') as fd:
                 fd.write(", ".join(header) + "\n")
-                fd.write("\n".join(summary_rows))
+                fd.write("\n".join(summary_rows) + "\n")
+        return np.asarray(results)
+
+    def _run_single_(
+        self,
+        constants,
+        run_args: dict,
+        terminal_output: bool = True,
+        postfile: Optional[str] = None,
+        summary_cols: list[str] = [],
+    ) -> np.ndarray:
+        name = constants.pop('name', '')
+        print(name, ", ".join([f"{k} = {v}" for k, v in constants.items()]))
+        self.constants.update(constants)
+        try:
+            self.run(**run_args)
+            if terminal_output:
+                print(name, self.summary())
+            if postfile is not None:
+                self.save_results(postfile + "_" + name.replace(" ", "_"))
+            stats = np.vstack([getattr(self.stats, c) for c in ('mean', 'std', 'p16', 'p50', 'p84')])
+            return stats.T.flatten()
+        except Exception as e:
+            print(f"Error: {name} raised exception {e}")
+        return np.full(len(summary_cols), np.nan)
 
 
 class SamplerEnsemble(_Sampler):
