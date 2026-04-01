@@ -134,6 +134,9 @@ class Prior:
             distribution=distribution,
         )
 
+    def __lt__(self, other):
+        return ", ".join(sorted(self.vars)) < ", ".join(sorted(other.vars))
+
     def display(self) -> str:
         params = ", ".join([p for p in self.params])
         vars = ", ".join([v for v in self.vars])

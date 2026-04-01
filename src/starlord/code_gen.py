@@ -62,7 +62,7 @@ class CodeGenerator:
     def mapping(self) -> dict[str, str]:
         return self.variables.map
 
-    def __init__(self, verbose: bool = False, fancy_text=False):
+    def __init__(self, optional_likelihood_terms=False, verbose: bool = False, fancy_text=False):
         self.verbose: bool = verbose
         self.fancy_text = fancy_text
         self._like_components = []
@@ -74,6 +74,7 @@ class CodeGenerator:
         self.auto_constants = {}
         self.constant_types = {}
         self.outputs: list[str] = []
+        self.optional_likelihood_terms = optional_likelihood_terms
         # Lazily-updated property backer
         self.__variables__: Optional[_VarCache] = None
 
@@ -84,7 +85,7 @@ class CodeGenerator:
         params = set(self.params)
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
-        for comp in self._prior_components:
+        for comp in sorted(self._prior_components):
             code: str = comp.generate_ppf().format(**self.mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return params\n")
@@ -99,7 +100,7 @@ class CodeGenerator:
         prior_params = {list(c.vars)[0] for c in self._prior_components}
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
-        for comp in self._prior_components:
+        for comp in sorted(self._prior_components):
             code: str = comp.generate_pdf().format(**self.mapping)
             result.append("\n".join("    " + i for i in code.splitlines()))
         result.append("    return logP\n")
@@ -117,7 +118,7 @@ class CodeGenerator:
         for comp in components:
             code: str = comp.generate_code().format(**self.mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
-        result[-1] = result[-1] + "\n"
+        result.append("    return\n")
         result.append("cpdef postprocess(self, double[:,:] params, double[:,:] out):")
         result.append("    for i in range(params.shape[0]):")
         result.append("        self._forward_model(params[i])")
@@ -138,16 +139,20 @@ class CodeGenerator:
         return "\n".join(result)
 
     def generate_log_like(self) -> str:
-        # Write the function header
         result: list[str] = []
         result.append("cdef double _log_like(self, double[:] params):")
         result.append("    cdef double logL = 0.")
-        for comp in self._like_components:
+        for comp in sorted(self._like_components):
             if type(comp) is DistributionComponent:
                 code: str = comp.generate_code().format(**self.mapping)
-                result.append("\n".join("    " + loc for loc in code.splitlines()))
+                checked = sorted([r for r in comp.requires if r.label == "c" and not r.is_literal])
+                if self.optional_likelihood_terms and checked:
+                    checks: str = " and ".join([f"math.isfinite({i.bracketed})" for i in checked])
+                    result.append(f"    if {checks}:".format(**self.mapping))
+                    result.append("\n".join("        " + loc for loc in code.splitlines()))
+                else:
+                    result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
-        # Generate the user-facing wrapper function
         result = ["    " + r for r in result]
         return "\n".join(result)
 

@@ -4,7 +4,9 @@ import re
 import sys
 
 import cython
+import numpy as np
 from pytest import approx
+from scipy import stats
 
 from starlord import CodeGenerator
 from starlord._config import __version__, _load_config, config
@@ -48,6 +50,34 @@ def test_compilation():
     hash = CodeGenerator._compile_to_module(code)
     mod = CodeGenerator._load_module(hash)
     assert mod.testFunction(12.) == approx(3.5 * math.sin(12. / 2.))
+
+
+def test_model():
+    g = CodeGenerator()
+    g.constraint('p.bar', 'uniform', ['c.min_bar', 'c.max_bar'])
+    g.constraint('p.foo', 'normal', ['c.mean_foo', 'c.std_foo'])
+    g.prior('p.bar', 'uniform', [-10.0, 10.0])
+    g.prior('p.foo', 'uniform', [-10.0, 10.0])
+    g.optional_likelihood_terms = True
+    module = g.compile()
+    model = module.Model(mean_foo=2.0, std_foo=1.0, min_bar=3, max_bar=8)
+    print(model.code[0])
+    assert model.param_names == ['bar', 'foo']
+    assert model.const_names == ['max_bar', 'mean_foo', 'min_bar', 'std_foo']
+    assert model.c__mean_foo == 2
+    assert model.c__std_foo == 1.0
+    assert model.c__min_bar == 3.0
+    assert model.c__max_bar == 8.0
+    for xt in np.random.rand(100, 2):
+        xt[0] += 3.5
+        expect = -np.log(8. - 3.) + stats.norm.logpdf(xt[1], 2.0, 1.0)
+        assert model.log_like(xt) == approx(expect, rel=1e-9)
+        assert model.log_prior(xt) == approx(-2 * np.log(20), rel=1e-9)
+    model.c__std_foo = np.nan
+    for xt in np.random.rand(100, 2):
+        xt[0] += 3.5
+        assert model.log_like(xt) == approx(-np.log(8. - 3.), rel=1e-9)
+        assert model.log_prior(xt) == approx(-2 * np.log(20), rel=1e-9)
 
 
 def test_config():

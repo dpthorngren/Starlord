@@ -53,7 +53,7 @@ class ModelBuilder():
             deferred_map = self._resolve_deferred().def_map
             if self.verbose:
                 print(f"\n    {self.txt.underline}Code Generation{self.txt.end}")
-            self.__gen__ = CodeGenerator(self.verbose, self.fancy_text)
+            self.__gen__ = CodeGenerator(self.optional_likelihood_terms, self.verbose, self.fancy_text)
             for deferred_vars, expr in self._expressions:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
                 self.__gen__.expression(expr.format_map(deferred_map))
@@ -92,6 +92,7 @@ class ModelBuilder():
         self.auto_constants: dict[str, str] = {}
         self.constant_types: dict[str, str] = {}
         self.outputs: list[str] = []
+        self.optional_likelihood_terms = False
         # Caching backers for self.code_generator
         self.__gen__: Optional[CodeGenerator] = None
         self.__grids__: dict[str, list[str]] = {}
@@ -111,7 +112,7 @@ class ModelBuilder():
 
         Args:
             model: The model dict to be loaded, it should only have the keys
-                'expr', 'var', 'prior', 'override', or the name of a grid.
+                'expr', 'var', 'prior', 'override', 'options' or the name of a grid.
 
         Example:
             Loading the model from a TOML file to be used within the Python API::
@@ -176,6 +177,8 @@ class ModelBuilder():
                 _, key = DeferredResolver.extract_deferred(key)
                 assert match is not None, f"Invalid output key {key}."
                 self.outputs.append(key)
+        if "options" in model.keys():
+            self.optional_likelihood_terms = bool(model['options'].get('optional_likelihood_terms', False))
 
     def override_mapping(self, key: str, value: str):
         '''Sets the value or symbol to use a deferred variable, often grid variables.
