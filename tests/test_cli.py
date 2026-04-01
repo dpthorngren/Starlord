@@ -1,6 +1,7 @@
 import re
 import sys
 
+import numpy as np
 import pytest
 # flake8: noqa
 from test_grids import dummy_grids
@@ -104,3 +105,44 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     print(captured)
     assert outfile.exists()
     assert "   0 b" in captured
+
+
+@pytest.mark.flaky(reruns=3)
+def test_batch(dummy_grids, monkeypatch: pytest.MonkeyPatch):
+    config.grid_dir = dummy_grids
+    GridGenerator.reload_grids()
+    outfile = config.grid_dir / "batch_out.csv"
+    monkeypatch.setattr(
+        sys, 'argv', [
+            'starlord', 'tests/batch_test.toml', '--batch', 'tests/batch_data.csv', '--batch-summary',
+            str(outfile), '--batch-threads', '3'
+        ])
+    cli.main()
+    assert outfile.exists()
+    data = np.genfromtxt(outfile, delimiter=",", autostrip=True, comments="#", names=True, dtype=None, encoding="UTF8")
+    assert data.dtype.names is not None
+    assert 'name' in data.dtype.names
+    assert 'alpha_b' in data.dtype.names
+    assert 'beta_b' in data.dtype.names
+    assert 'mean_a' in data.dtype.names
+    assert 'std_a' in data.dtype.names
+    for suffix in ['_mean', '_std', '_p16', '_p50', '_p84']:
+        assert 'a' + suffix in data.dtype.names
+        assert 'b' + suffix in data.dtype.names
+        assert 'log_prior' + suffix in data.dtype.names
+        assert 'log_like' + suffix in data.dtype.names
+    assert list(data['name']) == ['foo', 'bar', 'baz']
+    assert data['a_mean'][0] == pytest.approx(0.0, abs=0.1)
+    assert data['a_mean'][1] == pytest.approx(3.0, abs=0.1)
+    assert data['a_mean'][2] == pytest.approx(0.0, abs=1.0)
+    assert data['a_std'][0] == pytest.approx(1.0, rel=0.1)
+    assert data['a_std'][1] == pytest.approx(0.2, rel=0.1)
+    assert data['a_std'][2] == pytest.approx(30. / np.sqrt(12.), rel=0.1)
+    beta_mean = lambda alpha, beta: alpha / (alpha+beta)
+    assert data['b_mean'][0] == pytest.approx(beta_mean(20, 15), rel=0.1)
+    assert data['b_mean'][1] == pytest.approx(beta_mean(50., 75.), rel=0.1)
+    assert data['b_mean'][2] == pytest.approx(beta_mean(25., 35.), rel=0.1)
+    beta_std = lambda alpha, beta: np.sqrt(alpha * beta / (alpha + beta)**2 / (alpha+beta+1))
+    assert data['b_std'][0] == pytest.approx(beta_std(20, 15), rel=0.1)
+    assert data['b_std'][1] == pytest.approx(beta_std(50., 75.), rel=0.1)
+    assert data['b_std'][2] == pytest.approx(beta_std(25., 35.), rel=0.1)

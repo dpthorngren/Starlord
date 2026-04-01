@@ -1,0 +1,4 @@
+# name, mean_a, std_a, alpha_b, beta_b
+foo, 0.0, 1.0, 20.0, 15.
+bar, 3.0, 0.2, 50.0, 75.0
+baz, 3.0, nan, 25.0, 35.0

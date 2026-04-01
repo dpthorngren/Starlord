@@ -1,0 +1,15 @@
+[model]
+var.a = ["p.a", "normal", "c.mean_a", "c.std_a"]
+var.b = ["p.b", "beta", "c.alpha_b", "c.beta_b"]
+
+prior.a = ["uniform", -15.0, 15.0]
+prior.b = ["uniform", 0, 1]
+
+options.optional_likelihood_terms = true
+
+[sampling]
+emcee_init.burn_in = 1000
+emcee_run.nsteps = 10000
+
+[output]
+terminal=true

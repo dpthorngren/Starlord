@@ -342,6 +342,7 @@ cdef class BaseModel:
     var_names: list[str] = []
     const_names: list[str] = []
     optional_consts: list[str] = []
+    optional_likelihood_terms: bool = False
     # To be filled by module loader at load time
     code_hash: list[str] = []
     code: list[str] = []

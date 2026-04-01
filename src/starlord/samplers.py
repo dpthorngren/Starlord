@@ -117,7 +117,7 @@ class _Sampler:
         self._last_run_args = {}
         self._last_constants = []
 
-    def validate_constants(self):
+    def validate_constants(self, allow_nan=False):
         expected = set(self.const_names) - set(self.optional_consts)
         missing = expected - set(self._constants.keys())
         extra = set(self._constants.keys()) - expected
@@ -126,7 +126,7 @@ class _Sampler:
             print("Warning, unused constants: " + ", ".join(extra))
         for cname in expected:
             val = self._constants[cname]
-            assert np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
+            assert allow_nan or np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
 
     def summary(self) -> str:
         out = ["     Name".ljust(29) + "Mean".rjust(12) + "Std".rjust(12)]
@@ -250,7 +250,7 @@ class _Sampler:
             return stats.T.flatten()
         except Exception as e:
             print(f"Error: {name} raised exception {e}")
-        return np.full(len(summary_cols), np.nan)
+        return np.full(5 * len(summary_cols), np.nan)
 
 
 class SamplerEnsemble(_Sampler):
@@ -286,7 +286,7 @@ class SamplerEnsemble(_Sampler):
         return summary
 
     def run(self, threads=1, **run_args):
-        self.validate_constants()
+        self.validate_constants(self._model_class.optional_likelihood_terms)
         # Propagate sampler settings
         init_args = self.init_args.copy()
         init_args.setdefault('nwalkers', max(100, 5 * self.ndim))
@@ -350,7 +350,7 @@ class SamplerNested(_Sampler):
         self._sampler = None
 
     def run(self, **run_args):
-        self.validate_constants()
+        self.validate_constants(self._model_class.optional_likelihood_terms)
         # Propagate sampler settings
         init_args = self.init_args.copy()
         init_args.setdefault('ndim', self.ndim)

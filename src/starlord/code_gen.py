@@ -172,6 +172,7 @@ class CodeGenerator:
         result.append(f"    var_names = {[v.name for v in self.locals]}")
         result.append(f"    const_names = {[c.name for c in self.constants]}")
         result.append(f"    optional_consts = {sorted(list(self.auto_constants.keys()))}")
+        result.append(f"    optional_likelihood_terms = {self.optional_likelihood_terms}")
         result.append("    code_hash = []")
         result.append("    code = []")
         result.append("\n    # Constants")
