@@ -1,6 +1,12 @@
 import numpy as np
 cimport cython
 
+cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
+    cdef double baseline = max(x, y)
+    x = c_x*math.exp(x - baseline)
+    y = c_y*math.exp(y - baseline)
+    return baseline + math.log(x+y)
+
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept:
     if x >= xmin and x <= xmax:
         return -math.log(xmax - xmin)
@@ -17,6 +23,10 @@ cpdef double normal_lpdf(double x, double mean, double sigma) noexcept:
 cpdef double normal_ppf(double p, double mean, double sigma) noexcept:
     return -math.sqrt(2.) * special.erfcinv(2.*p)*sigma + mean
 
+cpdef double normal_cdf(double x, double mean, double sigma) noexcept:
+    x = (x - mean) / sigma
+    return (1.0 + special.erf(x/math.sqrt(2)))/ 2.0
+
 cpdef double beta_lpdf(double x, double alpha, double beta) noexcept:
     return (alpha-1.)*math.log(x) + (beta-1.)*math.log(1-x) - special.betaln(alpha, beta)
 
@@ -30,14 +40,23 @@ cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept:
     return special.gammaincinv(alpha, p)/lamb
 
 cpdef double exponential_lpdf(double x, double rate) noexcept:
+    if rate <= 0:
+        return math.NAN
     if x < 0.:
         return -math.INFINITY
     return math.log(rate) - rate*x
 
 cpdef double exponential_ppf(double p, double rate) noexcept:
-    if p > 1 or p < 0 or rate < 0:
+    if p > 1 or p < 0 or rate <= 0:
         return math.NAN
     return -math.log(1 - p) / rate
+
+cpdef double exponential_cdf(double x, double rate) noexcept:
+    if rate <= 0:
+        return math.NAN
+    if x <= 0:
+        return 0.
+    return 1. - math.exp(-rate*x)
 
 cpdef double trunc_power_lpdf(double x, double k, double a, double b) noexcept:
     if (a <= 0 and k <= 0) or b < 0 or a < 0:
@@ -81,6 +100,61 @@ cpdef double trunc_normal_ppf(double p, double mean, double sigma, double a, dou
     b = math.erfc(-b/math.sqrt(2.))/2.
     p = p*(b-a) + a
     return -math.sqrt(2.) * special.erfcinv(2.*p)*sigma + mean
+
+cpdef double trunc_exponential_lpdf(double x, double rate, double a, double b) noexcept:
+    if rate <= 0:
+        return math.NAN
+    if x < a or x > b:
+        return -math.INFINITY
+    norm = logsumexp(-rate*a, -rate*b, 1., -1.)
+    return math.log(rate) - rate*x - norm
+
+cpdef double trunc_exponential_ppf(double p, double rate, double a, double b) noexcept:
+    if p > 1 or p < 0 or rate < 0:
+        return math.NAN
+    a = exponential_cdf(a, rate)
+    b = exponential_cdf(b, rate)
+    p = a + p * (b-a)
+    return -math.log(1 - p) / rate
+
+cpdef double chabrier_lpdf(double log_mass, double log_m_switch, double mean, double sigma, double rate) noexcept:
+    '''Initial mass function priors of the form from Chabrier (2002) table 2, as a log PDFs.
+
+    That paper lists the following constant values for different groups of stars:
+
+    ==========================  ============== ========== ======= ======= ==========
+    Case                         log_m_switch   mean       sigma   power     rate
+    ==========================  ============== ========== ======= ======= ==========
+    Disk and Young Clusters          0.0        -1.10237    0.69    1.3    5.295945
+    Globular Clusters            -0.04575749    -0.48148    0.34    1.3    5.295945
+    Spheroid                     -0.15490195    -0.65757    0.33    1.3    5.295945
+    ==========================  ============== ========== ======= ======= ==========
+
+    In order to turn this into a prior on log_mass, the power-law distribution had to be transformed
+    into an exponential distribution, hence the use of "rate" rather than "power".  The conversion
+    is ``rate = (1+power)*ln(10)``.
+    '''
+    cdef double cdf_switch = normal_cdf(log_m_switch, mean, sigma)
+    cdef double f = normal_lpdf(log_m_switch, mean, sigma)
+    cdef double g = trunc_exponential_lpdf(log_m_switch, rate, log_m_switch, 2.)
+    cdef double norm = math.exp(f) / math.exp(g)
+    if log_mass <= log_m_switch:
+        norm = cdf_switch + norm
+        return normal_lpdf(log_mass, mean, sigma) - math.log(norm)
+    else:
+        norm = 1 + cdf_switch/norm
+        return trunc_exponential_lpdf(log_mass, rate, log_m_switch, 2.0) - math.log(norm)
+    return
+
+cpdef double chabrier_ppf(double p, double log_m_switch, double mean, double sigma, double rate) noexcept:
+    '''Initial mass function priors of the form from Chabrier (2002) table 2, as PPFs.
+
+    See :func:`starlord.cy_tools.chabrier_lpdf` for more information.'''
+    cdef double cdf_switch = normal_cdf(log_m_switch, mean, sigma)
+    if p <= cdf_switch:
+        return normal_ppf(p/cdf_switch, mean, sigma)
+    else:
+        return trunc_exponential_ppf((p-cdf_switch)/(1-cdf_switch), rate, log_m_switch, math.INFINITY)
     
 cdef class GridInterpolator:
     '''An interpolator for gridded data, optimized for use in Cython.'''

@@ -2,8 +2,25 @@ import numpy as np
 from pytest import approx
 from scipy import stats
 from scipy.interpolate import RegularGridInterpolator
+from scipy.special import logsumexp
 
 from starlord import cy_tools
+
+
+def test_helpers():
+    for a, b in 20 * np.random.rand(100, 2):
+        assert cy_tools.logsumexp(a, b) == approx(logsumexp([a, b]), rel=1e-12)
+
+
+def test_cdf():
+    assert cy_tools.normal_cdf(0, 0., 1.) == approx(5., 5., 12.)
+    assert cy_tools.normal_cdf(-100, -53., 6.0) == approx(0., abs=1e-12)
+    assert cy_tools.normal_cdf(50, -7.3, 3.5) == approx(1.0, abs=1e-12)
+    assert cy_tools.exponential_cdf(-5, 23) == 0.0
+    for rng in np.random.rand(100, 3):
+        x, mu, sigma = rng * np.array([2.0, 1.0, 0.2]) + np.array([-1.0, -0.6, 0.01])
+        assert cy_tools.normal_cdf(x, mu, sigma) == approx(stats.norm.cdf(x, mu, sigma), rel=1e-12)
+        assert cy_tools.exponential_cdf(abs(x), sigma) == approx(stats.expon.cdf(abs(x), scale=1 / sigma), rel=1e-12)
 
 
 def test_lpdf():
@@ -14,7 +31,6 @@ def test_lpdf():
         assert stats.norm.logpdf(x, 1., .5) == approx(cy_tools.normal_lpdf(x, 1., .5), rel=1e-12)
         assert stats.norm.logpdf(x, -10.1, 2.5) == approx(cy_tools.normal_lpdf(x, -10.1, 2.5), rel=1e-12)
         assert stats.norm.logpdf(x, 1e3, 1e2) == approx(cy_tools.normal_lpdf(x, 1e3, 1e2), rel=1e-12)
-
         expect = stats.truncnorm.logpdf(x, 3., 4., 1., .5)
         assert cy_tools.trunc_normal_lpdf(x, 1., .5, 3., 4.) == approx(expect, rel=1e-12)
         expect = stats.truncnorm.logpdf(x, -15, -5, -10.1, 2.5)
@@ -34,6 +50,13 @@ def test_lpdf():
         assert stats.gamma.logpdf(x, 15., scale=1. / 20.) == approx(cy_tools.gamma_lpdf(x, 15., 20.), rel=1e-12)
         assert stats.gamma.logpdf(x, 500., scale=1. / 300.) == approx(cy_tools.gamma_lpdf(x, 500., 300.), rel=1e-12)
         assert stats.gamma.logpdf(x, 53.2, scale=1. / 48.5) == approx(cy_tools.gamma_lpdf(x, 53.2, 48.5), rel=1e-12)
+        assert cy_tools.trunc_exponential_lpdf(x, 2.5, 0., 100.) == approx(cy_tools.exponential_lpdf(x, 2.5), 1e-12)
+        assert cy_tools.trunc_exponential_lpdf(x, 2.5, 0., np.inf) == approx(cy_tools.exponential_lpdf(x, 2.5), 1e-12)
+        x += 3.5
+        expect = cy_tools.exponential_lpdf(x - 3., 2.5)
+        assert cy_tools.trunc_exponential_lpdf(x, 2.5, 3., np.inf) == approx(expect, 1e-12)
+        expect = np.log(2.5) - x*2.5 - cy_tools.logsumexp(-2.5 * 3, -2.5 * 15, 1., -1.)
+        assert cy_tools.trunc_exponential_lpdf(x, 2.5, 3.0, 15.) == approx(expect, abs=1e-12)
     assert cy_tools.exponential_lpdf(-1e-5, 3.) == -np.inf
     for x in stats.uniform.rvs(0., 10., 100):
         assert stats.expon.logpdf(x, scale=1. / 20.) == approx(cy_tools.exponential_lpdf(x, 20.), rel=1e-12)
@@ -45,6 +68,13 @@ def test_lpdf():
         assert cy_tools.trunc_power_lpdf(3.0, -k, 1., 5.) + np.log(2**k) == approx(expect, rel=1e-12)
     expect = cy_tools.trunc_power_lpdf(1.5, -1, 1., 5.)
     assert cy_tools.trunc_power_lpdf(3.0, -1, 1., 5.) - np.log(0.5) == approx(expect, rel=1e-12)
+    # Astrophyical priors
+    expect = cy_tools.chabrier_lpdf(-1e-5, 0., -1.10237, 0.69, 5.295945)
+    assert cy_tools.chabrier_lpdf(1e-5, 0., -1.10237, 0.69, 5.295945) == approx(expect, rel=1e-1)
+    expect = cy_tools.chabrier_lpdf(-1e-5, 0.045757, -0.48148, 0.34, 5.295945)
+    assert cy_tools.chabrier_lpdf(1e-5, 0.045757, -0.48148, 0.34, 5.295945) == approx(expect, rel=1e-1)
+    assert cy_tools.chabrier_lpdf(-.5, 0., -1.10237, 0.69, 5.295945) == approx(-0.9040384867245783, rel=1e-12)
+    assert cy_tools.chabrier_lpdf(-.1, 0., -1.10237, 0.69, 5.295945) == approx(-1.57815736931227, rel=1e-12)
 
 
 def test_ppf():
@@ -66,6 +96,14 @@ def test_ppf():
         assert cy_tools.trunc_normal_ppf(p, 1.3e4, 5.2e3, 0, np.inf) == approx(expect, rel=1e-12)
         expect = stats.norm.ppf(p, 3.5, .53)
         assert cy_tools.trunc_normal_ppf(p, 3.5, .53, -np.inf, np.inf) == approx(expect, rel=1e-12)
+        expect = cy_tools.exponential_ppf(p, .37)
+        assert cy_tools.trunc_exponential_ppf(p, 0.37, 0., 1e9) == approx(expect, rel=1e-12)
+        x = cy_tools.exponential_ppf(p, 0.15)
+        assert cy_tools.exponential_cdf(x, 0.15) == approx(p, rel=1e-12)
+        expect = stats.truncexpon.ppf(p, .15 * 5., scale=1. / .15)
+        assert cy_tools.trunc_exponential_ppf(p, 0.15, 0, 5.) == approx(expect)
+        expect = stats.truncexpon.ppf(p, 13.25 * 6.5, scale=1. / 13.25)
+        assert cy_tools.trunc_exponential_ppf(p, 13.25, 0, 6.5) == approx(expect)
 
 
 def test_gridding1d():

@@ -3,20 +3,27 @@ cimport scipy.linalg.cython_lapack as lapack
 cimport scipy.linalg.cython_blas as blas
 from libc cimport math
 
+cpdef double logsumexp(double x, double y, double c_x=?, double c_y=?) noexcept
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept
 cpdef double uniform_ppf(double x, double xmin, double xmax) noexcept
 cpdef double normal_lpdf(double x, double mean, double sigma) noexcept
 cpdef double normal_ppf(double p, double mean, double sigma) noexcept
+cpdef double normal_cdf(double x, double mean, double sigma) noexcept
 cpdef double beta_lpdf(double x, double alpha, double beta) noexcept
 cpdef double beta_ppf(double p, double alpha, double beta) noexcept
 cpdef double gamma_lpdf(double x, double alpha, double lamb) noexcept
 cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept
 cpdef double exponential_lpdf(double x, double rate) noexcept
 cpdef double exponential_ppf(double p, double rate) noexcept
+cpdef double exponential_cdf(double x, double rate) noexcept
 cpdef double trunc_power_lpdf(double x, double k, double a, double b) noexcept
 cpdef double trunc_power_ppf(double p, double k, double a, double b) noexcept
 cpdef double trunc_normal_lpdf(double x, double mean, double sigma, double a, double b) noexcept
 cpdef double trunc_normal_ppf(double p, double mean, double sigma, double a, double b) noexcept
+cpdef double trunc_exponential_lpdf(double x, double rate, double a, double b) noexcept
+cpdef double trunc_exponential_ppf(double p, double rate, double a, double b) noexcept
+cpdef double chabrier_lpdf(double log_mass, double log_m_switch, double mean, double sigma, double power) noexcept
+cpdef double chabrier_ppf(double p, double log_m_switch, double mean, double sigma, double power) noexcept
 
 cdef int _locatePoint_(double point, double[:] axis, int axLen, double* w) noexcept
 cdef double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept
