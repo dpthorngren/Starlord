@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from ._config import _TextFormatCodes_, config
+from .code_components import _num_params
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
 from .samplers import SamplerEnsemble, SamplerNested
@@ -45,6 +46,8 @@ class ModelBuilder():
     varname_regex = re.compile(r"([pcld]).([a-zA-Z1-9]\w*)(?:--([a-zA-Z0-9]+))?")
     # Only local and deferred variables are valid outputs
     outname_regex = re.compile(r"(l|d.[a-zA-Z]\w+).[a-zA-Z1-9]\w*(--[a-zA-Z0-9]+)?")
+    # Looks like a distribution name
+    distribution_name = re.compile(r"[a-zA-z_]+")
 
     @property
     def code_generator(self) -> CodeGenerator:
@@ -352,7 +355,11 @@ class ModelBuilder():
         assert len(spec) >= 2
         dist: str = "normal"
         if type(spec[0]) is str:
-            dist = spec.pop(0)
+            if spec[0].lower() in _num_params.keys():
+                dist = spec.pop(0)
+            elif self.distribution_name.fullmatch(spec[0]):
+                raise ValueError(
+                    f"First argument of '{spec}' for '{var}' looks like a distribution name but isn't recognized.")
         if is_prior:
             self.prior(var, dist, spec)
         else:
