@@ -4,7 +4,40 @@ import re
 from dataclasses import dataclass
 
 # The number of parameters for each type of distribution.
-_num_params = {'normal': 2, 'uniform': 2, 'beta': 2, 'gamma': 2, 'exponential': 1, 'trunc_power': 3, 'trunc_normal': 4}
+_num_params = {
+    'normal': 2,
+    'uniform': 2,
+    'beta': 2,
+    'gamma': 2,
+    'exponential': 1,
+    'trunc_power': 3,
+    'trunc_normal': 4,
+    'chabrier': 4,
+    'chabrier_disk': 0,
+    'chabrier_globular': 0,
+    'chabrier_spheroid': 0,
+}
+
+
+def process_distribution(var: str | Symb, dist: str, params: list[str | float | Symb]) -> tuple[Symb, str, list[Symb]]:
+    '''Validates a distribution input and converts to the appropriate types.'''
+    dist = dist.lower()
+    assert dist in _num_params.keys(), f"Unrecognized distribution name '{dist}' for '{var}'."
+    nparams = _num_params[dist]
+    assert nparams == len(params), \
+        f"Wrong number of parameters for distribution '{dist}', (expected {nparams}, got {len(params)})"
+    # Prior Aliases
+    if dist == 'chabrier_disk':
+        params += [0.0, -1.10237, 0.69, 5.295945]
+        dist = 'chabrier'
+    elif dist == 'chabrier_globular':
+        params += [-0.04575749, -0.48148, 0.34, 5.295945]
+        dist = 'chabrier'
+    elif dist == 'chabrier_spheroid':
+        params += [-0.15490195, -0.65757, 0.33, 5.295945]
+        dist = 'chabrier'
+    pars: list[Symb] = [Symb(i) for i in params]
+    return Symb(var), dist, pars
 
 
 class Symb(str):
@@ -89,12 +122,11 @@ class DistributionComponent(Component):
     var: Symb
 
     @classmethod
-    def create(cls, var: Symb, dist: str, params: list[Symb]):
-        dist = dist.lower()
-        assert dist in _num_params.keys()
-        requires: set[Symb] = set(p for p in params if not p.is_literal)
+    def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
+        var, dist, pars = process_distribution(var, dist, params)
+        requires: set[Symb] = set(p for p in pars if not p.is_literal)
         requires = requires | {var}
-        pars = [str(p) if p.is_literal else f"{{{p}}}" for p in params]
+        pars = [str(p) if p.is_literal else f"{{{p}}}" for p in pars]
         return cls(requires, set(), dist, pars, var)
 
     def display(self) -> str:
@@ -123,15 +155,14 @@ class Prior:
         return set(self.vars)
 
     @classmethod
-    def create(cls, var: Symb, distribution: str, params: list[Symb]):
-        distribution = distribution.lower()
-        assert distribution in _num_params.keys()
+    def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
+        var, dist, pars = process_distribution(var, dist, params)
         return Prior(
             vars=[var],
-            code_ppf="{vars} = " + distribution + "_ppf({vars}, {paramStr})",
-            code_pdf="logP += " + distribution + "_lpdf({vars}, {paramStr})",
-            params=params,
-            distribution=distribution,
+            code_ppf="{vars} = " + dist + "_ppf({vars}, {paramStr})",
+            code_pdf="logP += " + dist + "_lpdf({vars}, {paramStr})",
+            params=pars,
+            distribution=dist,
         )
 
     def __lt__(self, other):

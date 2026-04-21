@@ -16,7 +16,7 @@ from typing import NamedTuple, Optional
 import cython
 
 from ._config import __version__, _TextFormatCodes_, config
-from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb, _num_params)
+from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
@@ -264,20 +264,14 @@ class CodeGenerator:
         self._vars_out_of_date = True
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
-        var = Symb(var)
-        assert dist in _num_params.keys() and _num_params[dist] == len(params), dist
-        pars: list[Symb] = [Symb(i) for i in params]
-        comp = DistributionComponent.create(var, dist, pars)
+        comp = DistributionComponent.create(var, dist, params)
         if self.verbose:
             print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._like_components.append(comp)
         self._vars_out_of_date = True
 
-    def prior(self, var: str, dist: str, params: list[str | float]):
-        var = Symb(var)
-        assert dist in _num_params.keys() and _num_params[dist] == len(params)
-        pars: list[Symb] = [Symb(i) for i in params]
-        comp = Prior.create(var, dist, pars)
+    def prior(self, var: str | Symb, dist: str, params: list[str | float | Symb]):
+        comp = Prior.create(var, dist, params)
         if self.verbose:
             print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._prior_components.append(comp)

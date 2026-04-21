@@ -352,7 +352,7 @@ class ModelBuilder():
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
         the results on to :func:`prior` if prior=True else :func:`constraint`'''
         assert type(spec) is list
-        assert len(spec) >= 2
+        assert len(spec) >= 1
         dist: str = "normal"
         if type(spec[0]) is str:
             if spec[0].lower() in _num_params.keys():
