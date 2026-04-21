@@ -36,7 +36,7 @@ The likelihood terms describe how our data constrains the model posterior.  For 
     ExampleGrid.B = ['uniform', 0, 5.0]
     ExampleGrid.C = ['normal', -0.5, 0.05]
 
-The syntax is ``grid_name.output_name = ['distribution_name', param_1, param_2, ...]``, and the supported distributions are ``normal``, ``uniform``, ``gamma``, ``beta``, ``trunc_normal``, and ``trunc_power``.
+The syntax is ``grid_name.output_name = ['distribution_name', param_1, param_2, ...]``.  If `distribution_name` is omitted, Starlord will default to a normal distribution. The most common distributions are `normal` and `uniform`, but the full list may be found in :class:`starlord.ModelBuilder`.
 
 .. tip::
 
@@ -119,6 +119,8 @@ The Python API equivalent is :meth:`ModelBuilder.prior() <starlord.ModelBuilder.
     builder.prior("p.x", 'normal', [0, 10.0)
     builder.prior("p.x", 'uniform', [0, 1])
     builder.prior("p.x", 'normal', [5.32, 0.5])
+
+The most common distributions are `normal` and `uniform`, but the full list may be found in :class:`starlord.ModelBuilder`.
 
 .. tip::
 

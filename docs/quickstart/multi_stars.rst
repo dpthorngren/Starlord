@@ -44,7 +44,7 @@ In some cases, it can be helpful to prevent starlord from assuming the stars hav
 
     override.mist.feh = "p.feh0--i"
     override.mistTracks.feh0 = "p.feh0--i"
-    override.mistTracks.logAge = "mistInvAge.logAge--i"
+    override.mistTracks.logAge = "d.mistInvAge.logAge--i"
     override.mistInvAge.feh0 = "p.feh0--i"
     override.mistInvAge.logAge = "p.logAge--i"
 

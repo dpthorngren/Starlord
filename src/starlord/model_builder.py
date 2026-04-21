@@ -14,7 +14,7 @@ from .samplers import SamplerEnsemble, SamplerNested
 
 
 class ModelBuilder():
-    '''Builds and fits a Bayesian model to the given specification.
+    r'''Builds and fits a Bayesian model to the given specification.
 
     Variables are defined implicitly -- if you use a variable, the ModelBuilder
     will handle declaring them based on their category, which is determined by
@@ -38,6 +38,34 @@ class ModelBuilder():
     the default inputs, you can override them with `override_input`.  Finally,
     you must define priors with :meth:`prior` before you can get a sampler for
     the model with :meth:`build_sampler`.
+
+    Distributions (for priors and likelihoods) are specified from the following
+    list, with the number of expected parameters in parentheses:
+
+    :Normal (2): The common normal distribution with a mean and standard deviation.
+    :Uniform (2): A uniform distribution with a lower and upper bound.
+    :Beta (2): A Beta distribution parameterized by :math:`\alpha` and :math:`\beta`.
+    :Gamma (2): A Gamma distribution parameterized by :math:`\alpha` and :math:`\beta`.
+        Note that unlike ``scipy.stats.gamma``, this is in terms of the shape and *rate*
+        rather than shape and scale :math:`\theta = 1/\beta`.
+    :Exponential (1): The exponential distribution parameterized by a rate parameter
+        :math:`\lambda`.
+    :Trunc_power (3): A power law distribution with power :math:`k` and lower and upper
+        bounds :math:`a` and :math:`b`.
+    :Trunc_normal (4): A normal distribution with a mean and standard deviation as
+        well as lower and upper bounds :math:`a` and :math:`b`.
+    :Trunc_exponential (3): The exponential distribution parameterized by a rate
+        parameter :math:`\lambda`, and lower and upper bounds :math:`a` and :math:`b`.
+    :Chabrier (4): A piecewise prior for stellar log-masses based on a log-normal
+        and power-law distribution from Chabrier (2002).  It has four parameters --
+        the log-normal to power-law boundary point, the log-normal mean and sigma,
+        and the rate for the power law component ``rate = (1+power)*ln(10)``.
+    :Chabrier_disk (0): The Chabrier prior using the parameters for disk and young
+        cluster stars from Chabrier (2002), table 2.
+    :Chabrier_globular (0): The Chabrier prior using the parameters for globular
+        cluster stars from Chabrier (2002), table 2.
+    :Chabrier_spheroid (0): The Chabrier prior using the parameters for spheroid
+        stars from Chabrier (2002), table 2.
     '''
 
     # Valid inputs to override_input satisfy this regex, but it doesn't catch every bad case.
@@ -192,7 +220,7 @@ class ModelBuilder():
         default to being a parameter named "p.{input_name}".
 
         Args:
-            key: The deferred variable key, e.g. "grid.output_var" or "nongrid_var".
+            key: The deferred variable key, e.g. "d.grid.output_var" or "d.nongrid_var".
             value: What to set the variable to wherever it appears.
 
         Examples:
@@ -281,8 +309,8 @@ class ModelBuilder():
 
         Args:
             var: The variable to which the distribution applies
-            dist: The distribution to be used -- should be one of "uniform", "normal", "gamma",
-                or "beta".
+            dist: The distribution to be used; usually `normal` or `uniform`, but the full
+                list may be found in :class:`starlord.ModelBuilder`.
             params: The parameters of the distribution.
 
         Example:
@@ -306,8 +334,8 @@ class ModelBuilder():
 
         Args:
             param: The name of the parameter to set, e.g. `p.some_param`
-            dist: The distribution to be used -- should be one of "uniform", "normal", "gamma",
-                or "beta".
+            dist: The distribution to be used; usually `normal` or `uniform`, but the full
+                list may be found in :class:`starlord.ModelBuilder`.
             params: The parameters of the distribution.
         '''
         if not param.startswith("p."):

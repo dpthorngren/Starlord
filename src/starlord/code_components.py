@@ -12,6 +12,7 @@ _num_params = {
     'exponential': 1,
     'trunc_power': 3,
     'trunc_normal': 4,
+    'trunc_exponential': 3,
     'chabrier': 4,
     'chabrier_disk': 0,
     'chabrier_globular': 0,
