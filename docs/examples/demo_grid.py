@@ -15,5 +15,6 @@ starlord.GridGenerator.create_grid(
     grid_name="demo_grid",
     inputs=OrderedDict(x=x, y=y),
     outputs=dict(out1=out1, out2=out2),
-    derived=dict(ratio="demo_grid.out1 / demo_grid.out2"),
+    derived=dict(ratio="d.demo_grid.out1 / d.demo_grid.out2"),
+    input_mappings=dict(x="p.x", y="10**p.log_y"),
 )

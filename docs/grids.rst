@@ -16,6 +16,8 @@ You can create your own grids with :func:`starlord.GridGenerator.create_grid`.  
 
 .. literalinclude:: /examples/demo_grid.py
 
+In this example, we made a grid named ``demo_grid`` with the input axes ``x`` and ``y`` and made up two outputs axes ``out1`` and ``out2`` (very imaginative naming here).  We also added a derived variable ``ratio`` that is just the ratio of ``out1`` to ``out2``; in making a model we could refer to ``ratio`` as if it were a regular output and Starlord would handle calculating it automatically.  Finally, we set the default input of x to ``p.x`` (which is what it would be if we hadn't specified anything) and of y to ``10**p.log_y``, to show how we could define the interpolation on a linear scale but sample on a log scale.
+
 .. note::
     In astronomy, grids are sometimes stored as a list of grid points (often in csv files), where the input axes are one set of columns and the output values are another.  So long as these are proper regular grids, they can be converted into a set of input axes and output nd-arrays with :func:`starlord.GridGenerator.restructure_grid`.
 

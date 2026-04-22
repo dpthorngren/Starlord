@@ -9,3 +9,4 @@ This section covers the absolute basics of Starlord usage.  Readers should start
     toml_files
     stars
     multi_stars
+    planets
