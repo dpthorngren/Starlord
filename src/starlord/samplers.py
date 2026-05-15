@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import namedtuple
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
 from typing import Callable, Optional, Type
 
 import dynesty
@@ -172,7 +173,7 @@ class _Sampler:
     def batch_run(
         self,
         run_args: dict,
-        infile: str,
+        infile: str | Path,
         terminal_output: bool = True,
         postfile: Optional[str] = None,
         summaryfile: Optional[str] = None,

@@ -1,26 +1,21 @@
 import argparse
-import pathlib
 import re
 import sys
+from pathlib import Path
 
 import numpy as np
 
-from . import __version__
+from . import __version__, io
 from ._config import config
 from .grid_gen import GridGenerator
 from .model_builder import ModelBuilder
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 
 def main():
     parser = argparse.ArgumentParser(
         "starlord", description="Fit stellar observations with starlord from the command line.")
     parser.add_argument(
-        "input", type=pathlib.Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
+        "input", type=Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
     parser.add_argument(
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
     parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
@@ -74,9 +69,15 @@ def main():
     settings = {'output': {'terminal': True, 'file': ""}, "sampling": {}}
 
     if args.input is not None:
-        with open(args.input, 'rb') as f:
-            settings.update(tomllib.load(f))
-    # TODO: Handle syntax errors in the toml file
+        filetype = io.classify_file(args.input)
+        if filetype == "grid":
+            GridGenerator(args.input).summary()
+            return
+        elif filetype == "posterior":
+            raise NotImplementedError
+        assert filetype == "model", f"Unrecognized input file {args.input}"
+
+    settings.update(io.read_model_toml(args.input))
 
     # Report ignored sections
     for section in settings.keys():
@@ -110,7 +111,7 @@ def main():
         print(builder.summary())
         builder.validate_constants(consts, True)
     if args.dep_graph:
-        outfile = pathlib.Path(args.input).stem
+        outfile = Path(args.input).stem
         builder._resolve_deferred().render_graph(outfile + "_graph")
     if args.code:
         code = builder.generate_code()
