@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from collections import namedtuple
+import datetime
+import sys
+from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -11,9 +13,71 @@ import emcee
 import numpy as np
 from dynesty.results import Results as DynestyResults
 
+from ._config import __version__
 from .cy_tools import BaseModel
 
-ResultStats = namedtuple("ResultStats", ["mean", 'cov', 'std', 'p16', 'p50', 'p84'])
+
+@dataclass
+class ResultStats:
+    mean: np.ndarray
+    cov: np.ndarray
+    std: np.ndarray
+    p16: np.ndarray
+    p50: np.ndarray
+    p84: np.ndarray
+
+    def summary(self, param_names=None, output_names=None):
+        n_outputs = len(output_names) if output_names is not None else 0
+        if param_names is not None:
+            n_params = len(param_names)
+        else:
+            n_params = len(self.mean) - n_outputs
+            param_names = [""] * n_params
+        out = ["     Name".ljust(29) + "Mean".rjust(12) + "Std".rjust(12)]
+        out[0] += "16%".rjust(12) + "50%".rjust(12) + "84%".rjust(12)
+        for i in range(n_params):
+            line = f"{i:4d} {param_names[i]:24}"
+            line += f" {self.mean[i]:11.4g} {self.std[i]:11.4g}"
+            line += f" {self.p16[i]:11.4g} {self.p50[i]:11.4g} {self.p84[i]:11.4g}"
+            out += [line]
+        if output_names:
+            out += [89 * "-"]
+            for i, name in enumerate(output_names):
+                i = i + n_params
+                line = f"{i:4d} {name:24}"
+                line += f" {self.mean[i]:11.4g} {self.std[i]:11.4g}"
+                line += f" {self.p16[i]:11.4g} {self.p50[i]:11.4g} {self.p84[i]:11.4g}"
+                out += [line]
+        return "\n".join(out)
+
+    def to_array(self, include_cov=True):
+        result = np.vstack([self.mean, self.std, self.p16, self.p50, self.p84])
+        if include_cov:
+            result = np.vstack([result, self.cov])
+        return result.T
+
+    @classmethod
+    def create_from_array(cls, arr: np.ndarray):
+        assert arr.ndim == 2
+        s = arr.shape[0]
+        assert arr.shape[1] == 5 + s
+        return cls(arr[:, 0], arr[:, 5:], *arr[:, 1:5].T)
+
+    @classmethod
+    def create_from_post(cls, posterior: np.ndarray, weights: Optional[np.ndarray] = None):
+        assert type(posterior) is np.ndarray
+        if weights is not None:
+            assert type(weights) is np.ndarray
+            mean, cov = dynesty.utils.mean_and_cov(posterior, weights)
+            q = np.array([dynesty.utils.quantile(p, [0.16, 0.5, 0.84], weights=weights) for p in posterior.T]).T
+        else:
+            mean = posterior.mean(axis=0)
+            std = posterior.std(axis=0)
+            cov = np.cov(posterior.T)
+            q = np.quantile(posterior, [.16, .5, .84], axis=0)
+        std = np.sqrt(np.diag(cov))
+        result = ResultStats(mean, cov, std, q[0], q[1], q[2])
+        return result
 
 
 class _Sampler:
@@ -130,22 +194,7 @@ class _Sampler:
             assert allow_nan or np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
 
     def summary(self) -> str:
-        out = ["     Name".ljust(29) + "Mean".rjust(12) + "Std".rjust(12)]
-        out[0] += "16%".rjust(12) + "50%".rjust(12) + "84%".rjust(12)
-        for i in range(self.ndim):
-            line = f"{i:4d} {self.param_names[i]:24}"
-            line += f" {self.stats.mean[i]:11.4g} {self.stats.std[i]:11.4g}"
-            line += f" {self.stats.p16[i]:11.4g} {self.stats.p50[i]:11.4g} {self.stats.p84[i]:11.4g}"
-            out += [line]
-        if self.model.output_names and self.post is not None:
-            out += [89 * "-"]
-            for i, name in enumerate(self.model.output_names):
-                i = i + self.ndim
-                line = f"{i:4d} {name:24}"
-                line += f" {self.stats.mean[i]:11.4g} {self.stats.std[i]:11.4g}"
-                line += f" {self.stats.p16[i]:11.4g} {self.stats.p50[i]:11.4g} {self.stats.p84[i]:11.4g}"
-                out += [line]
-        return "\n".join(out)
+        return self.stats.summary(self.param_names, self.output_names)
 
     def run(self, **run_args):
         raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
@@ -168,6 +217,10 @@ class _Sampler:
             code_hash=self.model.code_hash[0],
             grids=list(grids),
             grid_vars=grid_vars,
+            stats=self.stats.to_array(),
+            time=str(datetime.datetime.now(datetime.timezone.utc).ctime() + " UTC"),
+            starlord_version=__version__,
+            python_version=sys.version,
         )
 
     def batch_run(
@@ -247,8 +300,7 @@ class _Sampler:
                 print(name, self.summary())
             if postfile is not None:
                 self.save_results(postfile + "_" + name.replace(" ", "_"))
-            stats = np.vstack([getattr(self.stats, c) for c in ('mean', 'std', 'p16', 'p50', 'p84')])
-            return stats.T.flatten()
+            return self.stats.to_array(False).flatten()
         except Exception as e:
             print(f"Error: {name} raised exception {e}")
         return np.full(5 * len(summary_cols), np.nan)
@@ -321,12 +373,7 @@ class SamplerEnsemble(_Sampler):
         postprocessed = np.zeros((self.results.shape[0], len(self.output_names)))
         self.postprocess(self.results, postprocessed)
         self._post = np.hstack([self.results, postprocessed])
-        mean = self.post.mean(axis=0)
-        std = self.post.std(axis=0)
-        cov = np.cov(self.post.T)
-        std = np.sqrt(np.diag(cov))
-        q = np.quantile(self.post, [.16, .5, .84], axis=0)
-        self._stats = ResultStats(mean, cov, std, q[0], q[1], q[2])
+        self._stats = ResultStats.create_from_post(self._post)
 
     def save_results(self, filename: str):
         assert self.post is not None, "Cannot save results before running the sampler."
@@ -370,67 +417,9 @@ class SamplerNested(_Sampler):
         self.postprocess(post, postprocessed)
         self._post = np.hstack([post, postprocessed])
         weights = self.sampler.results.importance_weights()
-        mean, cov = dynesty.utils.mean_and_cov(self._post, weights)
-        std = np.sqrt(np.diag(cov))
-        q = np.array([
-            dynesty.utils.quantile(self._post[:, i], [0.16, 0.5, 0.84], weights=weights)
-            for i in range(self._post.shape[1])
-        ])
-        self._stats = ResultStats(mean, cov, std, q[:, 0], q[:, 1], q[:, 2])
+        self._stats = ResultStats.create_from_post(self._post, weights)
 
     def save_results(self, filename: str):
         result = self._save_contents()
         result['weights'] = self.results.importance_weights()
         np.savez_compressed(filename, **self._save_contents())
-
-
-def load_to_frame(filename, simplify_names=True, include_outputs=True):
-    '''Loads an npz file saved by Starlord into a Pandas Data Frame.
-
-    This requires that Pandas is installed, but this is not a required dependency so
-    that is not guaranteed by a standard install.
-
-    Args:
-        filename: The npz file to load in as a string.
-        simplify_names: Whether to remove grid names at the front of variable names and
-            combine underscores if the resulting resulting name is unambiguous (e.g.
-            "mist__logG__1" becomes "logG_1".
-        include_outputs: If true, includes generated outputs; otherwise only the actual
-            model parameters are loaded.
-
-    Returns:
-        A Pandas DataFrame with the output samples organized into rows and the parameters
-            and output variables as the columns.  If nested sampling was used, the weights
-            are included as an additional column.
-
-    Raises:
-        AssertionError: if expected entries in the npz file are missing, implying that the file
-            was not saved by Starlord.
-    '''
-    import pandas as pd
-
-    file = np.load(filename)
-    expected_keys = ['params', 'outputs', 'output_names', 'param_names']
-    assert all([k in file.files for k in expected_keys]), f"File {filename} does not appear to be a Starlord output."
-    data = file['params']
-    names = [str(i) for i in file['param_names']]
-    grids = file['grids']
-    if include_outputs:
-        data = np.hstack([data, file['outputs']])
-        if simplify_names:
-            for i in file['output_names']:
-                isplit = str(i).split("__")
-                if (len(isplit) > 1) and (isplit[0] in grids):
-                    simplified = "_".join(isplit[1:])
-                else:
-                    simplified = "_".join(isplit)
-                if simplified in names:
-                    names.append(i)
-                else:
-                    names.append(simplified)
-        else:
-            names += [str(i) for i in file['output_names']]
-    if 'weights' in file.files:
-        names.append("weights")
-        data = np.hstack([data, file['weights'][:, None]])
-    return pd.DataFrame(data, columns=names)  # type:ignore

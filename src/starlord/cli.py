@@ -9,6 +9,7 @@ from . import __version__, io
 from ._config import config
 from .grid_gen import GridGenerator
 from .model_builder import ModelBuilder
+from .samplers import ResultStats
 
 
 def main():
@@ -74,7 +75,18 @@ def main():
             GridGenerator(args.input).summary()
             return
         elif filetype == "posterior":
-            raise NotImplementedError
+            meta = io.load_posterior(args.input, True)
+            print(f"Posterior file with contents:")
+            for key, value in meta.items():
+                if key in ['stats', 'code']:
+                    continue
+                if type(value) is str:
+                    print(f"{key:16s} {value}")
+                elif type(value) in [list, np.ndarray]:
+                    print(f"{key:16s} {', '.join(value)}")
+            print("\nResults Summary:")
+            print(meta['stats'].summary(meta['param_names'], meta['output_names']))
+            return
         assert filetype == "model", f"Unrecognized input file {args.input}"
 
     settings.update(io.read_model_toml(args.input))
