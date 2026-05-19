@@ -9,7 +9,6 @@ from . import __version__, io
 from ._config import config
 from .grid_gen import GridGenerator
 from .model_builder import ModelBuilder
-from .samplers import ResultStats
 
 
 def main():
@@ -76,7 +75,7 @@ def main():
             return
         elif filetype == "posterior":
             meta = io.load_posterior(args.input, True)
-            print(f"Posterior file with contents:")
+            print("Posterior file with contents:")
             for key, value in meta.items():
                 if key in ['stats', 'code']:
                     continue
