@@ -42,6 +42,7 @@ def main():
         "-t",
         "--test-case",
         help="Tests the forward model and likelihood at the given parameters (comma-separated, no spaces)")
+    output_group.add_argument("--corner-plot", help="File to write a corner plot to (not supported for batch runs).")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     txt = config.text_format_off if args.plain_text else config.text_format
@@ -66,7 +67,7 @@ def main():
 
     # === Load Settings ===
     # Default initial settings (keep minimal)
-    settings = {'output': {'terminal': True, 'file': ""}, "sampling": {}}
+    settings = {'output': {'terminal': True, 'file': "", "corner_plot": None}, "sampling": {}}
 
     if args.input is not None:
         filetype = io.classify_file(args.input)
@@ -74,10 +75,10 @@ def main():
             GridGenerator(args.input).summary()
             return
         elif filetype == "posterior":
-            meta = io.load_posterior(args.input, True)
+            meta = io.load_posterior(args.input, not bool(args.corner_plot))
             print("Posterior file with contents:")
             for key, value in meta.items():
-                if key in ['stats', 'code']:
+                if key in ['stats', 'code', 'posterior', 'weights']:
                     continue
                 if type(value) is str:
                     print(f"{key:16s} {value}")
@@ -85,6 +86,11 @@ def main():
                     print(f"{key:16s} {', '.join(value)}")
             print("\nResults Summary:")
             print(meta['stats'].summary(meta['param_names'], meta['output_names']))
+            if args.corner_plot:
+                if args.verbose:
+                    print("Generating corner plot.")
+                nparams = len(meta['param_names'])
+                io.corner_plot(meta['posterior'][:, :nparams], args.corner_plot, labels=meta['param_names'])
             return
         assert filetype == "model", f"Unrecognized input file {args.input}"
 
@@ -98,6 +104,8 @@ def main():
     # Update settings with command line arguments (TODO: More CLI options)
     if args.output:
         settings['output']['file'] = args.output
+    if args.corner_plot:
+        settings['output']['corner_plot'] = args.corner_plot
     consts = settings['sampling'].get('const', {})
     for key, value in consts.items():
         consts[key] = float(value)
@@ -156,7 +164,7 @@ def main():
         return
 
     # === Run Sampler ==
-    out: dict = {"terminal": False, "file": None}
+    out: dict = {"terminal": False, "file": None, "corner_plot": None}
     out.update(settings['output'])
     run_args = settings['sampling'].get(sampler_type + "_run", {})
     if args.batch is not None:
@@ -167,3 +175,6 @@ def main():
             print(sampler.summary())
         if out['file'] is not None:
             sampler.save_results(out['file'])
+        if out['corner_plot'] is not None:
+            corner_args = out.get('corner_args', {})
+            sampler.save_corner(out['corner_plot'], **corner_args)

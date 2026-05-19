@@ -202,6 +202,9 @@ class _Sampler:
     def save_results(self, filename):
         raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
 
+    def save_corner(self, filename, **kwargs):
+        raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
+
     def _save_contents(self) -> dict:
         grids = self.grids_used
         grid_vars = sum([[f"{gridname}__{key}" for key in keys] for gridname, keys in grids.items()], [])
@@ -375,6 +378,12 @@ class SamplerEnsemble(_Sampler):
         self._post = np.hstack([self.results, postprocessed])
         self._stats = ResultStats.create_from_post(self._post)
 
+    def save_corner(self, filename, **kwargs):
+        from starlord.io import corner_plot
+        assert self.post is not None, "Cannot generate a plot before running the sampler."
+        kwargs.setdefault('labels', self.param_names)
+        corner_plot(self.results, filename, **kwargs)
+
     def save_results(self, filename: str):
         assert self.post is not None, "Cannot save results before running the sampler."
         np.savez_compressed(filename, **self._save_contents())
@@ -423,3 +432,9 @@ class SamplerNested(_Sampler):
         result = self._save_contents()
         result['weights'] = self.results.importance_weights()
         np.savez_compressed(filename, **self._save_contents())
+
+    def save_corner(self, filename, **kwargs):
+        from starlord.io import corner_plot
+        assert self.post is not None, "Cannot generate a plot before running the sampler."
+        kwargs.setdefault('labels', self.param_names)
+        corner_plot(self.results, filename, weights=self.sampler.results.importance_weights(), **kwargs)
