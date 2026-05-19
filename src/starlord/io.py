@@ -16,10 +16,8 @@ def classify_file(filename: str | Path) -> str:
     if extension == ".toml":
         return "model"
     elif extension == ".npz":
-        post_contents = [
-            'params', 'outputs', 'consts', 'output_names', 'param_names', 'const_names', 'code', 'code_hash', 'grids',
-            'grid_vars', 'stats', 'time', 'code_hash'
-        ]
+        # Minimum requirements to be considered a Starlord file:
+        post_contents = ['params', 'param_names', 'outputs', 'output_names']
         grid_contents = ['_grid_spec', '_input_mappings', '_derived', '_bounds', '_shape']
         target = np.load(filename)
         if all(i in target.files for i in post_contents):
@@ -41,18 +39,20 @@ def load_posterior(filename, metadata_only=False, include_outputs=True):
     expected_keys = ['params', 'outputs', 'output_names', 'param_names']
     assert all([k in file.files for k in expected_keys]), f"File {filename} does not appear to be a Starlord output."
     result = dict(
-        constants=file['consts'],
+        # Required keys
         output_names=[str(i) for i in file['output_names']],
         param_names=[str(i) for i in file['param_names']],
-        const_names=[str(i) for i in file['output_names']],
-        code=str(file['code']),
-        code_hash=str(file['code_hash']),
-        grids=[str(i) for i in file['grids']],
-        grid_vars=[str(i) for i in file['grid_vars']],
-        stats=ResultStats.create_from_array(file['stats']),
-        time=str(file['time']),
-        starlord_version=str(file['starlord_version']),
-        python_version=str(file['python_version']),
+        # Optional keys
+        constants=file.get('consts', np.array([])),
+        const_names=[str(i) for i in file.get('output_names', [])],
+        code=str(file.get('code', "")),
+        code_hash=str(file.get('code_hash', "")),
+        grids=[str(i) for i in file.get('grids', [])],
+        grid_vars=[str(i) for i in file.get('grid_vars', [])],
+        stats=ResultStats.create_from_array(file['stats']) if 'stats' in file.files else None,
+        time=str(file.get('time', "")),
+        starlord_version=str(file.get('starlord_version', "")),
+        python_version=str(file.get('python_version', "")),
     )
     if not metadata_only:
         posterior = file['params']
@@ -61,7 +61,7 @@ def load_posterior(filename, metadata_only=False, include_outputs=True):
         if 'weights' in file.files:
             result['output_names'] = [str(i) for i in file['output_names']] + ["weights"]
             posterior = np.hstack([posterior, file['weights'][:, None]])
-        result['posterior'] = posterior
+        result['posterior'] = posterior  # type:ignore
     return result
 
 
