@@ -2,6 +2,8 @@ cimport scipy.special.cython_special as special
 cimport scipy.linalg.cython_lapack as lapack
 cimport scipy.linalg.cython_blas as blas
 from libc cimport math
+from libc.stdlib cimport rand, srand, RAND_MAX
+from libc.time cimport time
 
 cpdef double logsumexp(double x, double y, double c_x=?, double c_y=?) noexcept
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept
@@ -60,20 +62,33 @@ cdef class BaseModel:
 
     # ===== Functions overridden by subclasses =====
     cpdef double[:] prior_transform(self, double[:] params)
-
     cpdef double log_prior(self, double[:] params)
-
     cdef void _forward_model(self, double[:] params)
-
     cdef double _log_like(self, double[:] params)
-
     cpdef postprocess(self, double[:,:] params, double[:,:] out)
 
     # ===== Functions not overridden by subclasses =====
     cpdef dict forward_model(self, double[:] params)
-
     cpdef double log_like(self, double[:] params)
-
     cpdef double log_prob(self, double[:] params)
-
     cpdef load_constants(self, dict constants)
+
+cdef class BuiltinSampler:
+    # Internal data
+    cdef BaseModel model
+    cdef readonly int n_dim
+    cdef readonly int n_walkers
+    cdef object _working_memory_
+    cdef double[:, :] walkers
+    cdef double[:] x_propose
+
+    # Outputs
+    cdef readonly double acceptance
+    cdef readonly object _samples_memory_
+    cdef double[:, :, :] samples
+
+    cdef void _init_working_memory(self)
+    cdef void stretch_step(self, alpha=?)
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, double alpha=?)
+    cpdef object get_samples(self, bint flatten=?)
+    cpdef object get_log_prob(self, bint flatten=?)

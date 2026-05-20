@@ -462,3 +462,97 @@ cdef class BaseModel:
 
     def __init__(self, **constants):
         self.load_constants(constants)
+
+cdef class BuiltinSampler:
+    def __init__(self, BaseModel model, int n_dim, int n_walkers):
+        assert n_dim > 0
+        assert n_walkers > 2*n_dim
+        self.model = model
+        self.n_dim = n_dim
+        self.n_walkers = n_walkers
+        self.acceptance = 0
+        self._samples_memory_ = None
+        self._init_working_memory()
+
+    cdef void _init_working_memory(self):
+        self._working_memory_ = np.empty([self.n_walkers+1, self.n_dim+1])
+        self.walkers = self._working_memory_[:self.n_walkers]
+        self.x_propose = self._working_memory_[self.n_walkers, :self.n_dim]
+
+    cdef void stretch_step(self, alpha=2.0):
+        cdef double p, z, logp
+        cdef int i, j, k
+        cdef double root_alpha = math.sqrt(alpha)
+        for i in range(self.n_walkers):
+            # Select a walker to stretch towards
+            j = rand() % (self.n_walkers-1)
+            if j >= i:
+                j += 1
+            # Calculate stretch amount
+            p = float(rand()) / RAND_MAX
+            z = p*root_alpha + (1-p) / root_alpha
+            z *= z
+            # Get proposed position and log probability there
+            for k in range(self.n_dim):
+                self.x_propose[k] = self.walkers[j, k] + z * (self.walkers[i, k] - self.walkers[j, k])
+            logp = self.model.log_prob(self.x_propose)
+            # Calculate the metropolis correction and decide whether to accept the point
+            adjust = math.log(z) * (self.n_dim - 1)
+            p = math.log(float(rand()) / RAND_MAX)
+            if p < adjust + logp - self.walkers[i, self.n_dim]:
+                self.acceptance += 1.
+                for k in range(self.n_dim):
+                    self.walkers[i, k] = self.x_propose[k]
+                self.walkers[i, self.n_dim] = logp
+
+        return
+
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, double alpha=2.0):
+        cdef int i, j, k, si
+        # Validate inputs
+        assert n_samples > 0
+        assert burn_in >= 0
+        assert thin >= 0
+        assert alpha > 1.0
+        assert initial_state.shape[0] == self.n_walkers and initial_state.shape[1] == self.n_dim
+
+        # Initialize output memory
+        self._samples_memory_ = np.zeros([n_samples, self.n_walkers, self.n_dim+1])
+        self.samples = self._samples_memory_
+        self.acceptance = 0.
+
+        # Copy initial state and get intiial log probabilities
+        for j in range(self.n_walkers):
+            for k in range(self.n_dim):
+                self.walkers[j, k] = initial_state[j, k]
+            self.walkers[j, self.n_dim] = self.model.log_prob(self.walkers[j])
+
+        # Run sampler
+        srand(time(NULL))
+        for i in range(burn_in * thin):
+            self.stretch_step(alpha)
+        for i in range(n_samples * thin):
+            self.stretch_step(alpha)
+            if i % thin == 0:
+                si = i / thin
+                for j in range(self.n_walkers):
+                    for k in range(self.n_dim+1):
+                        self.samples[si, j, k] = self.walkers[j, k]
+        self.acceptance /= ((n_samples+burn_in) * thin * self.n_walkers)
+
+    cpdef object get_samples(self, bint flatten=False):
+        assert self._samples_memory_ is not None, "Must run sampler before retrieving samples."
+        assert type(self._samples_memory_) is np.ndarray
+        if flatten:
+            samples = self._samples_memory_.shape[0] * self._samples_memory_.shape[1]
+            return self._samples_memory_[:, :, :self.n_dim].reshape([samples, self.n_dim])
+        else:
+            return self._samples_memory_[:, :, :self.n_dim]
+
+    cpdef object get_log_prob(self, bint flatten=False):
+        assert self._samples_memory_ is not None, "Must run sampler before retrieving samples."
+        assert type(self._samples_memory_) is np.ndarray
+        if flatten:
+            return self._samples_memory_[:, :, self.n_dim].flatten()
+        else:
+            return self._samples_memory_[:, :, self.n_dim]
