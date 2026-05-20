@@ -83,9 +83,10 @@ def main():
                 if type(value) is str:
                     print(f"{key:16s} {value}")
                 elif type(value) in [list, np.ndarray]:
-                    print(f"{key:16s} {', '.join(value)}")
-            print("\nResults Summary:")
-            print(meta['stats'].summary(meta['param_names'], meta['output_names']))
+                    print(f"{key:16s} {', '.join([str(i) for i in value])}")
+            if meta.get('stats', None) is not None:
+                print("\nResults Summary:")
+                print(meta['stats'].summary(meta['param_names'], meta['output_names']))
             if args.corner_plot:
                 if args.verbose:
                     print("Generating corner plot.")
