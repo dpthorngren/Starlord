@@ -556,3 +556,14 @@ cdef class BuiltinSampler:
             return self._samples_memory_[:, :, self.n_dim].flatten()
         else:
             return self._samples_memory_[:, :, self.n_dim]
+
+    def __getstate__(self):
+        '''Prepares internal memory for pickling, necessary for multiprocessing.'''
+        info = (self.model, self.n_dim, self.n_walkers, self.acceptance)
+        return info
+
+    def __setstate__(self, info):
+        '''Restores internal memory from pickle info, necessary for multiprocessing.'''
+        (self.model, self.n_dim, self.n_walkers, self.acceptance) = info
+        self._init_working_memory()
+        return

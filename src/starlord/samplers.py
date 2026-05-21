@@ -14,7 +14,7 @@ import numpy as np
 from dynesty.results import Results as DynestyResults
 
 from ._config import __version__
-from .cy_tools import BaseModel
+from .cy_tools import BaseModel, BuiltinSampler
 
 
 @dataclass
@@ -307,6 +307,63 @@ class _Sampler:
         except Exception as e:
             print(f"Error: {name} raised exception {e}")
         return np.full(5 * len(summary_cols), np.nan)
+
+
+class SamplerBuiltin(_Sampler):
+    '''Wrapper for Starlord's built-in sampler, an Ensemble sampler.  The algorithm
+    is similar to Emcee's (SamplerEnsemble) but has fewer features in exchange
+    for very low calling overhead.'''
+    _sampler: BuiltinSampler
+
+    @property
+    def sampler(self) -> BuiltinSampler:
+        assert self._sampler is not None, "Must run sampler before accessing it."
+        return self._sampler
+
+    @property
+    def results(self) -> object:
+        return self.sampler.get_samples(True)
+
+    def __init__(self, model_class, constants={}, **init_args) -> None:
+        super().__init__(model_class, constants, **init_args)
+        self.init_args.setdefault("nwalkers", max(40, 3 * self.ndim))
+        self.init_args.setdefault("ndim", self.ndim)
+
+    def run(self, **run_args):
+        self.validate_constants(self._model_class.optional_likelihood_terms)
+        self._last_init_args = self.init_args.copy()
+        self._sampler = BuiltinSampler(self.model, self.init_args['ndim'], self.init_args['nwalkers'])
+        run_args = run_args.copy()
+        run_args.setdefault('n_samples', 4000)
+        run_args.setdefault('burn_in', 500)
+        run_args.setdefault('thin', 5)
+        run_args.setdefault('alpha', 2.0)
+        self._last_run_args = run_args.copy()
+        self._last_constants = [getattr(self.model, f"c__{c}") for c in self.const_names if not c.startswith("grid")]
+
+        # Prepare an initial state matrix
+        if "initial_state" not in run_args:
+            assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
+            run_args['initial_state'] = 0.3 + 0.4 * np.random.rand(self.init_args['nwalkers'], self.ndim)
+            [self.prior_transform(s) for s in run_args['initial_state']]
+        self.sampler.run(**run_args)
+
+        # Process the results
+        assert self.results is not None and type(self.results) is np.ndarray
+        postprocessed = np.zeros((self.results.shape[0], len(self.output_names)))
+        self.postprocess(self.results, postprocessed)
+        self._post = np.hstack([self.results, postprocessed])
+        self._stats = ResultStats.create_from_post(self._post)
+
+    def save_corner(self, filename, **kwargs):
+        from starlord.io import corner_plot
+        assert self.post is not None, "Cannot generate a plot before running the sampler."
+        kwargs.setdefault('labels', self.param_names)
+        corner_plot(self.results, filename, **kwargs)
+
+    def save_results(self, filename: str):
+        assert self.post is not None, "Cannot save results before running the sampler."
+        np.savez_compressed(filename, **self._save_contents())
 
 
 class SamplerEnsemble(_Sampler):

@@ -10,7 +10,7 @@ from ._config import _TextFormatCodes_, config
 from .code_components import _num_params
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
-from .samplers import SamplerEnsemble, SamplerNested
+from .samplers import SamplerEnsemble, SamplerNested, SamplerBuiltin
 
 
 class ModelBuilder():
@@ -428,12 +428,13 @@ class ModelBuilder():
         '''Construct an MCMC sampler for the model.
 
         Args:
-            sampler_type: selects the sampler, should be "dynesty" or "emcee"
+            sampler_type: selects the sampler, should be "builtin", "dynesty" or "emcee".
             constants: a dict of constant names and the values they should take
 
         Returns:
-            A properly-initialized :class:`SamplerNested` if sampler_type is "dynesty"
-            or a :class:`SamplerEnsemble` if it is "emcee"
+            A properly-initialized :class:`SampleBuiltin` if sampler_type is "builtin",
+            :class:`SamplerNested` if sampler_type is "dynesty" or :class:`SamplerEnsemble`
+            if it is "emcee".
 
         Raises:
             KeyError: if a required constant was not provided in constants
@@ -448,7 +449,9 @@ class ModelBuilder():
             if c[2:] not in self.code_generator.auto_constants.keys():
                 consts.append(constants.get(str(c[2:]), np.nan))
         sampler_type = sampler_type.lower().strip()
-        if sampler_type == "dynesty":
+        if sampler_type == "builtin":
+            return SamplerBuiltin(mod.Model, constants, **init_args)
+        elif sampler_type == "dynesty":
             return SamplerNested(mod.Model, constants, **init_args)
         elif sampler_type == "emcee":
             return SamplerEnsemble(mod.Model, constants, **init_args)
