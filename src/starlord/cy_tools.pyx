@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 cimport cython
 
 cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
@@ -474,12 +475,13 @@ cdef class BuiltinSampler:
         self._samples_memory_ = None
         self._init_working_memory()
 
-    cdef void _init_working_memory(self):
+    cdef int _init_working_memory(self) except -1:
         self._working_memory_ = np.empty([self.n_walkers+1, self.n_dim+1])
         self.walkers = self._working_memory_[:self.n_walkers]
         self.x_propose = self._working_memory_[self.n_walkers, :self.n_dim]
+        return 0
 
-    cdef void stretch_step(self, alpha=2.0):
+    cdef int stretch_step(self, alpha=2.0) except -1:
         cdef double p, z, logp
         cdef int i, j, k
         cdef double root_alpha = math.sqrt(alpha)
@@ -504,11 +506,12 @@ cdef class BuiltinSampler:
                 for k in range(self.n_dim):
                     self.walkers[i, k] = self.x_propose[k]
                 self.walkers[i, self.n_dim] = logp
+        return 0
 
-        return
-
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, double alpha=2.0):
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, bint progress = False, double alpha=2.0):
         cdef int i, j, k, si
+        cdef int total_steps = (n_samples + burn_in) * thin
+        cdef int burnin_steps = burn_in * thin
         # Validate inputs
         assert n_samples > 0
         assert burn_in >= 0
@@ -531,6 +534,8 @@ cdef class BuiltinSampler:
         srand(time(NULL))
         for i in range(burn_in * thin):
             self.stretch_step(alpha)
+            if progress:
+                self._progress_bar(i, total_steps, "Burn-in")
         for i in range(n_samples * thin):
             self.stretch_step(alpha)
             if i % thin == 0:
@@ -538,7 +543,25 @@ cdef class BuiltinSampler:
                 for j in range(self.n_walkers):
                     for k in range(self.n_dim+1):
                         self.samples[si, j, k] = self.walkers[j, k]
-        self.acceptance /= ((n_samples+burn_in) * thin * self.n_walkers)
+                if progress:
+                    self._progress_bar(i + burnin_steps, total_steps, "Sampling")
+        if progress:
+            self._progress_bar(total_steps, total_steps, "Sampling")
+            print("")
+        self.acceptance /= total_steps * self.n_walkers
+
+    cdef int _progress_bar(self, int i, int N, object header) except -1:
+        '''Displays or updates a simple ASCII progress bar (code copied from dpthorngren/Sam).
+
+        Args:
+            i: the current iteration, should <= N.
+            N: the total number of iterations to be done.
+            header: a string to display before the progress bar.
+        '''
+        f = (10*i)//N
+        sys.stdout.write('\r'+header+': <'+f*"="+(10-f)*" "+'> ('+str(i)+" / " + str(N) + ")          ")
+        sys.stdout.flush()
+        return 0
 
     cpdef object get_samples(self, bint flatten=False):
         assert self._samples_memory_ is not None, "Must run sampler before retrieving samples."

@@ -87,8 +87,9 @@ cdef class BuiltinSampler:
     cdef readonly object _samples_memory_
     cdef double[:, :, :] samples
 
-    cdef void _init_working_memory(self)
-    cdef void stretch_step(self, alpha=?)
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, double alpha=?)
+    cdef int _init_working_memory(self) except -1
+    cdef int _progress_bar(self, int i, int N, object header) except -1
+    cdef int stretch_step(self, alpha=?) except -1
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, bint progress=?, double alpha=?)
     cpdef object get_samples(self, bint flatten=?)
     cpdef object get_log_prob(self, bint flatten=?)
