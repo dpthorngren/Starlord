@@ -30,7 +30,7 @@ tasks:
     deps: [lint, devbuild]
     desc: "Run pytest with coverage"
     cmds:
-      - pytest --cov=starlord
+      - pytest --cov=starlord -x
 
   experiment:
     deps: [devbuild]

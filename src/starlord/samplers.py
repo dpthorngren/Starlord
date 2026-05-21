@@ -170,6 +170,10 @@ class _Sampler:
         assert self._post is not None, "Cannot read results before running the model"
         return self._post
 
+    @property
+    def results(self) -> object:
+        return self.post
+
     def __init__(self, model_class, constants={}, **init_args):
         self._model_class = model_class
         self._constants = constants
@@ -199,13 +203,15 @@ class _Sampler:
     def run(self, **run_args):
         raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
 
-    def save_results(self, filename):
-        raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
+    def save_results(self, filename: str):
+        np.savez_compressed(filename, **self._to_dict_())
 
     def save_corner(self, filename, **kwargs):
-        raise NotImplementedError("Do not use _Sampler directly, pick a subclass.")
+        from starlord.io import corner_plot
+        kwargs.setdefault('labels', self.param_names)
+        corner_plot(self.post[:, :self.ndim], filename, **kwargs)
 
-    def _save_contents(self) -> dict:
+    def _to_dict_(self) -> dict:
         grids = self.grids_used
         grid_vars = sum([[f"{gridname}__{key}" for key in keys] for gridname, keys in grids.items()], [])
         # TODO: Citation info.
@@ -252,7 +258,7 @@ class _Sampler:
         if "name" not in columns:
             data['name'] = np.arange(len(data))
         names = data['name'].copy()
-        work = [{c: row[c] for i, c in enumerate(columns)} for row in data]
+        work = [{c: row[c] for c in columns} for row in data]
 
         task = partial(
             self._run_single_,
@@ -321,8 +327,8 @@ class SamplerBuiltin(_Sampler):
         return self._sampler
 
     @property
-    def results(self) -> object:
-        return self.sampler.get_samples(True)
+    def results(self) -> np.ndarray:
+        return self.post[:, :-2]
 
     def __init__(self, model_class, constants={}, **init_args) -> None:
         super().__init__(model_class, constants, **init_args)
@@ -349,21 +355,12 @@ class SamplerBuiltin(_Sampler):
         self.sampler.run(**run_args)
 
         # Process the results
-        assert self.results is not None and type(self.results) is np.ndarray
-        postprocessed = np.zeros((self.results.shape[0], len(self.output_names)))
-        self.postprocess(self.results, postprocessed)
-        self._post = np.hstack([self.results, postprocessed])
+        results = self.sampler.get_samples(True)
+        assert results is not None and type(results) is np.ndarray
+        postprocessed = np.zeros((results.shape[0], len(self.output_names)))
+        self.postprocess(results, postprocessed)
+        self._post = np.hstack([results, postprocessed])
         self._stats = ResultStats.create_from_post(self._post)
-
-    def save_corner(self, filename, **kwargs):
-        from starlord.io import corner_plot
-        assert self.post is not None, "Cannot generate a plot before running the sampler."
-        kwargs.setdefault('labels', self.param_names)
-        corner_plot(self.results, filename, **kwargs)
-
-    def save_results(self, filename: str):
-        assert self.post is not None, "Cannot save results before running the sampler."
-        np.savez_compressed(filename, **self._save_contents())
 
 
 class SamplerEnsemble(_Sampler):
@@ -435,16 +432,6 @@ class SamplerEnsemble(_Sampler):
         self._post = np.hstack([self.results, postprocessed])
         self._stats = ResultStats.create_from_post(self._post)
 
-    def save_corner(self, filename, **kwargs):
-        from starlord.io import corner_plot
-        assert self.post is not None, "Cannot generate a plot before running the sampler."
-        kwargs.setdefault('labels', self.param_names)
-        corner_plot(self.results, filename, **kwargs)
-
-    def save_results(self, filename: str):
-        assert self.post is not None, "Cannot save results before running the sampler."
-        np.savez_compressed(filename, **self._save_contents())
-
 
 class SamplerNested(_Sampler):
     '''Thin wrapper for the Dynesty NestedSampler'''
@@ -486,9 +473,9 @@ class SamplerNested(_Sampler):
         self._stats = ResultStats.create_from_post(self._post, weights)
 
     def save_results(self, filename: str):
-        result = self._save_contents()
+        result = self._to_dict_()
         result['weights'] = self.results.importance_weights()
-        np.savez_compressed(filename, **self._save_contents())
+        np.savez_compressed(filename, **self._to_dict_())
 
     def save_corner(self, filename, **kwargs):
         from starlord.io import corner_plot
