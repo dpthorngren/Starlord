@@ -481,7 +481,7 @@ cdef class BuiltinSampler:
         self.x_propose = self._working_memory_[self.n_walkers, :self.n_dim]
         return 0
 
-    cdef int stretch_step(self, alpha=2.0) except -1:
+    cdef int stretch_step(self, double alpha=2.0) except -1:
         cdef double p, z, logp
         cdef int i, j, k
         cdef double root_alpha = math.sqrt(alpha)
