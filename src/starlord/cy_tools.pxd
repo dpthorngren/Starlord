@@ -3,7 +3,6 @@ cimport scipy.linalg.cython_lapack as lapack
 cimport scipy.linalg.cython_blas as blas
 from libc cimport math
 from libc.stdlib cimport rand, srand, RAND_MAX
-from libc.time cimport time
 
 cpdef double logsumexp(double x, double y, double c_x=?, double c_y=?) noexcept
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept
@@ -72,6 +71,7 @@ cdef class BaseModel:
     cpdef double log_like(self, double[:] params)
     cpdef double log_prob(self, double[:] params)
     cpdef load_constants(self, dict constants)
+    cpdef object generate_initial_state(self, samples=?, steps=?)
 
 cdef class BuiltinSampler:
     # Internal data

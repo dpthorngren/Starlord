@@ -6,6 +6,26 @@ import starlord
 
 
 @pytest.mark.flaky(reruns=3)
+def test_initial_state_generator():
+    builder = starlord.ModelBuilder()
+    builder.assign("l.asquared", "p.a*p.a")
+    builder.constraint("l.asquared", "normal", [2.5, 0.1])
+    builder.assign("l.ratio", "p.a * p.b")
+    builder.constraint("l.ratio", "normal", [2.0, 0.3])
+    builder.prior("p.a", "uniform", [0.0, 6.0])
+    builder.prior("p.b", "uniform", [0.0, 10])
+
+    sampler = builder.build_sampler("builtin", n_walkers=10)
+    state = sampler.model.generate_initial_state(100, 200)
+    assert np.all(np.isfinite(state))
+    assert np.all(state[:, 0] > 0.0)
+    assert np.all(state[:, 0] < 6.0)
+    assert np.all(state[:, 1] > .001)
+    assert np.all(state[:, 1] < 10.)
+    assert np.mean(state, axis=0) == approx([np.sqrt(2.5), 2. / np.sqrt(2.5)], abs=0.25)
+
+
+@pytest.mark.flaky(reruns=3)
 def test_builtin_run():
     builder = starlord.ModelBuilder()
     builder.assign("l.sina", "math.sin(p.a)")

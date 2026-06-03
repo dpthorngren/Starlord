@@ -166,6 +166,7 @@ class CodeGenerator:
         # Class and constant declarations
         result.append("cdef class Model(BaseModel):")
         result.append("    # Static metadata")
+        result.append(f"    ndim = {len(self.params)}")
         result.append(f"    param_names = {[p.name for p in self.params]}")
         outputs = ["log_like", "log_prior"] + [i[2:] for i in self.outputs]
         result.append(f"    output_names = {outputs}")

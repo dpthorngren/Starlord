@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import os
 cimport cython
 
 cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
@@ -461,6 +462,32 @@ cdef class BaseModel:
             else:
                 raise ValueError(f"Value for constant {c} was not provided on initialization.")
 
+    cpdef object generate_initial_state(self, samples=1, steps=100):
+        '''Simple metropolis sampler proposing from the prior for initial state generation.'''
+        cdef int i, j, k
+        cdef double p, log_l, proposal_log_l
+        cdef int ndim = self.ndim
+        proposal = np.full([ndim], math.NAN)
+        cdef double[:] proposal_view = proposal
+        result = np.zeros([samples, ndim])
+        cdef double[:, :] result_view = result
+
+        np.random.seed(int(os.urandom(4).hex(),16))
+        srand(np.random.rand() * int(os.urandom(4).hex(),16))
+        for i in range(samples):
+            log_l = -math.INFINITY
+            for j in range(steps):
+                for k in range(ndim):
+                    proposal_view[k] = float(rand()) / RAND_MAX
+                self.prior_transform(proposal_view)
+                proposal_log_l = self.log_like(proposal_view)
+                p = math.log(float(rand()) / RAND_MAX)
+                if p < proposal_log_l - log_l:
+                    for k in range(ndim):
+                        result_view[i, k] = proposal_view[k]
+                    log_l = proposal_log_l
+        return result
+
     def __init__(self, **constants):
         self.load_constants(constants)
 
@@ -531,7 +558,8 @@ cdef class BuiltinSampler:
             self.walkers[j, self.n_dim] = self.model.log_prob(self.walkers[j])
 
         # Run sampler
-        srand(time(NULL))
+        np.random.seed(int(os.urandom(4).hex(),16))
+        srand(np.random.rand() * int(os.urandom(4).hex(),16))
         for i in range(burn_in * thin):
             self.stretch_step(alpha)
             if progress:
