@@ -469,7 +469,7 @@ cdef class BaseModel:
         cdef int ndim = self.ndim
         proposal = np.full([ndim], math.NAN)
         cdef double[:] proposal_view = proposal
-        result = np.zeros([samples, ndim])
+        result = np.full([samples, ndim], math.NAN)
         cdef double[:, :] result_view = result
 
         np.random.seed(int(os.urandom(4).hex(),16))

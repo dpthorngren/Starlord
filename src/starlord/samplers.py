@@ -352,7 +352,8 @@ class SamplerBuiltin(_Sampler):
             assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
             run_args['initial_state'] = self.model.generate_initial_state(self.init_args['nwalkers'], 100)
             assert np.all(
-                np.isfinite(run_args['initial_state'])), "Failed to generate a valid initial state from 100 draws."
+                np.isfinite(run_args['initial_state'])
+            ), "Failed to generate a valid initial state from 100 draws.  Check your prior bounds."
         self.sampler.run(**run_args)
 
         # Process the results
@@ -415,7 +416,8 @@ class SamplerEnsemble(_Sampler):
             assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
             run_args['initial_state'] = self.model.generate_initial_state(init_args['nwalkers'], 100)
             assert np.all(
-                np.isfinite(run_args['initial_state'])), "Failed to generate a valid initial state from 100 draws."
+                np.isfinite(run_args['initial_state'])
+            ), "Failed to generate a valid initial state from 100 draws.  Check your prior bounds."
         run_args['nsteps'] += self.burn_in
 
         # Run the MCMC
