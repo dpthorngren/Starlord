@@ -512,7 +512,7 @@ cdef class BaseModel:
         self.load_constants(constants)
 
 cdef class BuiltinSampler:
-    def __init__(self, BaseModel model, int n_dim, int n_walkers):
+    def __init__(self, BaseModel model, int n_dim, int n_walkers, double[:,:] metropolis_cov = None):
         assert n_dim > 0
         assert n_walkers > 2*n_dim
         self.model = model
@@ -521,11 +521,25 @@ cdef class BuiltinSampler:
         self.acceptance = 0
         self._samples_memory_ = None
         self._init_working_memory()
+        if metropolis_cov is not None:
+            assert metropolis_cov.ndim == 2
+            assert metropolis_cov.shape[0] == n_dim, "Proposal covariance must be [ndim x ndim]."
+            assert metropolis_cov.shape[1] == n_dim, "Proposal covariance must be [ndim x ndim]."
+            cov_chol = np.linalg.cholesky(metropolis_cov)
+        else:
+            # TODO: Derive default covariance from prior ppf
+            cov_chol = np.eye(n_dim)
+        cdef int i, j
+        for i in range(self.n_dim):
+            for j in range(self.n_dim):
+                self.propose_chol[i, j] = cov_chol[i, j]
 
     cdef int _init_working_memory(self) except -1:
-        self._working_memory_ = np.empty([self.n_walkers+1, self.n_dim+1])
+        self._working_memory_ = np.empty([self.n_walkers+2+self.n_dim, self.n_dim+1])
         self.walkers = self._working_memory_[:self.n_walkers]
         self.x_propose = self._working_memory_[self.n_walkers, :self.n_dim]
+        self.temp = self._working_memory_[self.n_walkers+1, :self.n_dim]
+        self.propose_chol = self._working_memory_[self.n_walkers+2:, :self.n_dim]
         return 0
 
     cdef int stretch_step(self, double alpha=2.0) except -1:
@@ -555,7 +569,26 @@ cdef class BuiltinSampler:
                 self.walkers[i, self.n_dim] = logp
         return 0
 
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, bint progress = False, double alpha=2.0):
+    cdef int metropolis_step(self) except -1:
+        cdef int i, k
+        cdef double accept_thresh, logp
+        for i in range(self.n_walkers):
+            # Get a proposed position and it's probability
+            for k in range(self.n_dim):
+                self.temp[k] = normal_ppf(float(rand()) / RAND_MAX, 0, 1.0)
+            multinormal_zppf(self.propose_chol, self.temp, self.x_propose, self.walkers[i])
+            logp = self.model.log_prob(self.x_propose)
+            # Decide whether to accept the new position
+            accept_thresh = math.log(float(rand()) / RAND_MAX)
+            if accept_thresh < logp - self.walkers[i, self.n_dim]:
+                # TODO: Split off metropolis acceptance from stretch acceptance
+                self.acceptance += 1.
+                for k in range(self.n_dim):
+                    self.walkers[i, k] = self.x_propose[k]
+                self.walkers[i, self.n_dim] = logp
+        return 0
+
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, bint progress = False, double alpha=2.0, double metropolis_frac=0.0):
         cdef int i, j, k, si
         cdef int total_steps = (n_samples + burn_in) * thin
         cdef int burnin_steps = burn_in * thin
@@ -571,7 +604,7 @@ cdef class BuiltinSampler:
         self.samples = self._samples_memory_
         self.acceptance = 0.
 
-        # Copy initial state and get intiial log probabilities
+        # Copy initial state and get intial log probabilities
         for j in range(self.n_walkers):
             for k in range(self.n_dim):
                 self.walkers[j, k] = initial_state[j, k]
@@ -581,11 +614,18 @@ cdef class BuiltinSampler:
         np.random.seed(int(os.urandom(4).hex(),16))
         srand(np.random.rand() * int(os.urandom(4).hex(),16))
         for i in range(burn_in * thin):
-            self.stretch_step(alpha)
+            if (float(rand()) / RAND_MAX) < metropolis_frac:
+                self.metropolis_step()
+            else:
+                self.stretch_step(alpha)
             if progress:
                 self._progress_bar(i, total_steps, "Burn-in")
+
         for i in range(n_samples * thin):
-            self.stretch_step(alpha)
+            if (float(rand()) / RAND_MAX) < metropolis_frac:
+                self.metropolis_step()
+            else:
+                self.stretch_step(alpha)
             if i % thin == 0:
                 si = i / thin
                 for j in range(self.n_walkers):
@@ -630,11 +670,15 @@ cdef class BuiltinSampler:
 
     def __getstate__(self):
         '''Prepares internal memory for pickling, necessary for multiprocessing.'''
-        info = (self.model, self.n_dim, self.n_walkers, self.acceptance)
+        info = (self.model, self.n_dim, self.n_walkers, self.acceptance, np.asarray(self.propose_chol))
         return info
 
     def __setstate__(self, info):
         '''Restores internal memory from pickle info, necessary for multiprocessing.'''
-        (self.model, self.n_dim, self.n_walkers, self.acceptance) = info
+        (self.model, self.n_dim, self.n_walkers, self.acceptance, propose_chol) = info
         self._init_working_memory()
+        cdef int i, j
+        for i in range(self.n_dim):
+            for j in range(self.n_dim):
+                self.propose_chol[i, j] = propose_chol[i, j]
         return

@@ -83,6 +83,8 @@ cdef class BuiltinSampler:
     cdef object _working_memory_
     cdef double[:, :] walkers
     cdef double[:] x_propose
+    cdef double[:] temp
+    cdef double[:, :] propose_chol
 
     # Outputs
     cdef readonly double acceptance
@@ -92,6 +94,7 @@ cdef class BuiltinSampler:
     cdef int _init_working_memory(self) except -1
     cdef int _progress_bar(self, int i, int N, object header) except -1
     cdef int stretch_step(self, double alpha=?) except -1
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, bint progress=?, double alpha=?)
+    cdef int metropolis_step(self) except -1
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, bint progress=?, double alpha=?, double metropolis_frac=?)
     cpdef object get_samples(self, bint flatten=?)
     cpdef object get_log_prob(self, bint flatten=?)
