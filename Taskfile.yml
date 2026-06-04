@@ -16,6 +16,8 @@ tasks:
       - src/starlord/*.so
     cmds:
       - rm -rf build starlord.egg-info src/starlord/*.so
+      - rm -rf build starlord.egg-info src/starlord/*.c
+      - rm -rf build starlord.egg-info src/starlord/__pycache__
       - rm -rf docs/build/html/
       - pip uninstall starlord --yes
       - pip install -e .[develop]

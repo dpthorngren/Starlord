@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from pytest import approx
 from scipy import stats
 from scipy.interpolate import RegularGridInterpolator
@@ -104,6 +105,23 @@ def test_ppf():
         assert cy_tools.trunc_exponential_ppf(p, 0.15, 0, 5.) == approx(expect)
         expect = stats.truncexpon.ppf(p, 13.25 * 6.5, scale=1. / 13.25)
         assert cy_tools.trunc_exponential_ppf(p, 13.25, 0, 6.5) == approx(expect)
+
+
+@pytest.mark.flaky(reruns=3)
+def test_mvnormal():
+    # Poorly sampled uniform distribution to get a random covariance
+    x = np.random.rand(4, 10)
+    x[0] += .8 * x[1]
+    x[2] += -.3 * x[3]
+    mu = 5 * np.random.randn(4)
+    cov = np.cov(x)
+    cov_chol = np.linalg.cholesky(cov)
+    output = np.zeros([1000, 4])
+    for i in range(1000):
+        input = np.random.randn(4)
+        cy_tools.multinormal_zppf(cov_chol, input, output[i], mu)
+    assert cov == approx(np.cov(output.T), rel=.1, abs=.01)
+    assert mu == approx(np.mean(output, axis=0), rel=.1, abs=.01)
 
 
 def test_gridding1d():

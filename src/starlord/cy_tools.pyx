@@ -157,6 +157,26 @@ cpdef double chabrier_ppf(double p, double log_m_switch, double mean, double sig
         return normal_ppf(p/cdf_switch, mean, sigma)
     else:
         return trunc_exponential_ppf((p-cdf_switch)/(1-cdf_switch), rate, log_m_switch, math.INFINITY)
+
+cpdef void multinormal_zppf(double[:,:] cov_chol, double[:] z, double[:] out, double[:] mean=None):
+    '''Calculates a random vector from a normal distribution centered at mean and with the
+    cholesky of the covariance cov_chol, given normally-distributed random numbers z, and
+    writes the output to out.  If mean is None the mean vector is assumed to be zero.'''
+    cdef int i, j
+    ndim = cov_chol.shape[0]
+    if mean is not None:
+        for i in range(ndim):
+            out[i] = mean[i]
+    else:
+        for i in range(ndim):
+            out[i] = 0.
+    cdef double temp = 0.
+    for i in range(ndim):
+        temp = 0.
+        for j in range(i+1):
+            temp += cov_chol[i, j] * z[j]
+        out[i] += temp
+
     
 cdef class GridInterpolator:
     '''An interpolator for gridded data, optimized for use in Cython.'''
