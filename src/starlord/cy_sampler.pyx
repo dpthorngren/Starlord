@@ -10,6 +10,7 @@ cdef class BuiltinSampler:
         self.trials_stretch = 0
         self.accepted_stretch = 0
         self._samples_memory_ = None
+        self.samples = None
         self._init_working_memory()
         if metropolis_cov is not None:
             assert metropolis_cov.ndim == 2
@@ -77,10 +78,30 @@ cdef class BuiltinSampler:
                 self.walkers[i, self.n_dim] = logp
         return 0
 
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1):
+    cdef int _sub_run_(self, int n_samples, int thin=1, bint record=False, bint progress=False, double alpha=2.0, double metropolis_frac=0.2) except -1:
+        cdef int i
+        cdef int total_steps = n_samples*thin
+
+        if record:
+            assert self.samples is not None and self.samples.shape[0] >= n_samples
+
+        np.random.seed(int(os.urandom(4).hex(),16))
+        srand(np.random.rand() * int(os.urandom(4).hex(),16))
+
+        for i in range(total_steps):
+            if (float(rand()) / RAND_MAX) < metropolis_frac:
+                self.metropolis_step()
+            else:
+                self.stretch_step(alpha)
+            if record and i % thin == 0:
+                si = i / thin
+                copy_arr2d(self.walkers, self.samples[si])
+                if progress:
+                    self._progress_bar(i, total_steps, "Sampling")
+        return 0
+
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=4, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1):
         cdef int i, j, k, si
-        cdef int total_steps = (n_samples + burn_in) * thin
-        cdef int burnin_steps = burn_in * thin
         # Validate inputs
         assert n_samples > 0
         assert burn_in >= 0
@@ -95,28 +116,13 @@ cdef class BuiltinSampler:
         self.samples = self._samples_memory_
 
         # Copy initial state and get intial log probabilities
+        copy_arr2d(initial_state, self.walkers[:, :self.n_dim])
         for j in range(self.n_walkers):
-            for k in range(self.n_dim):
-                self.walkers[j, k] = initial_state[j, k]
             self.walkers[j, self.n_dim] = self.model.log_prob(self.walkers[j])
-
-        # Run sampler
-        np.random.seed(int(os.urandom(4).hex(),16))
-        srand(np.random.rand() * int(os.urandom(4).hex(),16))
 
         # Metropolis covariance pre-run
         if metropolis_frac > 0 and metropolis_presamples > 0:
-            for i in range(metropolis_presamples * thin):
-                if (float(rand()) / RAND_MAX) < metropolis_frac:
-                    self.metropolis_step()
-                else:
-                    self.stretch_step(alpha)
-                if i % thin == 0:
-                    si = i / thin
-                    copy_arr2d(self.walkers, self.samples[si])
-                    if progress:
-                        self._progress_bar(i, metropolis_presamples*thin, "Pre-run")
-            # Generate the new proposal covariance
+            self._sub_run_(metropolis_presamples, thin, True, progress, alpha, metropolis_frac)
             covar = self._samples_memory_[:metropolis_presamples, :, :self.n_dim]
             covar = covar.reshape([metropolis_presamples*self.n_walkers, self.n_dim])
             covar = np.cov(covar.T)
@@ -124,28 +130,10 @@ cdef class BuiltinSampler:
             copy_arr2d(covar, self.propose_chol)
 
         # Burn-in
-        for i in range(burn_in * thin):
-            if (float(rand()) / RAND_MAX) < metropolis_frac:
-                self.metropolis_step()
-            else:
-                self.stretch_step(alpha)
-            if progress:
-                self._progress_bar(i, total_steps, "Burn-in")
-
+        self._sub_run_(burn_in, thin, False, progress, alpha, metropolis_frac)
         # Collect samples
-        for i in range(n_samples * thin):
-            if (float(rand()) / RAND_MAX) < metropolis_frac:
-                self.metropolis_step()
-            else:
-                self.stretch_step(alpha)
-            if i % thin == 0:
-                si = i / thin
-                copy_arr2d(self.walkers, self.samples[si])
-                if progress:
-                    self._progress_bar(i + burnin_steps, total_steps, "Sampling")
-        if progress:
-            self._progress_bar(total_steps, total_steps, "Sampling")
-            print("")
+        self._sub_run_(n_samples, thin, True, progress, alpha, metropolis_frac)
+        return
 
     cdef int _progress_bar(self, int i, int N, object header) except -1:
         '''Displays or updates a simple ASCII progress bar (code copied from dpthorngren/Sam).
@@ -192,3 +180,18 @@ cdef class BuiltinSampler:
         (self.model, self.n_dim, self.n_walkers, self.acceptance, propose_chol) = info
         self._init_working_memory()
         copy_arr2d(self.propose_chol, propose_chol)
+
+cpdef double gelman_rubin(x, warn=True) except -1.:
+    x = np.asarray(x, np.double, "C")
+    if x.ndim == 2:
+        if warn:
+            print("Warning: the G.R. diagnostic was not designed for " +\
+                "the case where chains are not completely independent.")
+        x = np.stack([x[:x.shape[0]//2],x[x.shape[0]//2:]],axis=0)
+    elif x.ndim != 3:
+        raise ValueError("Input has an invalid shape: must be 2-d or 3-d.")
+    n = np.shape(x)[1]
+    W = np.mean(np.var(x,axis=1,ddof=1),axis=0)
+    B_n = np.var(np.mean(x,axis=1),axis=0,ddof=1)
+    return np.max(np.sqrt((1.-1./n) + B_n/W))
+
