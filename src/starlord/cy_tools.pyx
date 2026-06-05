@@ -146,7 +146,6 @@ cpdef double chabrier_lpdf(double log_mass, double log_m_switch, double mean, do
     else:
         norm = 1 + cdf_switch/norm
         return trunc_exponential_lpdf(log_mass, rate, log_m_switch, 2.0) - math.log(norm)
-    return
 
 cpdef double chabrier_ppf(double p, double log_m_switch, double mean, double sigma, double rate) noexcept:
     '''Initial mass function priors of the form from Chabrier (2002) table 2, as PPFs.
@@ -518,7 +517,10 @@ cdef class BuiltinSampler:
         self.model = model
         self.n_dim = n_dim
         self.n_walkers = n_walkers
-        self.acceptance = 0
+        self.trials_metropolis = 0
+        self.accepted_metropolis = 0
+        self.trials_stretch = 0
+        self.accepted_stretch = 0
         self._samples_memory_ = None
         self._init_working_memory()
         if metropolis_cov is not None:
@@ -562,8 +564,9 @@ cdef class BuiltinSampler:
             # Calculate the metropolis correction and decide whether to accept the point
             adjust = math.log(z) * (self.n_dim - 1)
             p = math.log(float(rand()) / RAND_MAX)
+            self.trials_stretch += 1
             if p < adjust + logp - self.walkers[i, self.n_dim]:
-                self.acceptance += 1.
+                self.accepted_stretch += 1
                 for k in range(self.n_dim):
                     self.walkers[i, k] = self.x_propose[k]
                 self.walkers[i, self.n_dim] = logp
@@ -579,10 +582,10 @@ cdef class BuiltinSampler:
             multinormal_zppf(self.propose_chol, self.temp, self.x_propose, self.walkers[i])
             logp = self.model.log_prob(self.x_propose)
             # Decide whether to accept the new position
+            self.trials_metropolis += 1
             accept_thresh = math.log(float(rand()) / RAND_MAX)
             if accept_thresh < logp - self.walkers[i, self.n_dim]:
-                # TODO: Split off metropolis acceptance from stretch acceptance
-                self.acceptance += 1.
+                self.accepted_metropolis += 1
                 for k in range(self.n_dim):
                     self.walkers[i, k] = self.x_propose[k]
                 self.walkers[i, self.n_dim] = logp
@@ -602,7 +605,6 @@ cdef class BuiltinSampler:
         # Initialize output memory
         self._samples_memory_ = np.zeros([n_samples, self.n_walkers, self.n_dim+1])
         self.samples = self._samples_memory_
-        self.acceptance = 0.
 
         # Copy initial state and get intial log probabilities
         for j in range(self.n_walkers):
@@ -636,7 +638,6 @@ cdef class BuiltinSampler:
         if progress:
             self._progress_bar(total_steps, total_steps, "Sampling")
             print("")
-        self.acceptance /= total_steps * self.n_walkers
 
     cdef int _progress_bar(self, int i, int N, object header) except -1:
         '''Displays or updates a simple ASCII progress bar (code copied from dpthorngren/Sam).

@@ -87,7 +87,10 @@ cdef class BuiltinSampler:
     cdef double[:, :] propose_chol
 
     # Outputs
-    cdef readonly double acceptance
+    cdef int trials_metropolis
+    cdef int accepted_metropolis
+    cdef int trials_stretch
+    cdef int accepted_stretch
     cdef readonly object _samples_memory_
     cdef double[:, :, :] samples
 
