@@ -5,7 +5,7 @@ cases/
 grids/
 *experiment.*
 .task
-src/starlord/cy_tools.html
+src/starlord/*.html
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
