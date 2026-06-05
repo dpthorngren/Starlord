@@ -4,6 +4,9 @@ cimport scipy.linalg.cython_blas as blas
 from libc cimport math
 from libc.stdlib cimport rand, srand, RAND_MAX
 
+cpdef inline void copy_arr1d(double[:] source, double[:] dest)
+cpdef inline void copy_arr2d(double[:,:] source, double[:,:] dest)
+
 cpdef double logsumexp(double x, double y, double c_x=?, double c_y=?) noexcept
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept
 cpdef double uniform_ppf(double x, double xmin, double xmax) noexcept

@@ -3,6 +3,20 @@ import sys
 import os
 cimport cython
 
+cpdef inline void copy_arr1d(double[:] source, double[:] dest):
+    cdef int i
+    assert source.shape[0] == dest.shape[0]
+    for i in range(dest.shape[0]):
+        dest[i] = source[i]
+
+cpdef inline void copy_arr2d(double[:,:] source, double[:,:] dest):
+    cdef int i, j
+    assert source.shape[0] == dest.shape[0]
+    assert source.shape[1] == dest.shape[1]
+    for i in range(dest.shape[0]):
+        for j in range(dest.shape[1]):
+            dest[i, j] = source[i, j]
+
 cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
     cdef double baseline = max(x, y)
     x = c_x*math.exp(x - baseline)
@@ -164,8 +178,7 @@ cpdef void multinormal_zppf(double[:,:] cov_chol, double[:] z, double[:] out, do
     cdef int i, j
     ndim = cov_chol.shape[0]
     if mean is not None:
-        for i in range(ndim):
-            out[i] = mean[i]
+        copy_arr1d(mean, out)
     else:
         for i in range(ndim):
             out[i] = 0.
@@ -505,8 +518,7 @@ cdef class BaseModel:
                 proposal_log_l = self.log_like(proposal_view)
                 p = math.log(float(rand()) / RAND_MAX)
                 if p < proposal_log_l - log_l:
-                    for k in range(ndim):
-                        result_view[i, k] = proposal_view[k]
+                    copy_arr1d(proposal_view, result_view[i])
                     log_l = proposal_log_l
         return result
 
@@ -534,10 +546,7 @@ cdef class BuiltinSampler:
         else:
             # TODO: Derive default covariance from prior ppf
             cov_chol = np.eye(n_dim)
-        cdef int i, j
-        for i in range(self.n_dim):
-            for j in range(self.n_dim):
-                self.propose_chol[i, j] = cov_chol[i, j]
+        copy_arr2d(cov_chol, self.propose_chol)
 
     cdef int _init_working_memory(self) except -1:
         self._working_memory_ = np.empty([self.n_walkers+2+self.n_dim, self.n_dim+1])
@@ -570,8 +579,7 @@ cdef class BuiltinSampler:
             self.trials_stretch += 1
             if p < adjust + logp - self.walkers[i, self.n_dim]:
                 self.accepted_stretch += 1
-                for k in range(self.n_dim):
-                    self.walkers[i, k] = self.x_propose[k]
+                copy_arr1d(self.x_propose, self.walkers[i, :self.n_dim])
                 self.walkers[i, self.n_dim] = logp
         return 0
 
@@ -582,15 +590,14 @@ cdef class BuiltinSampler:
             # Get a proposed position and it's probability
             for k in range(self.n_dim):
                 self.temp[k] = normal_ppf(float(rand()) / RAND_MAX, 0, 1.0)
-            multinormal_zppf(self.propose_chol, self.temp, self.x_propose, self.walkers[i])
+            multinormal_zppf(self.propose_chol, self.temp, self.x_propose, self.walkers[i,:self.n_dim])
             logp = self.model.log_prob(self.x_propose)
             # Decide whether to accept the new position
             self.trials_metropolis += 1
             accept_thresh = math.log(float(rand()) / RAND_MAX)
             if accept_thresh < logp - self.walkers[i, self.n_dim]:
                 self.accepted_metropolis += 1
-                for k in range(self.n_dim):
-                    self.walkers[i, k] = self.x_propose[k]
+                copy_arr1d(self.x_propose, self.walkers[i, :self.n_dim])
                 self.walkers[i, self.n_dim] = logp
         return 0
 
@@ -626,6 +633,7 @@ cdef class BuiltinSampler:
             if progress:
                 self._progress_bar(i, total_steps, "Burn-in")
 
+        # Collect samples
         for i in range(n_samples * thin):
             if (float(rand()) / RAND_MAX) < metropolis_frac:
                 self.metropolis_step()
@@ -633,9 +641,7 @@ cdef class BuiltinSampler:
                 self.stretch_step(alpha)
             if i % thin == 0:
                 si = i / thin
-                for j in range(self.n_walkers):
-                    for k in range(self.n_dim+1):
-                        self.samples[si, j, k] = self.walkers[j, k]
+                copy_arr2d(self.walkers, self.samples[si])
                 if progress:
                     self._progress_bar(i + burnin_steps, total_steps, "Sampling")
         if progress:
@@ -681,8 +687,4 @@ cdef class BuiltinSampler:
         '''Restores internal memory from pickle info, necessary for multiprocessing.'''
         (self.model, self.n_dim, self.n_walkers, self.acceptance, propose_chol) = info
         self._init_working_memory()
-        cdef int i, j
-        for i in range(self.n_dim):
-            for j in range(self.n_dim):
-                self.propose_chol[i, j] = propose_chol[i, j]
-        return
+        copy_arr2d(self.propose_chol, propose_chol)
