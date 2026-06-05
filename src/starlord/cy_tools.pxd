@@ -4,8 +4,8 @@ cimport scipy.linalg.cython_blas as blas
 from libc cimport math
 from libc.stdlib cimport rand, srand, RAND_MAX
 
-cpdef inline void copy_arr1d(double[:] source, double[:] dest)
-cpdef inline void copy_arr2d(double[:,:] source, double[:,:] dest)
+cpdef void copy_arr1d(double[:] source, double[:] dest)
+cpdef void copy_arr2d(double[:,:] source, double[:,:] dest)
 
 cpdef double logsumexp(double x, double y, double c_x=?, double c_y=?) noexcept
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept
@@ -101,6 +101,7 @@ cdef class BuiltinSampler:
     cdef int _progress_bar(self, int i, int N, object header) except -1
     cdef int stretch_step(self, double alpha=?) except -1
     cdef int metropolis_step(self) except -1
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, bint progress=?, double alpha=?, double metropolis_frac=?)
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=?, bint progress=?, double alpha=?, double metropolis_frac=?, int metropolis_presamples=?)
     cpdef object get_samples(self, bint flatten=?)
     cpdef object get_log_prob(self, bint flatten=?)
+    cpdef (float, float) get_acceptance(self)

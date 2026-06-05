@@ -544,8 +544,11 @@ cdef class BuiltinSampler:
             assert metropolis_cov.shape[1] == n_dim, "Proposal covariance must be [ndim x ndim]."
             cov_chol = np.linalg.cholesky(metropolis_cov)
         else:
-            # TODO: Derive default covariance from prior ppf
-            cov_chol = np.eye(n_dim)
+            x_median = np.full(n_dim, 0.5)
+            model.prior_transform(x_median)
+            x_offset = np.full(n_dim, 0.55)
+            model.prior_transform(x_offset)
+            cov_chol = np.diag(np.sqrt(np.abs(x_offset-x_median)))
         copy_arr2d(cov_chol, self.propose_chol)
 
     cdef int _init_working_memory(self) except -1:
@@ -601,7 +604,7 @@ cdef class BuiltinSampler:
                 self.walkers[i, self.n_dim] = logp
         return 0
 
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, bint progress = False, double alpha=2.0, double metropolis_frac=0.0):
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=1, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1):
         cdef int i, j, k, si
         cdef int total_steps = (n_samples + burn_in) * thin
         cdef int burnin_steps = burn_in * thin
@@ -611,6 +614,8 @@ cdef class BuiltinSampler:
         assert thin >= 0
         assert alpha > 1.0
         assert initial_state.shape[0] == self.n_walkers and initial_state.shape[1] == self.n_dim
+        if metropolis_presamples < 0:
+            metropolis_presamples = n_samples // 10
 
         # Initialize output memory
         self._samples_memory_ = np.zeros([n_samples, self.n_walkers, self.n_dim+1])
@@ -625,6 +630,27 @@ cdef class BuiltinSampler:
         # Run sampler
         np.random.seed(int(os.urandom(4).hex(),16))
         srand(np.random.rand() * int(os.urandom(4).hex(),16))
+
+        # Metropolis covariance pre-run
+        if metropolis_frac > 0 and metropolis_presamples > 0:
+            for i in range(metropolis_presamples * thin):
+                if (float(rand()) / RAND_MAX) < metropolis_frac:
+                    self.metropolis_step()
+                else:
+                    self.stretch_step(alpha)
+                if i % thin == 0:
+                    si = i / thin
+                    copy_arr2d(self.walkers, self.samples[si])
+                    if progress:
+                        self._progress_bar(i, metropolis_presamples*thin, "Pre-run")
+            # Generate the new proposal covariance
+            covar = self._samples_memory_[:metropolis_presamples, :, :self.n_dim]
+            covar = covar.reshape([metropolis_presamples*self.n_walkers, self.n_dim])
+            covar = np.cov(covar.T)
+            covar = np.linalg.cholesky(covar)
+            copy_arr2d(covar, self.propose_chol)
+
+        # Burn-in
         for i in range(burn_in * thin):
             if (float(rand()) / RAND_MAX) < metropolis_frac:
                 self.metropolis_step()
@@ -677,6 +703,11 @@ cdef class BuiltinSampler:
             return self._samples_memory_[:, :, self.n_dim].flatten()
         else:
             return self._samples_memory_[:, :, self.n_dim]
+
+    cpdef (float, float) get_acceptance(self):
+        cdef float metropolis_accept = float(self.accepted_metropolis) / self.trials_metropolis if self.trials_metropolis > 0 else math.NAN
+        cdef float stretch_accept = float(self.accepted_stretch) / self.trials_stretch if self.trials_stretch > 0 else math.NAN
+        return metropolis_accept, stretch_accept
 
     def __getstate__(self):
         '''Prepares internal memory for pickling, necessary for multiprocessing.'''
