@@ -468,7 +468,10 @@ cdef class BaseModel:
         return self._log_like(params)
 
     cpdef double log_prob(self, double[:] params):
-        return self.log_prior(params) + self.log_like(params)
+        cdef double log_prior = self.log_prior(params)
+        if not math.isfinite(log_prior):
+            return -math.INFINITY
+        return log_prior + self.log_like(params)
 
     cpdef load_constants(self, dict constants):
         from starlord import GridGenerator
