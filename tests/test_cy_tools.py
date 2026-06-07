@@ -12,24 +12,6 @@ from starlord import cy_tools
 def test_helpers():
     for a, b in 20 * np.random.rand(100, 2):
         assert cy_tools.logsumexp(a, b) == approx(logsumexp([a, b]), rel=1e-12)
-    for x in np.random.randn(3, 2, 1000, 5):
-        # Well-matching true Gelman-rubin stat
-        gr = cy_tools.gelman_rubin(x)
-        assert gr > 0.9 and gr < 1.1
-        # Add a trend for a badly-matching GR
-        x[0] -= np.arange(1000)[:, None]
-        gr = cy_tools.gelman_rubin(x)
-        assert gr > 1.5
-        assert np.isfinite(gr)
-    for x in np.random.randn(3, 1000, 5):
-        # Well-matching pseudo-GR
-        gr = cy_tools.gelman_rubin(x, warn=False)
-        assert gr > 0.9 and gr < 1.1
-        # Add a trend for a badly-matching pseudo-GR
-        x += np.arange(1000)[:, None]
-        gr = cy_tools.gelman_rubin(x, warn=False)
-        assert gr > 1.5
-        assert np.isfinite(gr)
 
 
 def test_cdf():

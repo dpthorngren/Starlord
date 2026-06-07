@@ -78,9 +78,8 @@ cdef class BuiltinSampler:
                 self.walkers[i, self.n_dim] = logp
         return 0
 
-    cdef int _sub_run_(self, int n_samples, int thin=1, bint record=False, bint progress=False, double alpha=2.0, double metropolis_frac=0.2) except -1:
-        cdef int i
-        cdef int total_steps = n_samples*thin
+    cdef int _sub_run_(self, int n_samples, int thin=1, bint record=False, double alpha=2.0, double metropolis_frac=0.2, int start=0) except -1:
+        cdef int i, si
 
         if record:
             assert self.samples is not None and self.samples.shape[0] >= n_samples
@@ -88,7 +87,7 @@ cdef class BuiltinSampler:
         np.random.seed(int(os.urandom(4).hex(),16))
         srand(np.random.rand() * int(os.urandom(4).hex(),16))
 
-        for i in range(total_steps):
+        for i in range(start, n_samples*thin):
             if (float(rand()) / RAND_MAX) < metropolis_frac:
                 self.metropolis_step()
             else:
@@ -96,12 +95,11 @@ cdef class BuiltinSampler:
             if record and i % thin == 0:
                 si = i / thin
                 copy_arr2d(self.walkers, self.samples[si])
-                if progress:
-                    self._progress_bar(i, total_steps, "Sampling")
         return 0
 
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=4, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1):
-        cdef int i, j, k, si
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=4, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1, double adaptive_pgr_thresh=1.1, int max_adapt_iter=6):
+        cdef int i, j
+        cdef double gr
         # Validate inputs
         assert n_samples > 0
         assert burn_in >= 0
@@ -117,36 +115,59 @@ cdef class BuiltinSampler:
 
         # Copy initial state and get intial log probabilities
         copy_arr2d(initial_state, self.walkers[:, :self.n_dim])
-        for j in range(self.n_walkers):
-            self.walkers[j, self.n_dim] = self.model.log_prob(self.walkers[j])
+        for i in range(self.n_walkers):
+            self.walkers[i, self.n_dim] = self.model.log_prob(self.walkers[i])
 
         # Metropolis covariance pre-run
+        if progress:
+            print("Pre-run and burn-in ", end="", flush=True)
         if metropolis_frac > 0 and metropolis_presamples > 0:
-            self._sub_run_(metropolis_presamples, thin, True, progress, alpha, metropolis_frac)
+            self._sub_run_(metropolis_presamples, thin, True, alpha, metropolis_frac)
             covar = self._samples_memory_[:metropolis_presamples, :, :self.n_dim]
             covar = covar.reshape([metropolis_presamples*self.n_walkers, self.n_dim])
             covar = np.cov(covar.T)
             covar = np.linalg.cholesky(covar)
             copy_arr2d(covar, self.propose_chol)
+        if progress:
+            print("done.")
 
         # Burn-in
-        self._sub_run_(burn_in, thin, False, progress, alpha, metropolis_frac)
+        self._sub_run_(burn_in, thin, False, alpha, metropolis_frac)
+
         # Collect samples
-        self._sub_run_(n_samples, thin, True, progress, alpha, metropolis_frac)
+        if progress:
+            print("Sampling.", end="", flush=True)
+        cdef int burn_iter = n_samples // 10
+        cdef int n_keep = (n_samples - burn_iter) // 2
+        self._sub_run_(n_samples, thin, True, alpha, metropolis_frac)
+        if adaptive_pgr_thresh > 1:
+            for i in range(max_adapt_iter):
+                gr = self.pseudo_gelman_rubin()
+                if gr > adaptive_pgr_thresh:
+                    if progress:
+                        print(".", end="", flush=True)
+                    # Convergence threshhold not met, double the thinning retroactively
+                    thin *= 2
+                    copy_arr3d(self.samples[burn_iter::2], self.samples[:n_keep])
+                    self._sub_run_(n_samples, thin, True, alpha, metropolis_frac, start=n_keep)
+                else:
+                    break
+        if progress:
+            print(" done.")
         return
 
-    cdef int _progress_bar(self, int i, int N, object header) except -1:
-        '''Displays or updates a simple ASCII progress bar (code copied from dpthorngren/Sam).
-
-        Args:
-            i: the current iteration, should <= N.
-            N: the total number of iterations to be done.
-            header: a string to display before the progress bar.
-        '''
-        f = (10*i)//N
-        sys.stdout.write('\r'+header+': <'+f*"="+(10-f)*" "+'> ('+str(i)+" / " + str(N) + ")          ")
-        sys.stdout.flush()
-        return 0
+    cpdef double pseudo_gelman_rubin(self) except -1.:
+        assert self._samples_memory_ is not None, "No samples to get PGR statistic for; run the sampler first."
+        # Discard final sample if length is odd
+        cdef int ns = 2 * (self._samples_memory_.shape[0] // 2)
+        # Split the samples into the front and back half for comparison
+        x = self._samples_memory_[:ns, :, :self.n_dim]
+        x = x.reshape(2, ns // 2, self.n_walkers, self.n_dim)
+        # Mean across samples of the variance across chains
+        W = np.mean(np.var(x, axis=1, ddof=1), axis=0)
+        # Variance across samples of the mean across chains
+        B_n = np.var(np.mean(x, axis=1), axis=0, ddof=1)
+        return np.max(np.mean(np.sqrt((1. - 1. / x.shape[1]) + B_n/W), axis=0))
 
     cpdef object get_samples(self, bint flatten=False):
         assert self._samples_memory_ is not None, "Must run sampler before retrieving samples."
@@ -180,18 +201,3 @@ cdef class BuiltinSampler:
         (self.model, self.n_dim, self.n_walkers, self.acceptance, propose_chol) = info
         self._init_working_memory()
         copy_arr2d(self.propose_chol, propose_chol)
-
-cpdef double gelman_rubin(x, warn=True) except -1.:
-    x = np.asarray(x, np.double, "C")
-    if x.ndim == 2:
-        if warn:
-            print("Warning: the G.R. diagnostic was not designed for " +\
-                "the case where chains are not completely independent.")
-        x = np.stack([x[:x.shape[0]//2],x[x.shape[0]//2:]],axis=0)
-    elif x.ndim != 3:
-        raise ValueError("Input has an invalid shape: must be 2-d or 3-d.")
-    n = np.shape(x)[1]
-    W = np.mean(np.var(x,axis=1,ddof=1),axis=0)
-    B_n = np.var(np.mean(x,axis=1),axis=0,ddof=1)
-    return np.max(np.sqrt((1.-1./n) + B_n/W))
-

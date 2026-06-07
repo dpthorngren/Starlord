@@ -17,6 +17,16 @@ cpdef inline void copy_arr2d(double[:,:] source, double[:,:] dest):
         for j in range(dest.shape[1]):
             dest[i, j] = source[i, j]
 
+cpdef inline void copy_arr3d(double[:,:,:] source, double[:,:,:] dest):
+    cdef int i, j, k
+    assert source.shape[0] == dest.shape[0]
+    assert source.shape[1] == dest.shape[1]
+    assert source.shape[2] == dest.shape[2]
+    for i in range(dest.shape[0]):
+        for j in range(dest.shape[1]):
+            for k in range(dest.shape[2]):
+                dest[i, j, k] = source[i, j, k]
+
 cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
     cdef double baseline = max(x, y)
     x = c_x*math.exp(x - baseline)
