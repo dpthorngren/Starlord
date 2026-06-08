@@ -5,6 +5,7 @@ Starlord Documentation
    :maxdepth: 2
 
    quickstart/index
+   cli
    grids
    models
    sampling

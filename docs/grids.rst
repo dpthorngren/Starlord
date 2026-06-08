@@ -10,6 +10,8 @@ The grids used by Starlord are designed for linear interpolation in up to 5 dime
 :design:        Describes how the grid is structured as a string containing the inputs, outputs, and derived value names.  E.g. ``x, y, z -> A, B, C; Derived1, Derived2``
 :input_mappings:      During code generation, these determine what is used for each input into the interpolator (e.g. what to sub in for ``x``, ``y``, and ``z``).
 
+You can view the available grids and details about a given grid using the :doc:`cli`.
+
 Grid Creation
 --------------------
 You can create your own grids with :func:`starlord.GridGenerator.create_grid`.  The name, inputs, and outputs are required, but the others may be omitted if you aren't going to use them.  The function will check its inputs for validity and then generate the metadata for you.  Here's an example of how you can generate a grid:
