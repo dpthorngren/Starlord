@@ -2,6 +2,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -146,8 +147,12 @@ def main():
 
     # === Setup the Sampler ===
     sampler_type = settings['sampling'].get('sampler', "emcee")
-    run_args = settings['sampling'].get(sampler_type + "_init", {})
-    sampler = builder.build_sampler(sampler_type, constants=consts, **run_args)
+    sampler_args: dict[str, dict[str, Any]] = settings['sampling'].get(sampler_type, dict())
+    init_args = sampler_args.get('init', {})
+    run_args = sampler_args.get('run', {})
+    assert all([i in ['run', 'init'] for i in sampler_args.keys()]), \
+        "Sampler settings must be set with either 'run' or 'init'."
+    sampler = builder.build_sampler(sampler_type, constants=consts, **init_args)
     if args.test_case:
         test_case_str = args.test_case.replace('"', "").split(",")
         test_case = np.array([float(x) for x in test_case_str])
@@ -167,9 +172,9 @@ def main():
     # === Run Sampler ==
     out: dict = {"terminal": False, "file": None, "corner_plot": None}
     out.update(settings['output'])
-    run_args = settings['sampling'].get(sampler_type + "_run", {})
     if args.batch is not None:
-        sampler.batch_run(run_args, args.batch, out['terminal'], out['file'], args.batch_summary, args.batch_threads)
+        sampler.batch_run(
+            run_args, args.batch, out['terminal'], out['file'], args.batch_summary, args.batch_threads)
     else:
         sampler.run(**run_args)
         if out['terminal']:

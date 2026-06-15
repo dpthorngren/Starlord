@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from functools import partial
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -10,7 +11,8 @@ from ._config import _TextFormatCodes_, config
 from .code_components import _num_params
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
-from .samplers import SamplerEnsemble, SamplerNested, SamplerBuiltin
+from .samplers import SamplerBuiltin, SamplerEnsemble, SamplerNested
+from .io import read_model_toml
 
 
 class ModelBuilder():
@@ -138,6 +140,15 @@ class ModelBuilder():
         # Priors do not have deferred_vars, so they're just (var, dist, params)
         self._priors: List[Tuple[str, str, List[str | float]]] = []
 
+    def set_from_toml(self, filename: str | Path) -> None:
+        '''Load the model from a TOML file.
+
+        Args:
+            filename: The TOML file to load the model specification from.
+        '''
+        model = read_model_toml(filename)['model']
+        self.set_from_dict(model)
+
     def set_from_dict(self, model: dict) -> None:
         '''Load model description from a dict following the TOML input spec.
 
@@ -146,7 +157,8 @@ class ModelBuilder():
                 'expr', 'var', 'prior', 'override', 'options' or the name of a grid.
 
         Example:
-            Loading the model from a TOML file to be used within the Python API::
+            Loading the model from a TOML file to be used within the Python API (if
+            you want to change the model dict, otherwise use set_from_toml()::
 
                 model = tomllib.load("mymodel.toml")['model']
                 builder = ModelBuilder().set_from_dict(model)
