@@ -85,10 +85,23 @@ class GridGenerator:
             assert np.any(np.isfinite(output)), f'Output "{name}" is entirely bad values (inf, nan, etc).'
         assert not derived.keys() & inputs.keys(), "Derived and inputs have overlapping names."
         assert not derived.keys() & outputs.keys(), "Derived and outputs have overlapping names."
+        defined_keys = set(inputs.keys()) | set(outputs.keys()) | set(derived.keys())
         for name, output in derived.items():
             assert re.fullmatch(r'[a-zA-Z1-9]\w*', name), f'Derived value name "{name}" is not valid.'
             assert type(output) is str
-            # TODO: Validate derived parameter formulas
+            # Check any grid params used
+            from starlord.model_builder import DeferredResolver
+            for match in DeferredResolver.find_input_deferred.finditer(output):
+                if match.group(1) is not None:
+                    if match.group(1) == grid_name:
+                        assert match.group(2) in defined_keys, \
+                            f"Undefined grid var {match.group(0)} used in derived value {name}."
+                    elif match.group(1) in cls.grids().keys():
+                        g = cls.get_grid(match.group(1))
+                        if match.group(2) not in g.inputs + g.provides:
+                            print(f"Warning: derived value {name} uses undefined grid var {match.group(0)}.")
+                    else:
+                        print(f"Warning: derived value {name} refers to an undefined grid {match.group(1)}.")
         for name, output in input_mappings.items():
             assert name in inputs.keys(), f'Input default "{name}" doesn\'t match any actual inputs.'
             assert type(output) is str
