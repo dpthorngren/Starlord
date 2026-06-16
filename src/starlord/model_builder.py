@@ -26,9 +26,9 @@ class ModelBuilder():
     :Parameters: ``p.[name]``, these are model parameters to be sampled from.
     :Constants: ``c.[name]``, these are set when the sampler is run and don't
        change.
-    :Local Variables: ``l.[name]`` these are calculated for each log likelihood call
+    :Local Variables: ``v.[name]`` these are calculated for each log likelihood call
        but not recorded
-    :Grid Variables: ``d.[grid_name].[output_name]``, these indicate the grid
+    :Grid Variables: ``g.[grid_name].[output_name]``, these indicate the grid
        should be interpolated to get the value, which will often result in more
        parameters being implicitly defined.
 
@@ -73,9 +73,9 @@ class ModelBuilder():
     # Valid inputs to override_input satisfy this regex, but it doesn't catch every bad case.
     overridable_regex = re.compile(r"(?:([a-zA-Z]\w+)__)?([a-zA-Z]\w+)(?:--([a-zA-Z0-9]+))?")
     # Valid variables names satisfy this regex
-    varname_regex = re.compile(r"([pcld]).([a-zA-Z1-9]\w*)(?:--([a-zA-Z0-9]+))?")
+    varname_regex = re.compile(r"([pcvg]).([a-zA-Z1-9]\w*)(?:--([a-zA-Z0-9]+))?")
     # Only local and deferred variables are valid outputs
-    outname_regex = re.compile(r"(l|d.[a-zA-Z]\w+).[a-zA-Z1-9]\w*(--[a-zA-Z0-9]+)?")
+    outname_regex = re.compile(r"(v|g.[a-zA-Z]\w+).[a-zA-Z1-9]\w*(--[a-zA-Z0-9]+)?")
     # Looks like a distribution name
     distribution_name = re.compile(r"[a-zA-z_]+")
 
@@ -129,7 +129,7 @@ class ModelBuilder():
         # Caching backers for self.code_generator
         self.__gen__: Optional[CodeGenerator] = None
         self.__grids__: dict[str, list[str]] = {}
-        # Component storage for CodeGenerator setup, formatted as ([deferred vars], arguments...)
+        # Component storage for CodeGenerator setup, formatted as ([grid vars], arguments...)
         self._expressions: List[Tuple[List[str], str]] = []
         self._assignments: List[Tuple[List[str], str, str]] = []
         self._constraints: List[Tuple[List[str], str, str, List[str | float]]] = []
@@ -137,7 +137,7 @@ class ModelBuilder():
         self.__auto_generating__ = False
         self.__assignments_gen__: List[Tuple[List[str], str, str]] = []
         self.__constraints_gen__: List[Tuple[List[str], str, str, List[str | float]]] = []
-        # Priors do not have deferred_vars, so they're just (var, dist, params)
+        # Priors do not have grid vars, so they're just (var, dist, params)
         self._priors: List[Tuple[str, str, List[str | float]]] = []
 
     def set_from_toml(self, filename: str | Path) -> None:
@@ -186,7 +186,7 @@ class ModelBuilder():
                     assert value[0] not in GridGenerator.grids().keys()
                     self.assign(key, value.pop(0))
                     if len(value) > 0:
-                        self._unpack_distribution("l." + key, value)
+                        self._unpack_distribution("v." + key, value)
         if "prior" in model.keys():
             for key, value in model['prior'].items():
                 if self.verbose:
@@ -202,7 +202,7 @@ class ModelBuilder():
                         assert "--" not in key, f"Unexpected indexing of single-interpolated grid {grid}.{key}"
                     if self.verbose:
                         print(f"d.{grid}.{key} = {value}")
-                    self._unpack_distribution(f"d.{grid}.{key}", value)
+                    self._unpack_distribution(f"g.{grid}.{key}", value)
         if "override" in model.keys():
             for key, override in model['override'].items():
                 if self.verbose:
@@ -224,7 +224,7 @@ class ModelBuilder():
             self.optional_likelihood_terms = bool(model['options'].get('optional_likelihood_terms', False))
 
     def override_mapping(self, key: str, value: str):
-        '''Sets the value or symbol to use a deferred variable, often grid variables.
+        '''Sets the value or symbol to use for a grid variable.
 
         This can be used to fix grid axes to a particular value, or make them depend on some
         additional grid output or calculation.  Grid inputs are set by default according to
@@ -232,7 +232,7 @@ class ModelBuilder():
         default to being a parameter named "p.{input_name}".
 
         Args:
-            key: The deferred variable key, e.g. "d.grid.output_var" or "d.nongrid_var".
+            key: The deferred variable key, e.g. "g.grid.output_var" or "g.nongrid_var".
             value: What to set the variable to wherever it appears.
 
         Examples:
@@ -244,17 +244,17 @@ class ModelBuilder():
             In the same circumstance, if you wanted to set logG to 2% higher than
             what the evolution tracks output (as a sensitivity test, perhaps), you could use::
 
-                builder.override_input("mist.logG", "1.02*d.mistTracks.logG")
+                builder.override_input("mist.logG", "1.02*g.mistTracks.logG")
 
             Note that this uses another grid via a deferred variable.  Starlord detectrs this
-            via the "d." prefix.  In fact, the default input refers to d.mistTracks.logG already.
+            via the "g." prefix.  In fact, the default input refers to g.mistTracks.logG already.
         '''
         if self.verbose:
             print(f"  ModelBuilder.override_input('{key}', '{value}')")
         key = key.replace(".", "__")
         match = ModelBuilder.overridable_regex.fullmatch(key)
         assert match is not None, f"Invalid override key: {key}."
-        grid_name, name, index = match.groups()
+        grid_name, name, _ = match.groups()
         if grid_name is not None:
             assert grid_name in GridGenerator.grids(), f"Unrecognized grid name {grid_name} in override of {key}."
             grid = GridGenerator.get_grid(grid_name)
@@ -287,7 +287,7 @@ class ModelBuilder():
         '''Adds a likelihood component that sets a local variable to the given expression.
 
         Args:
-            var: The variable to be assigned (e.g. `l.varname`)
+            var: The variable to be assigned (e.g. `v.varname`)
             expr: The value or expression to set the variable to (e.g. `math.log10(p.mass)`)
 
         Example:
@@ -295,8 +295,8 @@ class ModelBuilder():
             the sqrt(bar).  Rather than propagating uncertainties (an approximation),
             you could instead use::
 
-                builder.assign("l.sqrt_bar", "math.sqrt(foo.bar)")
-                builder.constraint("l.sqrt_bar", "normal", ["c.sqrt_bar_mu", "c.sqrt_bar_sigma"])
+                builder.assign("v.sqrt_bar", "math.sqrt(foo.bar)")
+                builder.constraint("v.sqrt_bar", "normal", ["c.sqrt_bar_mu", "c.sqrt_bar_sigma"])
 
             Grid names are resolved in expr as usual.  I've written the mean and uncertainty
             as (arbitrarily-named) constants to set later, but you can use literals instead
@@ -305,9 +305,9 @@ class ModelBuilder():
         if self.verbose:
             print(f"  ModelBuilder.assignment('{var}', {expr})")
         # l is implied if it is omitted.
-        if not var.startswith("l.") or var.startswith("{"):
+        if not var.startswith("v.") or var.startswith("{"):
             assert "." not in var
-            var = "l." + var
+            var = "v." + var.strip(" {}")
         ModelBuilder.is_valid_param(var)
         deferred_vars, expr = DeferredResolver.extract_deferred(expr)
         self._gen = None
@@ -509,12 +509,12 @@ class DeferredResolver:
     can optionally generate the required code_generator components and produce
     a log file of the solution.'''
 
-    # Matches deferred variables like d.foo, d.grid.foo, or d.grid.1-foo
-    find_input_deferred = re.compile(r"(?<!\w)d(?:\.([a-zA-Z_]\w+))?\.([a-zA-Z1-9]\w*)(?:--([a-z\d]+))?")
+    # Matches grid variables like g.foo, g.grid.foo, or g.grid.1-foo
+    find_input_deferred = re.compile(r"(?<!\w)g(?:\.([a-zA-Z_]\w+))?\.([a-zA-Z1-9]\w*)(?:--([a-z\d]+))?")
     # Matches deferred variable keys like {foo}, {grid__foo}, or {grid__foo--1}
     find_keys_deferred = re.compile(r"{(?:(\w+?)__)?(\w+)(?:--([a-z\d]+))?}")
-    # Matches indexed code_generator varibles like "p.stuff--i" or "l.grid__var--3"
-    find_indexed_vars = re.compile(r"(?<!\w)([pcl])\.([a-zA-Z_]\w*)(?:--(\w+))?")
+    # Matches indexed code_generator varibles like "p.stuff--i" or "g.grid__var--3"
+    find_indexed_vars = re.compile(r"(?<!\w)([pcv])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
     @property
     def txt(self) -> _TextFormatCodes_:
@@ -523,7 +523,7 @@ class DeferredResolver:
         return config.text_format_off
 
     def __init__(self, user_map: dict[str, str], multiplicity: dict[str, int] = {}, verbose=False, fancy_text=False):
-        self.user_map = {k.removeprefix("d.").replace(".", "__"): v for k, v in user_map.items()}
+        self.user_map = {k.removeprefix("g.").replace(".", "__"): v for k, v in user_map.items()}
         self.multiplicity = multiplicity
         self.verbose = verbose
         self.fancy_text = fancy_text
@@ -537,7 +537,7 @@ class DeferredResolver:
         self.def_map: dict[str, str] = {}
 
     def resolve_all(self, dvars: set[str]) -> None:
-        dvars = {d.strip(" {}").removeprefix("d.").replace(".", "__") for d in dvars}
+        dvars = {d.strip(" {}").removeprefix("g.").replace(".", "__") for d in dvars}
         unresolved = dvars - set(self.def_map.keys())
         while len(unresolved) > 0:
             target = unresolved.pop()
@@ -581,17 +581,17 @@ class DeferredResolver:
             key_no_index = f"{grid_name}.{name}" if grid_name else name
             code = ""
             if index.lower() == "sum":
-                code = " + ".join([f"d.{key_no_index}--{i+1}" for i in range(multi)])
+                code = " + ".join([f"g.{key_no_index}--{i+1}" for i in range(multi)])
             elif index.lower() == "mean":
-                code = " + ".join([f"d.{key_no_index}--{i+1}" for i in range(multi)])
+                code = " + ".join([f"g.{key_no_index}--{i+1}" for i in range(multi)])
                 code = f"({code}) / {multi}"
             elif index.lower() in "blend":
-                code = " + ".join([f"10**(-d.{key_no_index}--{i+1}/2.5)" for i in range(multi)])
+                code = " + ".join([f"10**(-g.{key_no_index}--{i+1}/2.5)" for i in range(multi)])
                 code = f"-2.5*math.log10({code})"
             else:
                 raise ValueError(f"Composite name {index} in {key} not recognized.")
             dependencies, code = DeferredResolver.extract_deferred(code, index)
-            value = f"l.{key.replace('--', '__')}"
+            value = f"v.{key.replace('--', '__')}"
             self.graph[key] = (dependencies, value, code)
             code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
             self.new_components.append((grid_name, index, name, code))
@@ -607,17 +607,17 @@ class DeferredResolver:
                 value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
             elif name in grid.outputs:
                 # Grid output, need an interpolation component
-                inputs_str = ", ".join([f"d.{grid_name}__{i}--i" for i in grid.inputs])
+                inputs_str = ", ".join([f"g.{grid_name}__{i}--i" for i in grid.inputs])
                 code = f"c.grid__{grid_name}__{name}._interp{grid.ndim}d({inputs_str})"
                 dependencies, code = DeferredResolver.extract_deferred(code, index)
-                value = f"l.{key.replace('--', '__')}"
+                value = f"v.{key.replace('--', '__')}"
                 self.graph[key] = (dependencies, value, code)
                 code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
                 self.new_components.append((grid_name, index, name, code))
             elif name in grid.derived:
                 # Grid derived value, need assignment component
                 dependencies, code = DeferredResolver.extract_deferred(grid.derived[name], index)
-                value = f"l.{key.replace('--', '__')}"
+                value = f"v.{key.replace('--', '__')}"
                 self.graph[key] = (dependencies, value, code)
                 code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
                 self.new_components.append((grid_name, index, name, code))
@@ -625,7 +625,7 @@ class DeferredResolver:
                 raise ValueError(f"Key {name} not in grid {grid_name}.")
 
         # Value is now fully resolved, so record and return it.
-        self.log.append(("  " * (len(self.stack) - 1) + f"d.{key} ").ljust(40) + value)
+        self.log.append(("  " * (len(self.stack) - 1) + f"g.{key} ").ljust(40) + value)
         self.def_map[key] = value
         self.stack.remove(key)
         return value
@@ -654,11 +654,11 @@ class DeferredResolver:
         g = graphviz.Digraph("Deferred Variables", node_attr={'fontname': 'monospace', 'shape': 'box'})
         for key, value in self.graph.items():
             bgcolor = "#E5E5E5" if value[2] != "" else "white"
-            label = r"< <B>d." + key + r'</B><BR/>'
+            label = r"< <B>g." + key + r'</B><BR/>'
             label += value[1] if value[2] == "" else value[2]
             label += " >"
             # Text processing for better graph appearance
-            label = label.replace("{", "d.").replace("}", "")
+            label = label.replace("{", "g.").replace("}", "")
             label = re.sub(r"c.grid__(\w*)__(\w*)._interp\dd", r"c.\g<1>__\g<2>", label)
             label = re.sub(r"(?<!\w)(l(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="green">\g<1></FONT>', label)
             label = re.sub(r"(?<!\w)(c(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="blue">\g<1></FONT>', label)
@@ -674,7 +674,7 @@ class DeferredResolver:
     @staticmethod
     def extract_deferred(source: str, index: str = "") -> Tuple[List[str], str]:
         '''Extracts grid names from the source string and replaces them with deferred variables.'''
-        # Identifies deferred variables of the form "d.foo.bar"
+        # Identifies deferred variables of the form "g.foo.bar"
         vars = []
         replace_grids = partial(DeferredResolver._replace_grid_name, accum=vars, index_in=index)
         source = DeferredResolver.find_input_deferred.sub(replace_grids, source)

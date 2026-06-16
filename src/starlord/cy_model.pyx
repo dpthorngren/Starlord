@@ -30,7 +30,7 @@ cdef class BaseModel:
     # ===== Functions not overridden by subclasses =====
     cpdef dict forward_model(self, double[:] params):
         self._forward_model(params)
-        return {k: getattr(self, "l__"+k) for k in self.var_names}
+        return {k: getattr(self, "v__"+k) for k in self.var_names}
 
     cpdef double log_like(self, double[:] params):
         self._forward_model(params)

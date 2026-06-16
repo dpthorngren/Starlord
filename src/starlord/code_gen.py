@@ -19,7 +19,7 @@ from ._config import __version__, _TextFormatCodes_, config
 from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
 
 _VarCache = NamedTuple(
-    'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('l', tuple[Symb]), ('map', dict[str, str])])
+    'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('v', tuple[Symb]), ('map', dict[str, str])])
 
 
 class CodeGenerator:
@@ -56,7 +56,7 @@ class CodeGenerator:
 
     @property
     def locals(self) -> tuple[Symb]:
-        return self.variables.l
+        return self.variables.v
 
     @property
     def mapping(self) -> dict[str, str]:
@@ -230,21 +230,21 @@ class CodeGenerator:
         '''Specify a general expression to add to the code.  Assignments and variables used will be
         automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
         provides = set()
-        # Finds assignment blocks like "l.foo = " and "l.bar, l.foo = "
-        assigns = re.findall(r"^\s*[pcl]\.[A-Za-z_]\w*\s*(?:,\s*[pcl]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
+        # Finds assignment blocks like "v.foo = " and "v.bar, v.foo = "
+        assigns = re.findall(r"^\s*[pcv]\.[A-Za-z_]\w*\s*(?:,\s*[pcv]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
         assigns += re.findall(
-            r"^\s*\(\s*[pcl]\.[A-Za-z_]\w*\s*(?:,\s*[pcl]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
-        # Same as above but covers when vars are enclosed by parentheses like "(l.a, l.b) ="
+            r"^\s*\(\s*[pcv]\.[A-Za-z_]\w*\s*(?:,\s*[pcv]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
+        # Same as above but covers when vars are enclosed by parentheses like "(v.a, v.b) ="
         assigns += re.findall(
-            r"^\s*\(\s*[pcl]\.[A-Za-z_]\w*\s*(?:,\s*[pca]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
+            r"^\s*\(\s*[pcv]\.[A-Za-z_]\w*\s*(?:,\s*[pcv]\.[A-Za-z_]\w*)*\s*\)\s*=(?!=)", expr, flags=re.M)
         for block in assigns:
             # Handles parens, multiple assignments, extra whitespace, and removes the "="
             block = block[:-1].strip(" ()")
-            # Block now looks like "l.foo" or "l.foo, l.bar"
+            # Block now looks like "v.foo" or "v.foo, v.bar"
             for var in block.split(","):
                 var = var.strip()
-                # Verify that the result is a local var "l.foo"
-                assert var[:2] == "l.", var
+                # Verify that the result is a local var "v.foo"
+                assert var[:2] == "v.", var
                 provides.add(Symb(var))
         code, variables = self._extract_params(expr)
         requires = variables - provides
@@ -255,8 +255,8 @@ class CodeGenerator:
         self._vars_out_of_date = True
 
     def assign(self, var: str, expr: str) -> None:
-        # If l or b is omitted, l is implied
-        var = Symb(var if re.match(r"^l\.", var) is not None else f"l.{var}")
+        # If v is omitted, it is implied
+        var = Symb(var if re.match(r"^v\.", var) is not None else f"v.{var}")
         code, variables = self._extract_params(expr)
         comp = AssignmentComponent.create(var, code, variables - {var})
         if self.verbose:
@@ -280,10 +280,10 @@ class CodeGenerator:
 
     @staticmethod
     def fancy_print(source, txt):
-        source = re.sub(r"(?<!\w)(d\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.red}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(g\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.red}\\g<1>{txt.end}", source)
         source = re.sub(r"(?<!\w)(p\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source)
         source = re.sub(r"(?<!\w)(c\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", source)
-        source = re.sub(r"(?<!\w)(l\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(v\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", source)
         source = re.sub(r"(?<!\033\[)(?<![\w\\])([+-]?(?:[0-9]*[.])?[0-9]+)", f"{txt.blue}\\g<1>{txt.end}", source)
         return source
 
@@ -306,7 +306,7 @@ class CodeGenerator:
         components = components.copy()
         while len(components) > 0:
             for comp in components:
-                reqs = {c for c in comp.requires if c[:2] == "l." and c not in initialized}
+                reqs = {c for c in comp.requires if c[:2] == "v." and c not in initialized}
                 if len(reqs) == 0:
                     initialized = initialized | comp.provides
                     result.append(comp)
@@ -327,7 +327,7 @@ class CodeGenerator:
                     params.add(sym)
                 elif sym.label == "c":
                     consts.add(sym)
-                elif sym.label == "l":
+                elif sym.label == "v":
                     locals.add(sym)
                 else:
                     raise ValueError(f"Invalid symbol {sym}.")
@@ -339,7 +339,7 @@ class CodeGenerator:
         Variables can be constants "c.name", parameters "p.name", or local variables "l.name".'''
         vars = set()
         replace_var = partial(CodeGenerator._replace_var, vars=vars)
-        template = re.sub(r"(?<!\w)([pcl]\.[A-Za-z_]\w*)", replace_var, source, flags=re.M)
+        template = re.sub(r"(?<!\w)([pcv]\.[A-Za-z_]\w*)", replace_var, source, flags=re.M)
         return template, vars
 
     @staticmethod

@@ -9,10 +9,10 @@ from starlord.samplers import SamplerBuiltin
 @pytest.mark.flaky(reruns=3)
 def test_initial_state_generator():
     builder = starlord.ModelBuilder()
-    builder.assign("l.asquared", "p.a*p.a")
-    builder.constraint("l.asquared", "normal", [2.5, 0.1])
-    builder.assign("l.ratio", "p.a * p.b")
-    builder.constraint("l.ratio", "normal", [2.0, 0.3])
+    builder.assign("v.asquared", "p.a*p.a")
+    builder.constraint("v.asquared", "normal", [2.5, 0.1])
+    builder.assign("v.ratio", "p.a * p.b")
+    builder.constraint("v.ratio", "normal", [2.0, 0.3])
     builder.prior("p.a", "uniform", [0.0, 6.0])
     builder.prior("p.b", "uniform", [0.0, 10])
 
@@ -30,10 +30,10 @@ def test_initial_state_generator():
 @pytest.mark.flaky(reruns=3)
 def test_builtin_run():
     builder = starlord.ModelBuilder()
-    builder.assign("l.sina", "math.sin(p.a)")
-    builder.constraint("l.sina", "normal", [0.5, 0.1])
-    builder.assign("l.ratio", "p.a / p.b")
-    builder.constraint("l.ratio", "normal", ["c.ratio", 0.3])
+    builder.assign("v.sina", "math.sin(p.a)")
+    builder.constraint("v.sina", "normal", [0.5, 0.1])
+    builder.assign("v.ratio", "p.a / p.b")
+    builder.constraint("v.ratio", "normal", ["c.ratio", 0.3])
     builder.prior("p.a", "uniform", [0., 3.14159 / 2.])
     builder.prior("p.b", "uniform", [0.001, 10])
 

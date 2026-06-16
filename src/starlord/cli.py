@@ -166,7 +166,7 @@ def main():
         for name, value in zip(sampler.param_names, test_case):
             print(f"p.{name:<{padding}}  {value:.6}")
         for name, value in out.items():
-            print(f"l.{name:<{padding}}  {value:.6}")
+            print(f"v.{name:<{padding}}  {value:.6}")
         print("log_like".ljust(padding), f"   {sampler.model.log_like(test_case):.6}")
         print("log_prior".ljust(padding), f"   {sampler.model.log_prior(test_case):.6}")
     if args.dry_run:

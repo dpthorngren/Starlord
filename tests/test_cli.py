@@ -45,9 +45,9 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     assert "from starlord.cy_tools cimport *\n" in captured.out
     assert "\n    cpdef double[:] prior_transform(self, double[:] params):\n" in captured.out
     # Key terms in the output present?
-    assert "\n        logL += normal_lpdf(self.l__A, 0.5, 0.25)\n" in captured.out
+    assert "\n        logL += normal_lpdf(self.v__A, 0.5, 0.25)\n" in captured.out
     assert "\n        params[0] = normal_ppf(params[0], -5.0, 5.0)" in captured.out
-    assert "\n        self.l__A = math.exp(params[0])" in captured.out
+    assert "\n        self.v__A = math.exp(params[0])" in captured.out
     # Summary was printed?
     assert "Variables" in captured.out
     # Check that the params match expectations
@@ -58,7 +58,7 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     localSummary = re.search(r"^Locals:\s+(.*)$", captured.out, flags=re.M)
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
-    assert locals == ['l.A', 'l.B', 'l.dummy__v1', 'l.temp']
+    assert locals == ['v.A', 'v.B', 'v.dummy__v1', 'v.temp']
     constSummary = re.search(r"^Constants:\s+(.*)$", captured.out, flags=re.M)
     assert constSummary is not None
     consts = list(map(str.strip, constSummary.group(1).split(",")))
@@ -81,9 +81,9 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     # assert "dummy g1, v1, v2" in captured
     # assert "rdummy c" in captured
     assert "Params:     p.b, p.x, p.y" in captured
-    assert "l.dummy__g1 = 2.5*(5+p.x) + l.dummy__v1" in captured
-    assert "Exponential(l.dummy__v2 | 1.0)" in captured
-    assert "Normal(l.rdummy__c | 0.0, 1.0)" in captured
+    assert "v.dummy__g1 = 2.5*(5+p.x) + v.dummy__v1" in captured
+    assert "Exponential(v.dummy__v2 | 1.0)" in captured
+    assert "Normal(v.rdummy__c | 0.0, 1.0)" in captured
     # Test CLI
     monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/dummy_grid.toml', '-dpt', '"0.5,3.5,5.5"'])
     cli.main()
@@ -91,10 +91,10 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     print(captured)
     assert "\n    Test Case" in captured
     assert "\np.b          0.5" in captured
-    assert "\nl.dummy__g1  26.3" in captured
-    assert "\nl.dummy__v1  5.1" in captured
-    assert "\nl.dummy__v2  24.7" in captured
-    assert "\nl.rdummy__c  30.1" in captured
+    assert "\nv.dummy__g1  26.3" in captured
+    assert "\nv.dummy__v1  5.1" in captured
+    assert "\nv.dummy__v2  24.7" in captured
+    assert "\nv.rdummy__c  30.1" in captured
     assert "\nlog_like     -481.4" in captured
     assert "\nlog_prior    -0.495" in captured
     # Test that the retrieval runs (it's nonsense, so ignore output values)

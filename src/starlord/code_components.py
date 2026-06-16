@@ -51,7 +51,7 @@ class Symb(str):
         except ValueError:
             if type(source) is str:
                 source = source.strip("{ }").replace("-", "_")
-                if re.fullmatch(r"[pcl]\.[A-Za-z_]\w*", source):
+                if re.fullmatch(r"[pcv]\.[A-Za-z_]\w*", source):
                     return super().__new__(cls, source)
             raise ValueError(f'Could not interpret "{source}" as a symbol or literal.') from None
 
@@ -105,7 +105,7 @@ class AssignmentComponent(Component):
 
     @classmethod
     def create(cls, var: Symb, expr: str, requires: set[Symb]):
-        assert var.label in "lb"
+        assert var.label == "v"
         return cls(requires, set([var]), expr)
 
     def display(self) -> str:

@@ -14,21 +14,21 @@ from starlord._config import __version__, _load_config, config
 
 def test_expressions():
     g = CodeGenerator()
-    g.expression("l.foo = np.sin(p.stuff)")
+    g.expression("v.foo = np.sin(p.stuff)")
     assert len(g._like_components) == 1
     comp = g._like_components[0]
     # Check variable processing
     assert comp.requires == {"p.stuff"}
-    assert comp.provides == {"l.foo"}
+    assert comp.provides == {"v.foo"}
     assert comp.code.count("np.") == 1
-    assert comp.code.count("l__foo") == 1
-    assert comp.code.count("l.foo") == 0
+    assert comp.code.count("v__foo") == 1
+    assert comp.code.count("v.foo") == 0
     assert comp.code.count("p__stuff") == 1
     assert comp.code.count("p.stuff") == 0
     # Check variable aggregation
     assert g.variables is not None
     assert g.params == ("p.stuff",)
-    assert g.locals == ("l.foo",)
+    assert g.locals == ("v.foo",)
     assert g.constants == ()
     # Check summary function
     s = g.summary().splitlines()

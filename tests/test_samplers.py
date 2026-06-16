@@ -15,10 +15,10 @@ def test_grid_retrieval(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     builder = starlord.ModelBuilder(True)
-    builder.assign("foo", "d.dummy.v1 + c.offset")
-    builder.constraint("l.foo", "trunc_normal", [0.5, 0.1, -10, 10.])
-    builder.constraint("d.dummy.g2", "normal", [0.5, 2.3])
-    builder.constraint("d.dummy.v2", "normal", [1.5, 1.3])
+    builder.assign("foo", "g.dummy.v1 + c.offset")
+    builder.constraint("v.foo", "trunc_normal", [0.5, 0.1, -10, 10.])
+    builder.constraint("g.dummy.g2", "normal", [0.5, 2.3])
+    builder.constraint("g.dummy.v2", "normal", [1.5, 1.3])
     builder.prior("x", "uniform", [-5., 5.])
     builder.prior("y", "uniform", [0.1, 10.0])
     print(builder.summary())
@@ -28,8 +28,8 @@ def test_grid_retrieval(dummy_grids: Path):
     print(code)
     hash = starlord.CodeGenerator._compile_to_module(code)
     print(hash)
-    assert len(re.findall(r"l__dummy__v1 = ", code)) == 1
-    assert builder.code_generator.locals == ('l.dummy__g1', 'l.dummy__g2', 'l.dummy__v1', 'l.dummy__v2', 'l.foo')
+    assert len(re.findall(r"v__dummy__v1 = ", code)) == 1
+    assert builder.code_generator.locals == ('v.dummy__g1', 'v.dummy__g2', 'v.dummy__v1', 'v.dummy__v2', 'v.foo')
     assert builder.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__dummy__v2', 'c.offset')
     sampler = builder.build_sampler("emcee", {'offset': 1.5})
 
@@ -93,10 +93,10 @@ def test_grid_retrieval(dummy_grids: Path):
 def test_retrieval(capsys: pytest.CaptureFixture):
     builder = starlord.ModelBuilder(True, False)
     builder.assign("blah", "p.foo")
-    builder.constraint("l.blah", "beta", [15., 25])
+    builder.constraint("v.blah", "beta", [15., 25])
     builder.prior("foo", "uniform", [0., 1.])
-    builder.expression("l.stuff = p.bar + c.offset")
-    builder.constraint("l.stuff", "normal", [5., 2])
+    builder.expression("v.stuff = p.bar + c.offset")
+    builder.constraint("v.stuff", "normal", [5., 2])
     builder.prior("bar", "normal", [0., 10.])
 
     # Test that the summaries were reasonable
@@ -112,7 +112,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     localSummary = re.search(r"^Locals:\s+(.*)$", captured.out, flags=re.M)
     assert localSummary is not None
     locals = list(map(str.strip, localSummary.group(1).split(",")))
-    assert locals == ['l.blah', 'l.stuff']
+    assert locals == ['v.blah', 'v.stuff']
 
     # Check that the summary prints properly (largely formats result.stats())
     sampler = builder.build_sampler("dynesty", {'offset': 1.5})
