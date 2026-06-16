@@ -11,8 +11,8 @@ from ._config import _TextFormatCodes_, config
 from .code_components import _num_params
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
-from .samplers import SamplerBuiltin, SamplerEnsemble, SamplerNested
 from .io import read_model_toml
+from .samplers import SamplerBuiltin, SamplerEnsemble, SamplerNested
 
 
 class ModelBuilder():

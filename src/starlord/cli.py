@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(
         "starlord", description="Fit stellar observations with starlord from the command line.")
     parser.add_argument(
-        "input", type=Path, nargs="?", default=None, help="A toml file to load run settings from (optional)")
+        "input", type=Path, nargs="?", default=None, help="An input model toml, grid npz, or posterior npz file.")
     parser.add_argument(
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
     parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
@@ -55,8 +55,11 @@ def main():
     if args.grids:
         if args.input is not None:
             grid_name = str(args.input)
-            assert grid_name in GridGenerator.grids(), f"Grid {grid_name} not found."
-            g = GridGenerator.get_grid(grid_name)
+            if grid_name.endswith('.npz'):
+                g = GridGenerator(grid_name)
+            else:
+                assert grid_name in GridGenerator.grids(), f"Grid {grid_name} not found."
+                g = GridGenerator.get_grid(grid_name)
             g.summary(True, fancy_text=not args.plain_text)
             return
         print("Available grids:")
