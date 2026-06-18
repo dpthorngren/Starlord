@@ -97,6 +97,18 @@ def test_model_builder_variables():
     fitter.assign("something", "3.5*(p.foo - c.bar)")
 
 
+def test_errors(dummy_grids: Path):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    with raises(AssertionError):
+        builder = starlord.ModelBuilder()
+        builder.constraint("g.doesntexist.foo", 'normal', [1.0, 0.1])
+    with raises(AssertionError):
+        d = {'asdfasdf': {'foo': 45}}
+        builder = starlord.ModelBuilder()
+        builder.set_from_dict(d)
+
+
 def test_recursive_grids(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()

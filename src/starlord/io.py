@@ -31,6 +31,10 @@ def read_model_toml(filename: str | Path) -> dict:
     # TODO: Handle syntax errors in the toml file
     with open(filename, 'rb') as f:
         results = tomllib.load(f)
+    # Report ignored sections
+    for section in results.keys():
+        if section not in ['model', 'sampling', 'output']:
+            print(f"Warning, section {section} in input file {filename} is not used.")
     return results
 
 

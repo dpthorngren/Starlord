@@ -165,6 +165,10 @@ class ModelBuilder():
         '''
         if self.verbose:
             print(f"    {self.txt.underline}Model Processing{self.txt.end}")
+        valid = ['multiplicity', 'expr', 'var', 'prior', 'override', 'outputs', 'options']
+        grids = GridGenerator.grids().keys()
+        for k in model.keys():
+            assert k in valid or k in grids, f"Model key '{k}' was neither a known grid ({grids}) or keyword ({valid})"
         if "multiplicity" in model.keys():
             for key, num in model['multiplicity'].items():
                 if self.verbose:
@@ -192,7 +196,7 @@ class ModelBuilder():
                 if self.verbose:
                     print(f"prior.{key} = {value}")
                 self._unpack_distribution("p." + key, value, True)
-        for grid in GridGenerator.grids().keys():
+        for grid in grids:
             if grid in model.keys():
                 for key, value in model[grid].items():
                     assert len(value) in [2, 3]

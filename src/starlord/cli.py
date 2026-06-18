@@ -101,11 +101,6 @@ def main():
 
     settings.update(io.read_model_toml(args.input))
 
-    # Report ignored sections
-    for section in settings.keys():
-        if section not in ['model', 'sampling', 'output']:
-            print(f"Warning, section {section} in input file {args.input} is not used.")
-
     # Update settings with command line arguments (TODO: More CLI options)
     if args.output:
         settings['output']['file'] = args.output
