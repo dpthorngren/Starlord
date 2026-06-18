@@ -557,7 +557,7 @@ class DeferredResolver:
             return self.def_map[key]
 
         # Detect circular definitions
-        assert dvar not in self.stack, f"The definition of {dvar} is circular."
+        assert key not in self.stack, f"The definition of {dvar} is circular."
         self.stack.append(key)
 
         # Get the value to sub in for symbol
