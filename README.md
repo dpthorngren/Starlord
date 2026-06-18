@@ -11,6 +11,15 @@ A Python library for Bayesian fits of models with gridded functions to data, wit
 
 This project has reached an alpha release.  There are many missing features (see [roadmap](#roadmap)) and very likely some bugs.  Please let me know if you find any.
 
+> [!WARNING]
+> The documentation has not yet been updated to the beta version, which implements breaking changes. The changes are:
+> - Variables are annotated by `v.` rather than `l.`
+> - Grid lookup variables are annotated with `g.` rather than `d.`
+> - Sampler arguments are specified in the TOML inputs as a sub dict (e.g. `builtin.thin.progress = True`) rather than by underscore (e.g. `builtin_thin.progress = True`)
+> - Grid variable names have changed (see `starlord -g grid_name`)
+> 
+> This note will be removed once the documentation is back up to date.
+
 Installation
 --------------------
 All the dependencies can be handled by Pip, though note that we do not support Python 2.  This package is not yet on PyPi and so must be installed from this repository.  This can be done either by installing it directly with Pip:
