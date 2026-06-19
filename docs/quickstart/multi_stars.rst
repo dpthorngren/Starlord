@@ -2,11 +2,11 @@ Multiple Star Systems
 =====================
 Starlord is capable of modeling multi-star systems, but specifying the model for such systems requires additional work. The key factors are:
 
-:Multiplicity: The number of stars in the system is set with e.g. ``multiplicity.mist = 2``; in this case a binary system using the Mist grid.
+:Multiplicity: The number of stars in the system is set with e.g. ``multiplicity2.mist = 2``; in this case a binary system using the Mist2 grid.
 :Indexing: Grid variables, parameters, etc are indexed with ``--i``, where ``i`` is the star's index, between 1 and the specified multiplicity. This may be used for e.g. setting separate mass priors or unblended photometry.
 :Blending: If a photometric band blends the light from all stars, this can be specified with ``--blend`` instead of an index, which computes the bands for all stars and combines them appropriately.
 :Shared Parameters: Grid inputs and parameters may be shared among stars or kept separate. The provided Starlord grids are set up to assume physically associated stars, with metallicity, age, parallax, and extinction shared, but different masses. To relax some or all of these assumptions see `Separating the Parameters`_ and `Physically Unassociated Stars`_.
-:Disambiguation: To obtain unambiguous outputs, it is helpful to write the model such that the stars cannot swap parameters without changing the model probability. This may be done in the priors, but the example below (``var.mass_Difference``) shows how to specify that one star must be more massive than the other.
+:Disambiguation: To obtain unambiguous outputs, it is helpful to write the model such that the stars cannot swap parameters without changing the model probability. This may be done in the priors, but the example below (``var.mass_difference``) shows how to specify that one star must be more massive than the other.
 
 Stellar Companions
 -----------------------------
@@ -20,33 +20,32 @@ Running this with `starlord wasp77.toml`, we obtain:
 .. code:: none
 
          Name                            Mean         Std         16%         50%         84%
-       0 Av                           0.02797    0.002072     0.02681     0.02774     0.02867
-       1 feh0                        -0.09599      0.0764     -0.1736     -0.1041     -0.0304
-       2 logAge                       -0.2873      0.5584     -0.9424     -0.2681      0.3373
-       3 logMass0__1                 -0.03729     0.02678    -0.04788     -0.0338    -0.01953
-       4 logMass0__2                  -0.1535     0.06353     -0.1867     -0.1609     -0.1402
-       5 parallax                       9.506     0.01798       9.488       9.506       9.524
+       0 Av                           0.02775    0.001071     0.02681     0.02774     0.02872
+       1 feh                          -0.1007     0.09443     -0.1763     -0.1273    -0.03533
+       2 log_age                      -0.2151      0.7554       -1.12     -0.2062      0.6564
+       3 log_mass0__1                 0.03902      0.1421    -0.03652    -0.02643      0.2117
+       4 log_mass0__2                 -0.1543     0.07182     -0.1965     -0.1727    -0.06715
+       5 parallax                       9.508     0.01835        9.49       9.508       9.527
     -----------------------------------------------------------------------------------------
-       6 mistTracks__logRadius__1    -0.07982     0.02426    -0.09093    -0.07622    -0.06298
-       7 mistTracks__logG__1             4.56     0.02583        4.54       4.558       4.577
-       8 mistTracks__logL__1          -0.2224       0.134     -0.2323      -0.198     -0.1695
-       9 mistTracks__logTeff__1         3.746     0.02226       3.748        3.75       3.751
-      10 mistTracks__logRadius__2     -0.1808     0.07839     -0.2102     -0.1917     -0.1786
-      11 mistTracks__logG__2            4.646     0.09619        4.65       4.663       4.678
-      12 mistTracks__logL__2          -0.7686      0.2992     -0.9428     -0.8009     -0.6878
-      13 mistTracks__logTeff__2          3.66     0.03794       3.631       3.657       3.679
+       6 log_like                      -37.86       26.37       -53.2      -30.21      -29.01
+       7 log_prior                      4.023       3.095       3.295       4.502       5.062
+       8 mist2__log_radius__1         -0.4779       0.758      -1.887    -0.07939    -0.06953
+       9 mist2Tracks__log_g__1          5.321       1.436       4.551       4.567       7.971
+      10 mist2__log_lum__1            -0.9354       1.471      -2.631      -0.195     -0.1729
+      11 mist2Tracks__log_teff__1       3.766      0.1057        3.75       3.752       3.754
+      12 mist2__log_radius__2         -0.1738     0.08178     -0.2226     -0.2026    -0.03824
+      13 mist2Tracks__log_g__2          4.631     0.09883       4.506       4.674       4.695
+      14 mist2__log_lum__2            -0.7392      0.3541     -0.9715     -0.8488     -0.1284
+      15 mist2Tracks__log_teff__2       3.663     0.04897       3.628       3.651       3.744
 
 Separating the Parameters
 -----------------------------
-In some cases, it can be helpful to prevent starlord from assuming the stars have the same age and metallicities. This requires overriding the default grid inputs from ignoring index to copying it -- e.g. from ``p.logAge`` to ``p.logAge--i``. You will need to override these variables for both the ``mistTracks`` (evolution tracks used to obtain e.g. bolometric luminosities) and ``mistInvAge`` (used internally to obtain an equivalent evolutionary point or EEP) grids.
+In some cases, it can be helpful to prevent starlord from assuming the stars have the same age and metallicities. This requires overriding the default grid inputs from ignoring index to copying it -- e.g. from ``p.log_age`` to ``p.log_age--i``. You will need to override the latter variables for the ``mistInvAge`` grid (used internally to obtain an equivalent evolutionary point or EEP), as this is the only one that references the age.
 
 .. code:: toml
 
-    override.mist.feh = "p.feh0--i"
-    override.mistTracks.feh0 = "p.feh0--i"
-    override.mistTracks.logAge = "d.mistInvAge.logAge--i"
-    override.mistInvAge.feh0 = "p.feh0--i"
-    override.mistInvAge.logAge = "p.logAge--i"
+    override.mist2.feh = "p.feh--i"
+    override.mist2InvAge.log_age = "p.log_age--i"
 
 This is admittedly a little esoteric if you don't deeply understand Starlord, but amounts to saying "if this variable is referred to by an indexed variable, propagate that index instead of omitting it". Regardless, these lines can be copied to other binary systems. Extending to triple and greater multiplicity systems is as simple as adding additional lines for each star.
 
@@ -54,35 +53,37 @@ Naturally, splitting the stars to use separate metallicities and ages means that
 
 .. code:: toml
 
-    prior.feh0--1 = ["uniform", -0.2, 0.5]
-    prior.feh0--2 = ["uniform", -0.2, 0.5]
-    prior.logAge--1 = ["uniform", -1.5, 1.2]
-    prior.logAge--2 = ["uniform", -1.5, 1.2]
+    prior.feh--1 = ["uniform", -0.2, 0.5]
+    prior.feh--2 = ["uniform", -0.2, 0.5]
+    prior.log_age--1 = ["uniform", -1.5, 1.2]
+    prior.log_age--2 = ["uniform", -1.5, 1.2]
 
-Unfortunately, it is easy to miss a parameter override while modifying Starlord's variable resolution. It is helpful to run ``starlord -da wasp77.toml`` and verify that there are no unexpected parameters in the model before running; Starlord will also output an error if you've set priors for variables that don't exist, or haven't set priors for variables that do.
+Unfortunately, it is easy to miss a parameter override while modifying Starlord's variable resolution. It is helpful to run ``starlord -da wasp77_separate.toml`` and verify that there are no unexpected parameters in the model before running. Starlord will also output an error if you've set priors for variables that don't exist, or haven't set priors for variables that do.
 
 Once the overrides and prior specifications are complete, we can again run the model in the same manner to obtain:
 
 .. code:: none
 
          Name                            Mean         Std         16%         50%         84%
-       0 Av                           0.02817    0.003346     0.02653     0.02764     0.02871
-       1 feh0__1                     -0.02224     0.08135    -0.09855    -0.02123     0.03637
-       2 feh0__2                       0.2277      0.1969   -0.002923      0.2677      0.4411
-       3 logAge__1                    -0.4263      0.5289      -1.036     -0.4433      0.1759
-       4 logAge__2                    -0.2511       0.696      -1.038     -0.3106      0.5727
-       5 logMass0__1                 -0.03152      0.0385    -0.03986    -0.01988   -0.009047
-       6 logMass0__2                  -0.1354     0.09882     -0.1897     -0.1605     -0.1268
-       7 parallax                       9.509      0.0171       9.493        9.51       9.526
+       0 Av                           0.02803    0.002153     0.02685     0.02777     0.02874
+       1 feh__1                      -0.03209      0.1518     -0.1433    -0.07972     0.09614
+       2 feh__2                        0.2493      0.1875      0.0378      0.2827      0.4564
+       3 log_age__1                   -0.3223      0.7732        -1.2     -0.4052      0.6475
+       4 log_age__2                   -0.2475      0.7535      -1.096     -0.2868        0.66
+       5 log_mass0__1                 0.04062      0.1304     -0.0303    -0.01864      0.1827
+       6 log_mass0__2                 -0.1356     0.07949     -0.1894     -0.1538    -0.02225
+       7 parallax                       9.509     0.01813       9.492       9.509       9.528
     -----------------------------------------------------------------------------------------
-       8 mistTracks__logRadius__1    -0.07559     0.03614    -0.08602    -0.06366    -0.05414
-       9 mistTracks__logG__1            4.557     0.03576       4.533       4.549       4.572
-      10 mistTracks__logL__1          -0.2351      0.1994     -0.2181     -0.1678     -0.1497
-      11 mistTracks__logTeff__1          3.74     0.03236       3.749       3.751       3.752
-      12 mistTracks__logRadius__2     -0.1571      0.1087      -0.211     -0.1875     -0.1625
-      13 mistTracks__logG__2            4.617       0.123       4.608       4.656        4.68
-      14 mistTracks__logL__2          -0.7945      0.4794      -1.072      -0.936     -0.7232
-      15 mistTracks__logTeff__2         3.641     0.06761       3.597       3.621       3.667
+       8 log_like                      -39.06       21.34      -64.71      -28.93      -27.51
+       9 log_prior                       1.17        19.9       2.511       3.859       4.422
+      10 mist2__log_radius__1         -0.4734       0.759      -1.889    -0.07313    -0.06314
+      11 mist2Tracks__log_g__1          5.316       1.432       4.548       4.562       7.973
+      12 mist2__log_lum__1            -0.9372       1.474      -2.893      -0.178     -0.1576
+      13 mist2Tracks__log_teff__1       3.764     0.08656       3.751       3.753       3.755
+      14 mist2__log_radius__2          -0.168     0.07701     -0.2177     -0.1889    -0.04643
+      15 mist2Tracks__log_g__2          4.638     0.08012       4.534       4.664       4.694
+      16 mist2__log_lum__2            -0.7878      0.3846      -1.062     -0.9159     -0.1301
+      17 mist2Tracks__log_teff__2       3.648     0.05944       3.604       3.628        3.75
 
 Physically Unassociated Stars
 -----------------------------
@@ -92,8 +93,8 @@ This is done exactly as it was above, except that both of these variables are di
 
 .. code:: toml
 
-    override.mist.parallax = "p.parallax--i"
-    override.mist.Av = "p.Av--i"
+    override.mist2.parallax = "p.parallax--i"
+    override.mist2.Av = "p.Av--i"
 
 Now we must also set separate priors for parallax and extinction.
 
@@ -109,25 +110,27 @@ These parameters are allowed to vary separately, but since we're using the same 
 .. code:: none
 
          Name                            Mean         Std         16%         50%         84%
-       0 Av__1                        0.02786      0.0018     0.02681     0.02772     0.02864
-       1 Av__2                        0.02799     0.00217     0.02683     0.02774     0.02869
-       2 feh0__1                     -0.02614     0.06685    -0.08296    -0.02221     0.02234
-       3 feh0__2                       0.2526      0.1954     0.01271      0.3027      0.4513
-       4 logAge__1                    -0.5668      0.4855      -1.128     -0.5781  -0.0001668
-       5 logAge__2                    -0.1798      0.7035     -0.9855     -0.2278      0.6546
-       6 logMass0__1                 -0.02113     0.02546    -0.02824    -0.01593   -0.007553
-       7 logMass0__2                  -0.1553     0.06178     -0.1888     -0.1629     -0.1371
-       8 parallax__1                    9.507     0.01773       9.489       9.507       9.525
-       9 parallax__2                    9.507     0.01773       9.489       9.507       9.524
+       0 Av__1                        0.02762    0.001253     0.02674     0.02767     0.02864
+       1 Av__2                         0.0277    0.001997     0.02684     0.02782     0.02879
+       2 feh__1                      -0.02954      0.1485     -0.1387    -0.07833      0.1068
+       3 feh__2                        0.2332      0.1705     0.05285      0.2124      0.4412
+       4 log_age__1                   -0.2596      0.6405      -1.009     -0.1615      0.3589
+       5 log_age__2                    -0.178      0.7287      -1.082     -0.1153      0.6158
+       6 log_mass0__1                  0.1062      0.1881    -0.02766    -0.01529      0.3771
+       7 log_mass0__2                 -0.1122     0.08198     -0.1827     -0.1489    0.001123
+       8 parallax__1                    9.508     0.01732       9.491       9.509       9.524
+       9 parallax__2                     9.51     0.01821       9.492        9.51       9.528
     -----------------------------------------------------------------------------------------
-      10 mistTracks__logRadius__1    -0.06794     0.02329    -0.07554    -0.06253    -0.05513
-      11 mistTracks__logG__1            4.553     0.02244       4.538       4.549       4.563
-      12 mistTracks__logL__1          -0.1915      0.1279     -0.1935     -0.1648     -0.1501
-      13 mistTracks__logTeff__1         3.747     0.02101        3.75       3.751       3.752
-      14 mistTracks__logRadius__2     -0.1813     0.06311     -0.2112       -0.19     -0.1698
-      15 mistTracks__logG__2            4.645     0.06936       4.631       4.658        4.68
-      16 mistTracks__logL__2          -0.9035      0.2958      -1.068     -0.9535     -0.8111
-      17 mistTracks__logTeff__2         3.626     0.04479       3.598       3.618       3.648
+      10 log_like                      -40.86       17.28      -64.43      -29.37      -27.63
+      11 log_prior                      6.096       18.93       6.784       8.728       9.788
+      12 mist2__log_radius__1         -0.6953      0.8709      -1.909     -0.0754    -0.06471
+      13 mist2Tracks__log_g__1          5.742       1.652       4.551       4.565       8.041
+      14 mist2__log_lum__1             -1.129       1.405      -2.595     -0.1831     -0.1613
+      15 mist2Tracks__log_teff__1       3.827      0.1507       3.752       3.754       4.074
+      16 mist2__log_radius__2         -0.1448     0.07689     -0.2117     -0.1832    -0.04045
+      17 mist2Tracks__log_g__2          4.615     0.07809       4.518       4.653       4.687
+      18 mist2__log_lum__2            -0.6801      0.4042      -1.029     -0.8874     -0.1295
+      19 mist2Tracks__log_teff__2       3.664     0.06361        3.61       3.634       3.749
 
 For completeness, here is the toml file for this case:
 

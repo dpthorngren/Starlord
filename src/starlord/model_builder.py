@@ -241,17 +241,17 @@ class ModelBuilder():
 
         Examples:
             Suppose you are fitting a stellar model and wish to lock the metallicity to solar.
-            If you're using the mist grid, you could do this with::
+            If you're using the mist2 grid, you could do this with::
 
-                builder.override_input("mist.feh", "0")
+                builder.override_input("mist2.feh", "0")
 
             In the same circumstance, if you wanted to set logG to 2% higher than
             what the evolution tracks output (as a sensitivity test, perhaps), you could use::
 
-                builder.override_input("mist.logG", "1.02*g.mistTracks.logG")
+                builder.override_input("mist2.log_g", "1.02*g.mist2Tracks.log_g")
 
-            Note that this uses another grid via a deferred variable.  Starlord detectrs this
-            via the "g." prefix.  In fact, the default input refers to g.mistTracks.logG already.
+            Note that this uses another grid via a grid lookup variable.  Starlord detects this
+            via the "g." prefix.  In fact, the default input refers to g.mist2Tracks.log_g already.
         '''
         if self.verbose:
             print(f"  ModelBuilder.override_input('{key}', '{value}')")

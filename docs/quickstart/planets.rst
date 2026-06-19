@@ -38,13 +38,13 @@ If all went well, you should see your new grid listed when you run ``starlord -g
       7 log_radius              -0.6131      2.109
     Derived
         Derived              Code
-      8 age                  10**d.hotJupiters.log_age
-      9 flux                 10**d.hotJupiters.log_flux
-     10 luminosity           10**d.hotJupiters.log_luminosity
-     11 mass                 10**d.hotJupiters.log_mass
-     12 radius               10**d.hotJupiters.log_radius
-     13 tint                 math.pow(d.hotJupiters.luminosity / (7.125593e-4 * (d.hotJupiters.radius * 6.991 ...
-     14 typical_heating      0.0237 * math.exp(-(d.hotJupiters.log_flux - 9.14)**2 / (2 * .37**2))
+      8 age                  10**g.hotJupiters.log_age
+      9 flux                 10**g.hotJupiters.log_flux
+     10 luminosity           10**g.hotJupiters.log_luminosity
+     11 mass                 10**g.hotJupiters.log_mass
+     12 radius               10**g.hotJupiters.log_radius
+     13 tint                 math.pow(g.hotJupiters.luminosity / (7.125593e-4 * (g.hotJupiters.radius * 6.991 ...
+     14 typical_heating      0.0237 * math.exp(-(g.hotJupiters.log_flux - 9.14)**2 / (2 * .37**2))
 
 Specifying the Model
 --------------------
@@ -77,20 +77,20 @@ Running the model with ``starlord planet.toml``, we obtain:
 
 .. code:: none
 
-    100%|███████████████████████████████████████████████| 5500/5500 [00:01<00:00, 3761.72it/s]
-    Convergence: Tau = 50.18; N/Tau = 99.65
+    Pre-run and burn-in done.
+    Sampling. done.
          Name                            Mean         Std         16%         50%         84%
-       0 log_age                   -0.0003021      0.5785     -0.6835   0.0002408      0.6796
-       1 log_mass                    -0.05069     0.04869    -0.09833    -0.04862    -0.00254
-       2 zpl                            0.125     0.03176     0.09352      0.1246      0.1566
+       0 log_age                       0.2871      0.3986    -0.08877      0.4047      0.6274
+       1 log_mass                    -0.05023     0.04902    -0.09838    -0.04799   -0.001777
+       2 zpl                           0.1247     0.03185     0.09322       0.124      0.1565
     -----------------------------------------------------------------------------------------
-       3 log_like                       2.471       0.997       1.644       2.779       3.292
-       4 log_prior                    -0.6931   3.967e-13     -0.6931     -0.6931     -0.6931
-       5 hotJupiters__mass             0.8954     0.09903      0.7974      0.8941      0.9942
-       6 hotJupiters__age                2.15       2.495      0.2072       1.001       4.782
-       7 hotJupiters__entropy           9.816     0.04114       9.776       9.814       9.857
-       8 hotJupiters__tint              636.1     0.09286         636       636.1       636.1
+       3 log_like                      0.4117       1.271     -0.7866      0.6778       1.632
+       4 log_prior                    -0.6931   1.382e-12     -0.6931     -0.6931     -0.6931
+       5 hotJupiters__mass             0.8964     0.09973      0.7973      0.8954      0.9959
+       6 hotJupiters__age                 2.6       1.574      0.8151       2.539       4.241
+       7 hotJupiters__entropy           9.816     0.04124       9.776       9.813       9.857
+       8 hotJupiters__tint              636.1     0.09113         636       636.1       636.1
 
-The three model parameters are listed first, then the log_likelihood, log_prior, and output values requested in the ``toml`` file.  We can see, for example, that this planet was inferred to have a metallicity of 0.125 +/- 0.032, and an intrinsic temperature of 636 K.  Because we fixed the flux and heating, the uncertainties on the latter are very small -- relaxing that assumption would get us more realistic uncertainties.
+The three model parameters are listed first, then the log_likelihood, log_prior, and output values requested in the ``toml`` file.  We can see, for example, that this planet was inferred to have a metallicity of 0.1247 +/- 0.032, and an intrinsic temperature of 636 K.  Because we fixed the flux and heating, the uncertainties on the latter are very small -- relaxing that assumption would get us more realistic uncertainties.
 
 In the model file we also specified an output file of ``hotJupiter.npz`` -- this was saved in the directory the model was run in.  The data can be loaded in using ``np.load`` or with :func:`starlord.load_to_frame` to obtain a nicely-formatted Pandas data frame of the posterior.

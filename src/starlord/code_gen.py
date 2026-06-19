@@ -336,7 +336,7 @@ class CodeGenerator:
     @staticmethod
     def _extract_params(source: str) -> tuple[str, set[Symb]]:
         '''Extracts variables from the given string and replaces them with format brackets.
-        Variables can be constants "c.name", parameters "p.name", or local variables "l.name".'''
+        Variables can be constants "c.name", parameters "p.name", or local variables "v.name".'''
         vars = set()
         replace_var = partial(CodeGenerator._replace_var, vars=vars)
         template = re.sub(r"(?<!\w)([pcv]\.[A-Za-z_]\w*)", replace_var, source, flags=re.M)

@@ -1,31 +1,29 @@
 [model]
 # The likelihood terms (implicitly normal distributions):
-mist.2MASS_H = [7.400, 0.034]
-mist.2MASS_J = [7.702, 0.030]
-mist.2MASS_Ks = [7.316, 0.020]
-mist.WISE_W1 = [7.203, 0.029]
-mist.WISE_W2 = [7.322, 0.020]
-mist.WISE_W3 = [7.297, 0.018]
-mist.WISE_W4 = ["normal", "c.wise_w4_mean", 0.0114]
+mist2.TWOMASS_H = [7.400, 0.034]
+mist2.TWOMASS_J = [7.702, 0.030]
+mist2.TWOMASS_Ks = [7.316, 0.020]
+mist2.WISE_W1 = [7.203, 0.029]
+mist2.WISE_W2 = [7.322, 0.020]
+mist2.WISE_W3 = [7.297, 0.018]
+mist2.WISE_W4 = ["normal", "c.wise_w4_mean", 0.0114]
 
-# Fix the extinction parameter to 0:
-override.mist.Av = "0.0"
-# Ignore the distinction between surface and inital bulk [Fe/H]
-override.mist.feh = "p.feh0"
+# Fix the extinction parameter and [alpha/iron] to 0:
+override.mist2.Av = "0.0"
+override.mist2.afe = "0.0"
 
 # The priors for the remaining parameters:
-prior.logAge = ["uniform", -0.5, 1]
-prior.logMass0 = ["uniform", -0.5, 0.5]
-prior.feh0 = ["uniform", -0.2, 0.5]
+prior.log_age = ["uniform", -0.5, 1]
+prior.log_mass0 = ["uniform", -0.5, 0.5]
+prior.feh = ["uniform", -0.2, 0.5]
 prior.parallax = [15.0153, 0.03612]
 
 # Outputs to calculate
-outputs = ["d.mistTracks.logRadius", "d.mistTracks.logG", "d.mistTracks.logL"]
+outputs = ["g.mist2Tracks.log_radius", "g.mist2Tracks.log_g", "g.mist2Tracks.log_lum"]
 
 [sampling]
-sampler = "emcee"
-emcee_init.nwalkers = 32
-emcee_run.nsteps = 4000
+sampler = "builtin"
+builtin.run.progress = true
 
 # Example of using a runtime constant (can be changed without recompiling)
 const.wise_w4_mean = 7.196

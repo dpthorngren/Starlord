@@ -30,13 +30,13 @@ outputs = dict(
 
 # Optionally, derived values that can be calculated from the outputs or inputs
 derived = dict(
-    age="10**d.hotJupiters.log_age",
-    flux="10**d.hotJupiters.log_flux",
-    luminosity="10**d.hotJupiters.log_luminosity",
-    mass="10**d.hotJupiters.log_mass",
-    radius="10**d.hotJupiters.log_radius",
-    tint="math.pow(d.hotJupiters.luminosity / (7.125593e-4 * (d.hotJupiters.radius * 6.9911e9)**2), 0.25)",
-    typical_heating="0.0237 * math.exp(-(d.hotJupiters.log_flux - 9.14)**2 / (2 * .37**2))",
+    age="10**g.hotJupiters.log_age",
+    flux="10**g.hotJupiters.log_flux",
+    luminosity="10**g.hotJupiters.log_luminosity",
+    mass="10**g.hotJupiters.log_mass",
+    radius="10**g.hotJupiters.log_radius",
+    tint="math.pow(g.hotJupiters.luminosity / (7.125593e-4 * (g.hotJupiters.radius * 6.9911e9)**2), 0.25)",
+    typical_heating="0.0237 * math.exp(-(g.hotJupiters.log_flux - 9.14)**2 / (2 * .37**2))",
 )
 
 # Input everything into the

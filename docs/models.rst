@@ -7,9 +7,9 @@ A key feature of Starlord's model specification is the *implicit declaration of 
 :Parameters: ``p.[name]``, these are model parameters to be sampled from.
 :Constants: ``c.[name]``, these are set when the sampler is run and don't
    change.
-:Local Variables: ``l.[name]`` these are calculated for each log likelihood call
+:Local Variables: ``v.[name]`` these are calculated for each log likelihood call
    but not recorded
-:Grid Variables: ``d.[grid_name].[output_name]``, these indicate a value obtained by interpolating from the specified grid.
+:Grid Variables: ``g.[grid_name].[output_name]``, these indicate a value obtained by interpolating from the specified grid.
 
 These variables are used in defining the model via one of the five valid entries for the ``[model]`` section of the TOML file:
 

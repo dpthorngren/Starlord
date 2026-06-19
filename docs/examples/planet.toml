@@ -1,12 +1,13 @@
 [model]
-# Likelihood terms (both normal distributions, in this case)
+# Likelihood terms (normal distributions, in this case)
 hotJupiters.radius = [1.5, 0.05]
 hotJupiters.mass = [0.9, 0.1]
+hotJupiters.age = [3.5, 1.5]
 
 # Fixing the log_flux to a constant
 override.hotJupiters.log_flux = "9.2"
 # Fixing the heating to a function of flux defined by the grid
-override.hotJupiters.heating = "d.hotJupiters.typical_heating"
+override.hotJupiters.heating = "g.hotJupiters.typical_heating"
 
 # Mass and age priors set from observations
 prior.log_mass = ['uniform', -0.5, 0.5]
@@ -17,15 +18,15 @@ prior.zpl = ['uniform', 0.0, 1.0]
 # Additional outputs for the sampler to record
 # (Mass and age only because the sampler records only their log10 otherwise)
 outputs = [
-    "d.hotJupiters.mass",
-    'd.hotJupiters.age',
-    'd.hotJupiters.entropy',
-    'd.hotJupiters.tint',
+    "g.hotJupiters.mass",
+    'g.hotJupiters.age',
+    'g.hotJupiters.entropy',
+    'g.hotJupiters.tint',
 ]
 
 [sampling]
-sampler="emcee"
-emcee_run.progress = true
+sampler="builtin"
+builtin.run.progress = true
 
 [output]
 terminal=true

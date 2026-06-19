@@ -40,6 +40,19 @@ tasks:
     cmds:
       - python experiment.py
 
+  test_docs:
+    deps: [devbuild]
+    desc: "Run the example TOML files to verify that they all work."
+    run: once
+    sources:
+      - docs/examples/*.toml
+    cmds:
+      - python docs/examples/demo_grid.py
+      - defer: rm -f ~/.config/starlord/grids/demo_grid.npz
+      - defer: rm -f example_test_output.npz
+      - for: sources
+        cmd: starlord {{ .ITEM }} -o example_test_output.npz
+
   build_docs:
     deps: [devbuild, lint]
     desc: "Build the Starlord documentation with Sphinx."
