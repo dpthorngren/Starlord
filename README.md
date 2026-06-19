@@ -9,16 +9,7 @@ Starlord
 
 A Python library for Bayesian fits of models with gridded functions to data, with an emphasis on very flexible stellar model fitting.
 
-This project has reached an alpha release.  There are many missing features (see [roadmap](#roadmap)) and very likely some bugs.  Please let me know if you find any.
-
-> [!WARNING]
-> The documentation has not yet been updated to the beta version, which implements breaking changes. The changes are:
-> - Variables are annotated by `v.` rather than `l.`
-> - Grid lookup variables are annotated with `g.` rather than `d.`
-> - Sampler arguments are specified in the TOML inputs as a sub dict (e.g. `builtin.thin.progress = True`) rather than by underscore (e.g. `builtin_thin.progress = True`)
-> - Grid variable names have changed (see `starlord -g grid_name`)
-> 
-> This note will be removed once the documentation is back up to date.
+This project has reached a beta release.  There are very likely still some bugs, please let me know if you find any.
 
 Installation
 --------------------
@@ -35,15 +26,14 @@ pip install .
 Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
 
 > [!IMPORTANT]
-> The current version of Starlord does not come with any grids pre-installed, including the MIST grid the documentation references.  This is because I have not yet sought permission from their respective maintainers to redistribute them publicly.  For now, contact me (Daniel Thorngren) if you would like to use them.
+> The current version of Starlord does not come with any grids pre-installed, including the MIST grid the documentation references.  We hope to have them hosted publicly soon.  For now, contact me (Daniel Thorngren) if you would like to use them.
 
 Roadmap
 --------------------
 This is a list of features I'd like to add, roughly ordered by priority and definitely subject to change.
 
- - **Prior Features** -- Truncated distributions and priors on transformed parameters.
- - **Stellar Physics Priors** -- Physically motivated priors for stars, such as the Chabrier (2003) stellar mass prior.
- - **Optional Likelihood Terms** -- In batch operations, some stars may not always have the full set of photometric observations.  This would allow you to skip missing values in the likelihood without recompiling.
+ - **Prior Features** -- Priors on transformed parameters.
+ - **Stellar Physics Priors** -- Additional physically motivated priors for stars.
  - **Implicit Variables** -- If mass is defined, then log_mass is pretty clear in its intent.
  - **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
  - **Vector Operations** -- Useful for more general Bayesian models.
