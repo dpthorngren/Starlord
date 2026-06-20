@@ -28,7 +28,6 @@ def classify_file(filename: str | Path) -> str:
 
 
 def read_model_toml(filename: str | Path) -> dict:
-    # TODO: Handle syntax errors in the toml file
     with open(filename, 'rb') as f:
         results = tomllib.load(f)
     # Report ignored sections

@@ -99,7 +99,12 @@ def main():
             return
         assert filetype == "model", f"Unrecognized input file {args.input}"
 
-    settings.update(io.read_model_toml(args.input))
+    try:
+        settings.update(io.read_model_toml(args.input))
+    except ValueError as e:
+        # Print error but not traceback (useless for CLI users) and exit
+        print(f"Error: can't parse '{args.input}':", *e.args)
+        return 1
 
     # Update settings with command line arguments (TODO: More CLI options)
     if args.output:
