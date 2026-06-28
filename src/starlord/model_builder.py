@@ -522,6 +522,9 @@ class DeferredResolver:
     # Matches indexed code_generator varibles like "p.stuff--i" or "g.grid__var--3"
     find_indexed_vars = re.compile(r"(?<!\w)([pcv])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
+    # Automatically function prefixes and their forward and inverse functions
+    prefixes = {'log_': ('math.log10', '10**')}
+
     @property
     def txt(self) -> _TextFormatCodes_:
         if self.fancy_text:
@@ -566,6 +569,8 @@ class DeferredResolver:
         assert key not in self.stack, f"The definition of {dvar} is circular."
         self.stack.append(key)
 
+        value: str | None = None
+
         # Get the value to sub in for symbol
         if key in self.user_map:
             # User-specified mapping for the indexed variable takes priority
@@ -601,39 +606,77 @@ class DeferredResolver:
             self.graph[key] = (dependencies, value, code)
             code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
             self.new_components.append((grid_name, index, name, code))
-        else:
-            # Must be a grid variable
+        elif grid_name in GridGenerator.grids().keys():
             grid = GridGenerator.get_grid(grid_name)
-
-            if name in grid.inputs:
-                # Grid input, can directly substitute value
-                value = grid._get_input_map()[name]
-                dependencies, value = DeferredResolver.extract_deferred(value, index)
-                self.graph[key] = (dependencies, value, "")
-                value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
-            elif name in grid.outputs:
-                # Grid output, need an interpolation component
-                inputs_str = ", ".join([f"g.{grid_name}__{i}--i" for i in grid.inputs])
-                code = f"c.grid__{grid_name}__{name}._interp{grid.ndim}d({inputs_str})"
-                dependencies, code = DeferredResolver.extract_deferred(code, index)
-                value = f"v.{key.replace('--', '__')}"
-                self.graph[key] = (dependencies, value, code)
-                code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
-                self.new_components.append((grid_name, index, name, code))
-            elif name in grid.derived:
-                # Grid derived value, need assignment component
-                dependencies, code = DeferredResolver.extract_deferred(grid.derived[name], index)
-                value = f"v.{key.replace('--', '__')}"
-                self.graph[key] = (dependencies, value, code)
-                code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
-                self.new_components.append((grid_name, index, name, code))
+            valid: list[str] = grid.inputs + grid.provides
+            # First, check if the name is in the grid as-is
+            if name in valid:
+                value = self._resolve_grid_var(grid, name, index)
             else:
-                raise ValueError(f"Key {name} not in grid {grid_name}.")
+                for prefix, (forward, inverse) in self.prefixes.items():
+                    # Next, check if the name is in the grid but with a prefix
+                    if prefix + name in valid:
+                        value = self._resolve_grid_var(grid, prefix + name, index)
+                        assert value is not None, f"Unexpectedly failed to resolve grid var {key}"
+                        dependencies = [value]
+                        code = f"{inverse}({value})"
+                        value = f"v.{key.replace('--', '__')}"
+                        self.graph[key] = (dependencies, value, code)
+                        self.new_components.append((grid_name, index, name, code))
+                        break
+                    # Finally, check if the name is in the grid but without a prefix
+                    elif name.startswith(prefix) and name[len(prefix):] in valid:
+                        value = self._resolve_grid_var(grid, name[len(prefix):], index)
+                        assert value is not None, f"Unexpectedly failed to resolve grid var {key}"
+                        dependencies = [value]
+                        code = f"{forward}({value})"
+                        value = f"v.{key.replace('--', '__')}"
+                        self.graph[key] = (dependencies, value, code)
+                        self.new_components.append((grid_name, index, name, code))
+                        break
+                else:
+                    # If we still didn't find anything, give up and return an error
+                    raise ValueError(f"Couldn't resolve grid variable '{key}'.")
+        if value is None:
+            raise ValueError(f"Couldn't resolve grid variable '{key}'.")
 
         # Value is now fully resolved, so record and return it.
         self.log.append(("  " * (len(self.stack) - 1) + f"g.{key} ").ljust(40) + value)
         self.def_map[key] = value
         self.stack.remove(key)
+        return value
+
+    def _resolve_grid_var(self, grid: GridGenerator, name: str, index: str) -> str | None:
+        # To be called only from within resolve_recursive,
+        value = None
+        grid_name = grid.name
+        key = f"{grid_name}__{name}"
+        if index:
+            key = key + "--" + index
+        if name in grid.inputs:
+            # Grid input, can directly substitute value
+            value = grid._get_input_map()[name]
+            dependencies, value = DeferredResolver.extract_deferred(value, index)
+            self.graph[key] = (dependencies, value, "")
+            value = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, value)
+        elif name in grid.outputs:
+            # Grid output, need an interpolation component
+            inputs_str = ", ".join([f"g.{grid_name}__{i}--i" for i in grid.inputs])
+            code = f"c.grid__{grid_name}__{name}._interp{grid.ndim}d({inputs_str})"
+            dependencies, code = DeferredResolver.extract_deferred(code, index)
+            value = f"v.{key.replace('--', '__')}"
+            self.graph[key] = (dependencies, value, code)
+            code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
+            self.new_components.append((grid_name, index, name, code))
+        elif name in grid.derived:
+            # Grid derived value, need assignment component
+            dependencies, code = DeferredResolver.extract_deferred(grid.derived[name], index)
+            value = f"v.{key.replace('--', '__')}"
+            self.graph[key] = (dependencies, value, code)
+            code = DeferredResolver.find_keys_deferred.sub(self.resolve_recursive, code)
+            self.new_components.append((grid_name, index, name, code))
+        else:
+            return None
         return value
 
     def push_components(self, target: ModelBuilder) -> None:

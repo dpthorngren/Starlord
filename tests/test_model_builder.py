@@ -120,6 +120,11 @@ def test_recursive_grids(dummy_grids: Path):
     assert fitter.code_generator.params == ('p.b', 'p.x', 'p.y')
     assert fitter.code_generator.locals == ('v.dummy__g1', 'v.dummy__v1', 'v.rdummy__c', 'v.rdummy__d')
     assert fitter.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__rdummy__c')
+    fitter = starlord.ModelBuilder()
+    fitter.constraint("g.rdummy.log_d", "normal", [1., 0.1])
+    assert fitter.code_generator.params == ('p.b', 'p.x', 'p.y')
+    assert fitter.code_generator.locals == ('v.dummy__g1', 'v.dummy__v1', 'v.rdummy__c', 'v.rdummy__d', 'v.rdummy__log_d')
+    assert fitter.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__rdummy__c')
 
 
 def test_deferred_resolver(dummy_grids: Path):
