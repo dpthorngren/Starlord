@@ -213,7 +213,9 @@ class ModelBuilder():
                     print(f"override.{key} = {override}")
                 if type(override) is dict:
                     for input_name, value in override.items():
-                        self.override_mapping(f"{key}.{input_name}", value)
+                        assert type(value) in [float, int, str], \
+                            f"Bad type for override of '{key}.{input_name}': '{value}' ({type(value)})"
+                        self.override_mapping(f"{key}.{input_name}", str(value))
                 else:
                     assert type(override) is str
                     self.override_mapping(key, override)
