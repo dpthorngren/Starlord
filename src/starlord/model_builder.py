@@ -430,7 +430,7 @@ class ModelBuilder():
             if not missing and not constants.items():
                 print("[None]")
             for k in missing:
-                print(f"{self.txt.blue}{self.txt.bold}c.{k}{self.txt.end} is not set")
+                print(f"{self.txt.blue}{self.txt.bold}c.{k}{self.txt.end} is {self.txt.red}not set{self.txt.end}")
             for k, v in constants.items():
                 if k in extra:
                     print(f"{self.txt.blue}{self.txt.bold}c.{k}{self.txt.end} is set but not used")

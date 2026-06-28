@@ -19,7 +19,8 @@ from ._config import __version__, _TextFormatCodes_, config
 from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
 
 _VarCache = NamedTuple(
-    'VarCache', [('p', tuple[Symb]), ('c', tuple[Symb]), ('v', tuple[Symb]), ('map', dict[str, str])])
+    'VarCache', [('p', tuple[Symb]), ('prior_p', tuple[Symb]), ('c', tuple[Symb]), ('v', tuple[Symb]),
+                 ('map', dict[str, str])])
 
 
 class CodeGenerator:
@@ -36,19 +37,25 @@ class CodeGenerator:
     @property
     def variables(self) -> _VarCache:
         if self.__variables__ is None:
-            vars = self._collect_vars(self._like_components + self._prior_components)
-            params = tuple(sorted(vars[0]))
-            constants = tuple(sorted(vars[1]))
-            locals = tuple(sorted(vars[2]))
+            like_vars = self._collect_vars(self._like_components)
+            prior_vars = self._collect_vars(self._prior_components)
+            params = tuple(sorted(like_vars[0]))
+            prior_params = tuple(sorted(prior_vars[0]))
+            constants = tuple(sorted(like_vars[1] | prior_vars[1]))
+            locals = tuple(sorted(like_vars[2] | prior_vars[2]))
             mapping = {c.var: f"self.{c.var}" for c in constants}
             mapping.update({loc.var: f"self.{loc.var}" for loc in locals})
             mapping.update({p.var: f"params[{i}]" for i, p in enumerate(params)})
-            self.__variables__ = _VarCache(params, constants, locals, mapping)  # type: ignore
+            self.__variables__ = _VarCache(params, prior_params, constants, locals, mapping)  # type: ignore
         return self.__variables__
 
     @property
     def params(self) -> tuple[Symb]:
         return self.variables.p
+
+    @property
+    def prior_params(self) -> tuple[Symb]:
+        return self.variables.prior_p
 
     @property
     def constants(self) -> tuple[Symb]:
@@ -81,7 +88,7 @@ class CodeGenerator:
     def generate_prior_ppf(self) -> str:
         result: list[str] = []
         result.append("cpdef double[:] prior_transform(self, double[:] params):")
-        prior_params = {list(c.vars)[0] for c in self._prior_components}
+        prior_params = set(self.prior_params)
         params = set(self.params)
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
@@ -97,7 +104,7 @@ class CodeGenerator:
         result.append("cpdef double log_prior(self, double[:] params):")
         result.append("    cdef double logP = 0.")
         params = set(self.params)
-        prior_params = {list(c.vars)[0] for c in self._prior_components}
+        prior_params = set(self.prior_params)
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
         for comp in sorted(self._prior_components):
@@ -201,14 +208,7 @@ class CodeGenerator:
 
     def summary(self, fancy=False) -> str:
         result: list[str] = []
-        result += [f"    {self.txt.underline}Variables{self.txt.end}"]
-        if self.params:
-            result += ["Params:".ljust(12) + ", ".join([p for p in self.params])]
-        if self.constants:
-            result += ["Constants:".ljust(12) + ", ".join([c for c in self.constants])]
-        if self.locals:
-            result += ["Locals:".ljust(12) + ", ".join([loc for loc in self.locals])]
-        result += [f"\n    {self.txt.underline}Forward Model{self.txt.end}"]
+        result += [f"    {self.txt.underline}Forward Model{self.txt.end}"]
         likelihood = []
         for comp in self._sort_by_dependency(self._like_components):
             if type(comp) is DistributionComponent:
@@ -220,6 +220,19 @@ class CodeGenerator:
         result += [f"\n    {self.txt.underline}Prior{self.txt.end}"]
         prior_comps = sorted(self._prior_components, key=lambda c: "_".join(sorted(c.vars)))
         result += [c.display() for c in prior_comps]
+        params = set(self.params)
+        prior_params = set(self.prior_params)
+        for p in prior_params - params:
+            result += [f"{self.txt.red}Warning: Prior set for unused parameter {p}{self.txt.end}"]
+        for p in params - prior_params:
+            result += [f"{self.txt.red}Warning: Prior not set for {p}{self.txt.end}"]
+        result += [f"\n    {self.txt.underline}Variables{self.txt.end}"]
+        if self.params:
+            result += ["Params:".ljust(12) + ", ".join([p for p in self.params])]
+        if self.constants:
+            result += ["Constants:".ljust(12) + ", ".join([c for c in self.constants])]
+        if self.locals:
+            result += ["Locals:".ljust(12) + ", ".join([loc for loc in self.locals])]
         result_str = "\n".join(result)
         # Highlight the output, if requested
         if fancy:
@@ -252,7 +265,6 @@ class CodeGenerator:
         if self.verbose:
             print(CodeGenerator.fancy_print("\n".join([line for line in str(comp).split("\n")]), self.txt))
         self._like_components.append(comp)
-        self._vars_out_of_date = True
 
     def assign(self, var: str, expr: str) -> None:
         # If v is omitted, it is implied
@@ -262,21 +274,18 @@ class CodeGenerator:
         if self.verbose:
             print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._like_components.append(comp)
-        self._vars_out_of_date = True
 
     def constraint(self, var: str, dist: str, params: list[str | float]) -> None:
         comp = DistributionComponent.create(var, dist, params)
         if self.verbose:
             print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._like_components.append(comp)
-        self._vars_out_of_date = True
 
     def prior(self, var: str | Symb, dist: str, params: list[str | float | Symb]):
         comp = Prior.create(var, dist, params)
         if self.verbose:
             print(CodeGenerator.fancy_print(comp.display(), self.txt))
         self._prior_components.append(comp)
-        self._vars_out_of_date = True
 
     @staticmethod
     def fancy_print(source, txt):

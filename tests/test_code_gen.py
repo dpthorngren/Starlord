@@ -32,12 +32,12 @@ def test_expressions():
     assert g.constants == ()
     # Check summary function
     s = g.summary().splitlines()
-    assert s[1].startswith("Params:")
-    assert "stuff" in s[1]
-    assert s[2].startswith("Locals:")
-    assert "foo" in s[2]
+    assert s[-2].startswith("Params:")
+    assert "stuff" in s[-2]
+    assert s[-1].startswith("Locals:")
+    assert "foo" in s[-1]
     # No prior was specified
-    assert "Prior" in s[-1]
+    assert "Prior" in s[-5]
 
 
 def test_compilation():
