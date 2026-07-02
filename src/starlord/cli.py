@@ -82,12 +82,15 @@ def main():
             meta = io.load_posterior(args.input, not bool(args.corner_plot))
             print("Posterior file with contents:")
             for key, value in meta.items():
-                if key in ['stats', 'code', 'posterior', 'weights']:
+                if key in ['stats', 'code', 'posterior', 'weights', 'citations']:
                     continue
                 if type(value) is str:
                     print(f"{key:16s} {value}")
                 elif type(value) in [list, np.ndarray]:
                     print(f"{key:16s} {', '.join([str(i) for i in value])}")
+            if meta.get('citations', None):
+                print("\nGrid Citations:")
+                print("    " + meta['citations'].replace('\n', '\n    '))
             if meta.get('stats', None) is not None:
                 print("\nResults Summary:")
                 print(meta['stats'].summary(meta['param_names'], meta['output_names']))

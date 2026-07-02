@@ -134,7 +134,6 @@ def test_deferred_resolver(dummy_grids: Path):
     resolver = DeferredResolver(user_map, verbose=True)
     resolver.resolve_all(set(["foo"]))
     assert resolver.def_map['dummy__x'] == 'p.x_modified'
-    assert resolver.def_map['dummy__x'] == 'p.x_modified'
     assert resolver.def_map['dummy__y'] == 'p.y_modified'
     assert resolver.def_map['dummy__v1'] == 'v.dummy__v1'
     assert resolver.def_map['dummy__g1'] == 'v.dummy__g1'

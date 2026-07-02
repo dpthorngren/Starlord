@@ -15,6 +15,7 @@ from dynesty.results import Results as DynestyResults
 
 from ._config import __version__
 from .cy_tools import BaseModel, BuiltinSampler
+from .grid_gen import GridGenerator
 
 
 @dataclass
@@ -213,8 +214,13 @@ class _Sampler:
 
     def _to_dict_(self) -> dict:
         grids = self.grids_used
-        grid_vars = sum([[f"{gridname}__{key}" for key in keys] for gridname, keys in grids.items()], [])
-        # TODO: Citation info.
+        grid_vars = []
+        citations = []
+        for gridname, keys in grids.items():
+            grid_citations = GridGenerator.get_grid(gridname).citations
+            grid_vars += ([f"{gridname}__{key}" for key in keys])
+            citations.append(f"{gridname}: {grid_citations}")
+        citations = "\n".join(citations)
         return dict(
             params=self.post[:, :self.ndim],
             outputs=self.post[:, self.ndim:],
@@ -227,6 +233,7 @@ class _Sampler:
             grids=list(grids),
             grid_vars=grid_vars,
             stats=self.stats.to_array(),
+            citations=citations,
             time=str(datetime.datetime.now(datetime.timezone.utc).ctime() + " UTC"),
             starlord_version=__version__,
             python_version=sys.version,

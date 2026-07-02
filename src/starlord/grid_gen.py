@@ -4,7 +4,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -28,12 +28,16 @@ class GridGenerator:
 
     @classmethod
     def create_grid(
-            cls,
-            grid_name: str,
-            inputs: OrderedDict[str, np.ndarray],
-            outputs: dict[str, np.ndarray],
-            derived: dict[str, str] = {},
-            input_mappings: dict[str, str] = {}) -> None:
+        cls,
+        grid_name: str,
+        inputs: OrderedDict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
+        derived: dict[str, str] = {},
+        input_mappings: dict[str, str] = {},
+        citations: Optional[str] = None,
+        notes: Optional[str] = None,
+        version: Optional[str] = None,
+    ) -> None:
         '''Create a new grid and write it to the Starlord grid directory.
 
         The input, output, and derived names must be unique, valid as Python variable names, and not start with "_".
@@ -121,6 +125,15 @@ class GridGenerator:
         bounds = np.array(bounds)
         inout_arrays = dict(inputs)
         inout_arrays.update(outputs)
+
+        # Add supplemental metadata
+        if citations is not None:
+            inout_arrays['_citations'] = np.array(citations)
+        if notes is not None:
+            inout_arrays['_notes'] = np.array(notes)
+        if version is not None:
+            inout_arrays['_version'] = np.array(version)
+
         filepath = str(config.grid_dir / grid_name) if "/" not in grid_name else grid_name
         np.savez_compressed(
             filepath,
@@ -236,6 +249,9 @@ class GridGenerator:
             self.derived: dict[str, str] = json.loads(str(self.data['_derived']))
         else:
             self.derived = {}
+        self.citations = str(self.data.get('_citations', ''))
+        self.notes = str(self.data.get('_notes', ''))
+        self.version = str(self.data.get('_version', ''))
         self.provides = self.outputs + list(self.derived.keys())
         for k in self.inputs + self.outputs:
             assert k in self.data.files, f"Bad grid: {k} in _grid_spec but was not found."
@@ -277,7 +293,13 @@ class GridGenerator:
         '''
         txt = config.text_format if fancy_text else config.text_format_off
         print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
-        print("    Input                       Min        Max     Length     Default Mapping")
+        if self.version:
+            print(f"Version: {self.version}")
+        if self.citations:
+            print(f"Citations: {self.citations}")
+        if self.notes:
+            print(f"Notes: {self.notes}")
+        print("\n    Input                       Min        Max     Length     Default Mapping")
         for i, name in enumerate(self.inputs):
             print(
                 f"{i:>3d} {txt.bold}{name:<20s}{txt.end}",

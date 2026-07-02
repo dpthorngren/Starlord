@@ -56,6 +56,7 @@ def load_posterior(filename, metadata_only=False, include_outputs=True) -> dict:
         time=str(file.get('time', "")),
         starlord_version=str(file.get('starlord_version', "")),
         python_version=str(file.get('python_version', "")),
+        citations=str(file.get('citations', "")),
     )
     if not metadata_only:
         posterior = file['params']
