@@ -96,16 +96,31 @@ class GridGenerator:
             # Check any grid params used
             from starlord.model_builder import DeferredResolver
             for match in DeferredResolver.find_input_deferred.finditer(output):
-                if match.group(1) is not None:
-                    if match.group(1) == grid_name:
-                        assert match.group(2) in defined_keys, \
-                            f"Undefined grid var {match.group(0)} used in derived value {name}."
-                    elif match.group(1) in cls.grids().keys():
-                        g = cls.get_grid(match.group(1))
-                        if match.group(2) not in g.inputs + g.provides:
+                target_grid, target_key, _ = match.groups()
+                if target_grid is not None:
+                    if target_grid == grid_name:
+                        if target_key not in defined_keys:
+                            for p in DeferredResolver.prefixes.keys():
+                                if target_key.startswith(p) and target_key[len(p):] in defined_keys:
+                                    break
+                                if p + target_key in defined_keys:
+                                    break
+                            else:
+                                print(f"Warning: Undefined grid var {match.group(0)} used in derived value {name}.")
+                    elif target_grid in cls.grids().keys():
+                        g = cls.get_grid(target_grid)
+                        valid = g.inputs + g.provides
+                        if target_key not in valid:
+                            for p in DeferredResolver.prefixes.keys():
+                                if target_key.startswith(p) and target_key[len(p):] in valid:
+                                    break
+                                if p + target_key in valid:
+                                    break
+                            else:
+                                print(f"Warning: Undefined grid var {match.group(0)} used in derived value {name}.")
                             print(f"Warning: derived value {name} uses undefined grid var {match.group(0)}.")
                     else:
-                        print(f"Warning: derived value {name} refers to an undefined grid {match.group(1)}.")
+                        print(f"Warning: derived value {name} refers to an undefined grid {target_grid}.")
         for name, output in input_mappings.items():
             assert name in inputs.keys(), f'Input default "{name}" doesn\'t match any actual inputs.'
             assert type(output) is str

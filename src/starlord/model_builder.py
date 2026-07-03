@@ -523,7 +523,14 @@ class DeferredResolver:
     find_indexed_vars = re.compile(r"(?<!\w)([pcv])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
     # Automatically function prefixes and their forward and inverse functions
-    prefixes = {'log_': ('math.log10', '10**')}
+    prefixes = {
+        'log_': ('math.log10', '10**'),
+        'exp10_': ('10**', 'math.log10'),
+        'ln_': ('math.log', 'math.exp'),
+        'expn_': ('math.exp', 'math.log'),
+        'expit_': ('expit', 'logit'),
+        'logit_': ('logit', 'expit'),
+    }
 
     @property
     def txt(self) -> _TextFormatCodes_:

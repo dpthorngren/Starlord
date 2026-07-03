@@ -27,6 +27,12 @@ cpdef inline void copy_arr3d(double[:,:,:] source, double[:,:,:] dest):
             for k in range(dest.shape[2]):
                 dest[i, j, k] = source[i, j, k]
 
+cpdef double expit(double x) noexcept:
+    return 1. / (1. + math.exp(-x))
+
+cpdef double logit(double x) noexcept:
+    return math.log(x / (1. - x))
+
 cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
     cdef double baseline = max(x, y)
     x = c_x*math.exp(x - baseline)
