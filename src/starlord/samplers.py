@@ -199,6 +199,10 @@ class _Sampler:
             assert allow_nan or np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
 
     def summary(self) -> str:
+        citations = self.get_citations()
+        if citations:
+            print("Grid Citations:")
+            print("    " + "\n    ".join(citations))
         return self.stats.summary(self.param_names, self.output_names)
 
     def run(self, **run_args):
@@ -212,15 +216,17 @@ class _Sampler:
         kwargs.setdefault('labels', self.param_names)
         corner_plot(self.post[:, :self.ndim], filename, **kwargs)
 
-    def _to_dict_(self) -> dict:
-        grids = self.grids_used
-        grid_vars = []
+    def get_citations(self) -> list[str]:
         citations = []
-        for gridname, keys in grids.items():
+        for gridname in self.grids_used.keys():
             grid_citations = GridGenerator.get_grid(gridname).citations
-            grid_vars += ([f"{gridname}__{key}" for key in keys])
             citations.append(f"{gridname}: {grid_citations}")
-        citations = "\n".join(citations)
+        return citations
+
+    def _to_dict_(self) -> dict:
+        grid_vars = []
+        for gridname, keys in self.grids_used.items():
+            grid_vars += ([f"{gridname}__{key}" for key in keys])
         return dict(
             params=self.post[:, :self.ndim],
             outputs=self.post[:, self.ndim:],
@@ -230,10 +236,10 @@ class _Sampler:
             const_names=self.const_names,
             code=self.model.code[0],
             code_hash=self.model.code_hash[0],
-            grids=list(grids),
+            grids=list(self.grids_used.keys()),
             grid_vars=grid_vars,
             stats=self.stats.to_array(),
-            citations=citations,
+            citations='\n'.join(self.get_citations()),
             time=str(datetime.datetime.now(datetime.timezone.utc).ctime() + " UTC"),
             starlord_version=__version__,
             python_version=sys.version,

@@ -307,42 +307,45 @@ class GridGenerator:
             fancy_text: whether to style the output with colors and bolding.
         '''
         txt = config.text_format if fancy_text else config.text_format_off
-        print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
-        if self.version:
-            print(f"Version: {self.version}")
-        if self.citations:
-            print(f"Citations: {self.citations}")
-        if self.notes:
-            print(f"Notes: {self.notes}")
-        print("\n    Input                       Min        Max     Length     Default Mapping")
-        for i, name in enumerate(self.inputs):
-            print(
-                f"{i:>3d} {txt.bold}{name:<20s}{txt.end}",
-                f"{self.bounds[i, 0]:>10.4n}",
-                f"{self.bounds[i, 1]:>10.4n}",
-                f"{self.shape[i]:>10n}    ",
-                f"{self._input_mappings[name]}",
-            )
-        print(f"{txt.underline}Outputs{txt.end}")
-        if len(self.outputs) < 12 or full:
-            print("    Output                      Min        Max")
-            for i, out in enumerate(self.outputs):
-                i += len(self.inputs)
-                print(f"{i:>3d} {out:20} {self.bounds[i, 0]:>10.4n} {self.bounds[i, 1]:>10.4n}")
-        else:
-            print(*[f"    {i}" for i in self.outputs[:12]], sep="\n")
-            print(f"    [+{len(self.outputs)-12} more]")
-        print(f"{txt.underline}Derived{txt.end}")
-        if len(self.derived) < 12 or full:
-            print("    Derived              Code")
-            for i, der in enumerate(self.derived):
-                i += len(self.inputs) + len(self.outputs)
-                code = self.derived[der].split("\n")[0]
-                code = code if len(code) < 80 else code[:80] + " ..."
-                print(f"{i:>3d} {der:20} {code}")
-        else:
-            print(*[f"    {i}" for i in self.derived.keys()][:12], sep="\n")
-            print(f"    [+{len(self.derived)-12} more]")
+        try:
+            print(f"{txt.bold}{txt.underline}Grid {self.name}{txt.end}")
+            if self.version:
+                print(f"{txt.bold}Version{txt.end}:   {self.version}")
+            if self.citations:
+                print(f"{txt.bold}Citations{txt.end}: {self.citations}")
+            if self.notes:
+                print(f"{txt.bold}Notes{txt.end}:     {self.notes}")
+            print(f"\n{txt.bold}Contents{txt.end}:")
+            print(f"    {txt.bold}{txt.underline}Input{txt.end}", end="")
+            print("                       Min        Max     Length     Default Mapping")
+            for i, name in enumerate(self.inputs):
+                print(
+                    f"{i:>3d} {txt.bold}{name:<20s}{txt.end}",
+                    f"{self.bounds[i, 0]:>10.4n}",
+                    f"{self.bounds[i, 1]:>10.4n}",
+                    f"{self.shape[i]:>10n}    ",
+                    f"{self._input_mappings[name]}",
+                )
+            if len(self.outputs) < 12 or full:
+                print(f"    {txt.bold}{txt.underline}Output{txt.end}                      Min        Max")
+                for i, out in enumerate(self.outputs):
+                    i += len(self.inputs)
+                    print(f"{i:>3d} {out:20} {self.bounds[i, 0]:>10.4n} {self.bounds[i, 1]:>10.4n}")
+            else:
+                print(*[f"    {i}" for i in self.outputs[:12]], sep="\n")
+                print(f"    [+{len(self.outputs)-12} more]")
+            if len(self.derived) < 12 or full:
+                print(f"    {txt.bold}{txt.underline}Derived{txt.end}              Code")
+                for i, der in enumerate(self.derived):
+                    i += len(self.inputs) + len(self.outputs)
+                    code = self.derived[der].split("\n")[0]
+                    code = code if len(code) < 80 else code[:80] + " ..."
+                    print(f"{i:>3d} {der:20} {code}")
+            else:
+                print(*[f"    {i}" for i in self.derived.keys()][:12], sep="\n")
+                print(f"    [+{len(self.derived)-12} more]")
+        except BrokenPipeError:
+            return
 
     def build_grid(
             self, column: str, axis_tf: dict[str, Callable] = {}, value_tf: Callable = lambda x: x) -> GridInterpolator:

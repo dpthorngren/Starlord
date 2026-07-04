@@ -85,9 +85,9 @@ def main():
                 if key in ['stats', 'code', 'posterior', 'weights', 'citations']:
                     continue
                 if type(value) is str:
-                    print(f"{key:16s} {value}")
+                    print(f"    {key:16s} {value}")
                 elif type(value) in [list, np.ndarray]:
-                    print(f"{key:16s} {', '.join([str(i) for i in value])}")
+                    print(f"    {key:16s} {', '.join([str(i) for i in value])}")
             if meta.get('citations', None):
                 print("\nGrid Citations:")
                 print("    " + meta['citations'].replace('\n', '\n    '))
@@ -179,8 +179,7 @@ def main():
     out: dict = {"terminal": False, "file": None, "corner_plot": None}
     out.update(settings['output'])
     if args.batch is not None:
-        sampler.batch_run(
-            run_args, args.batch, out['terminal'], out['file'], args.batch_summary, args.batch_threads)
+        sampler.batch_run(run_args, args.batch, out['terminal'], out['file'], args.batch_summary, args.batch_threads)
     else:
         sampler.run(**run_args)
         if out['terminal']:
