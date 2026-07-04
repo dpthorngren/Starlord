@@ -101,6 +101,7 @@ class ModelBuilder():
             self.__gen__.auto_constants = self.auto_constants.copy()
             self.__gen__.constant_types = self.constant_types.copy()
             self.__gen__.outputs = [i.format(**deferred_map) for i in self.outputs]
+            self.__gen__.imports += self.imports
             if self.verbose:
                 print("")
         return self.__gen__
@@ -125,6 +126,7 @@ class ModelBuilder():
         self.auto_constants: dict[str, str] = {}
         self.constant_types: dict[str, str] = {}
         self.outputs: list[str] = []
+        self.imports: list[str] = []
         self.optional_likelihood_terms = False
         # Caching backers for self.code_generator
         self.__gen__: Optional[CodeGenerator] = None
@@ -165,7 +167,7 @@ class ModelBuilder():
         '''
         if self.verbose:
             print(f"    {self.txt.underline}Model Processing{self.txt.end}")
-        valid = ['multiplicity', 'expr', 'var', 'prior', 'override', 'outputs', 'options']
+        valid = ['multiplicity', 'expr', 'var', 'prior', 'override', 'outputs', 'options', 'imports']
         grids = GridGenerator.grids().keys()
         for k in model.keys():
             assert k in valid or k in grids, f"Model key '{k}' was neither a known grid ({grids}) or keyword ({valid})"
@@ -179,6 +181,11 @@ class ModelBuilder():
                 if self.verbose:
                     print(f"expr.{name} = '{code}'")
                 self.expression(code)
+        if "imports" in model.keys():
+            imports = model['imports']
+            assert type(imports) is list and all([type(i) is str for i in imports]), \
+                "Imports must be a list of strings."
+            self.imports = imports
         if "var" in model.keys():
             for key, value in model['var'].items():
                 if self.verbose:
