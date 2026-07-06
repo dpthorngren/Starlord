@@ -92,7 +92,8 @@ class CodeGenerator:
         params = set(self.params)
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
-        for comp in sorted(self._prior_components):
+        for comp in self._sort_by_dependency(sorted(self._prior_components), True):
+            assert type(comp) is Prior
             code: str = comp.generate_ppf().format(**self.mapping)
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return params\n")
@@ -107,7 +108,8 @@ class CodeGenerator:
         prior_params = set(self.prior_params)
         assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
         assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
-        for comp in sorted(self._prior_components):
+        for comp in self._sort_by_dependency(sorted(self._prior_components), True):
+            assert type(comp) is Prior
             code: str = comp.generate_pdf().format(**self.mapping)
             result.append("\n".join("    " + i for i in code.splitlines()))
         result.append("    return logP\n")
@@ -123,7 +125,7 @@ class CodeGenerator:
         components = sorted(components)
         components = self._sort_by_dependency(components)
         for comp in components:
-            code: str = comp.generate_code().format(**self.mapping)
+            code: str = comp.generate_code().format(**self.mapping)  # type: ignore
             result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return\n")
         result.append("cpdef postprocess(self, double[:,:] params, double[:,:] out):")
@@ -297,25 +299,29 @@ class CodeGenerator:
         return source
 
     @staticmethod
-    def _sort_by_dependency(components: list[Component]) -> list[Component]:
+    def _sort_by_dependency(components: list[Component | Prior], as_priors: bool = False) -> list[Component | Prior]:
         '''Takes a list of components and returns a new one sorted such that components which provide
         variables are listed before those that require them. Beyond this the sort is stable
         (components which could appear in any order appear in the order found in their input list).'''
         _, _, locals = CodeGenerator._collect_vars(components)
-        # Check that every local used is initialized somewhere
-        for loc in locals:
-            for comp in components:
-                if loc in comp.provides:
-                    break
-            else:
-                raise LookupError(f"Variable {loc} is used but never initialized.")
+        if as_priors:
+            prefix = "p."
+        else:
+            # Check that every local used is initialized somewhere
+            for loc in locals:
+                for comp in components:
+                    if loc in comp.provides:
+                        break
+                else:
+                    raise LookupError(f"Variable {loc} is used but never initialized.")
+            prefix = "v."
         # Sort components according to their initialization requirements
         result = []
         initialized = set()
         components = components.copy()
         while len(components) > 0:
             for comp in components:
-                reqs = {c for c in comp.requires if c[:2] == "v." and c not in initialized}
+                reqs = {c for c in comp.requires if c[:2] == prefix and c not in initialized}
                 if len(reqs) == 0:
                     initialized = initialized | comp.provides
                     result.append(comp)
@@ -326,7 +332,7 @@ class CodeGenerator:
         return result
 
     @staticmethod
-    def _collect_vars(target: list[Component]) -> tuple[set[Symb], set[Symb], set[Symb]]:
+    def _collect_vars(target: list[Component | Prior]) -> tuple[set[Symb], set[Symb], set[Symb]]:
         params = set()
         consts = set()
         locals = set()

@@ -46,7 +46,8 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     assert "\n    cpdef double[:] prior_transform(self, double[:] params):\n" in captured.out
     # Key terms in the output present?
     assert "\n        logL += normal_lpdf(self.v__A, 0.5, 0.25)\n" in captured.out
-    assert "\n        params[0] = normal_ppf(params[0], -5.0, 5.0)" in captured.out
+    assert "\n        params[1] = normal_ppf(params[1], -5.0, 5.0)" in captured.out
+    assert "\n        params[0] = normal_ppf(params[0], params[1], 5.0)" in captured.out
     assert "\n        self.v__A = math.exp(params[0])" in captured.out
     # Summary was printed?
     assert "Variables" in captured.out
