@@ -24,6 +24,9 @@ cpdef double gamma_ppf(double p, double alpha, double lamb) noexcept
 cpdef double exponential_lpdf(double x, double rate) noexcept
 cpdef double exponential_ppf(double p, double rate) noexcept
 cpdef double exponential_cdf(double x, double rate) noexcept
+cpdef double binorm_lpdf(double x, double weight1, double mean1, double mean2, double sigma1, double sigma2)
+cpdef double binorm_cdf(double x, double weight1, double mean1, double mean2, double sigma1, double sigma2)
+cpdef double binorm_ppf(double p, double weight1, double mean1, double mean2, double sigma1, double sigma2)
 cpdef double trunc_power_lpdf(double x, double k, double a, double b) noexcept
 cpdef double trunc_power_ppf(double p, double k, double a, double b) noexcept
 cpdef double trunc_normal_lpdf(double x, double mean, double sigma, double a, double b) noexcept

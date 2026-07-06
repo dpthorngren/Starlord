@@ -90,6 +90,49 @@ cpdef double exponential_cdf(double x, double rate) noexcept:
         return 0.
     return 1. - math.exp(-rate*x)
 
+cpdef double binorm_lpdf(double x, double weight1, double mean1, double mean2, double sigma1, double sigma2):
+    if sigma1 <= 0 or sigma2 <=0 or weight1 > 1 or weight1 < 0:
+        return math.NAN
+    cdef double a = normal_lpdf(x, mean1, sigma1)
+    cdef double b = normal_lpdf(x, mean2, sigma2)
+    return logsumexp(a, b, weight1, 1-weight1)
+
+cpdef double binorm_cdf(double x, double weight1, double mean1, double mean2, double sigma1, double sigma2):
+    if sigma1 <= 0 or sigma2 <=0 or weight1 > 1 or weight1 < 0:
+        return math.NAN
+    cdef double a = normal_cdf(x, mean1, sigma1)
+    cdef double b = normal_cdf(x, mean2, sigma2)
+    return weight1*a + (1-weight1)*b
+
+cpdef double binorm_ppf(double p, double weight1, double mean1, double mean2, double sigma1, double sigma2):
+    if p < 0 or p > 1 or sigma1 <= 0 or sigma2 <=0 or weight1 > 1 or weight1 < 0:
+        return math.NAN
+    cdef double weight2 = 1 - weight1
+    cdef double a = normal_ppf(p, mean1, sigma1)
+    cdef double b = normal_ppf(p, mean2, sigma2)
+    if a > b:
+        a, b = b, a
+    cdef double p_a = weight1*normal_cdf(a, mean1, sigma1) + weight2*normal_cdf(a, mean2, sigma2)
+    cdef double p_b = weight1*normal_cdf(b, mean1, sigma1) + weight2*normal_cdf(b, mean2, sigma2)
+    cdef double p_guess
+    cdef int count = 0
+    while abs(p_a - p_b) > 1e-12:
+        count += 1
+        if count%2 == 0:
+            guess = a + (b-a) * (p-p_a) / (p_b-p_a)
+        else:
+            guess = (a + b) / 2.
+        p_guess = weight1 * normal_cdf(guess, mean1, sigma1) + weight2 * normal_cdf(guess, mean2, sigma2)
+        if p_guess > p:
+            b = guess
+            p_b = p_guess
+        else:
+            a = guess
+            p_a = p_guess
+        if count > 100:
+            return np.nan
+    return (a+b) / 2.
+
 cpdef double trunc_power_lpdf(double x, double k, double a, double b) noexcept:
     if (a <= 0 and k <= 0) or b < 0 or a < 0:
         return math.NAN

@@ -108,6 +108,26 @@ def test_ppf():
         assert cy_tools.trunc_exponential_ppf(p, 13.25, 0, 6.5) == approx(expect)
 
 
+def test_binorm():
+    # If distributions are the same, should output the same as normal dist
+    for x in 5 * np.random.randn(5):
+        expect = cy_tools.normal_lpdf(x, -1.5, 2.0)
+        assert cy_tools.binorm_lpdf(x, .25, -1.5, -1.5, 2.0, 2.0) == approx(expect, 1e-9)
+        expect = cy_tools.normal_cdf(x, 31.5, 0.153)
+        assert cy_tools.binorm_cdf(x, .75, 31.5, 35.1, .153, .153) == approx(expect, 1e-9)
+    for p in np.random.rand(5):
+        expect = cy_tools.normal_ppf(p, -12.3, 2.31)
+        assert cy_tools.binorm_ppf(p, .75, -12.3, -12.3, 2.31, 2.31) == approx(expect, 1e-8)
+    # Check that cdf and pdf are inverses of each other
+    for w1, mu1, mu2, s1, s2 in 3 * np.random.randn(50, 5):
+        w1 = 1 / (1 + np.exp(-w1))
+        s1 = np.exp(s1 / 5)
+        s2 = np.exp(s2 / 5)
+        p = np.random.rand()
+        x = cy_tools.binorm_ppf(p, w1, mu1, mu2, s1, s2)
+        assert cy_tools.binorm_cdf(x, w1, mu1, mu2, s1, s2) == approx(p, 1e-6)
+
+
 @pytest.mark.flaky(reruns=3)
 def test_mvnormal():
     # Poorly sampled uniform distribution to get a random covariance

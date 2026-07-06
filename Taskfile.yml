@@ -20,7 +20,7 @@ tasks:
       - rm -rf build starlord.egg-info src/starlord/__pycache__
       - rm -rf docs/build/html/
       - pip uninstall starlord --yes
-      - pip install -e .[develop]
+      - pip install --no-build-isolation -e .[develop]
 
   lint:
     desc: "Run flake8 linter"

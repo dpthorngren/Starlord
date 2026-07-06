@@ -17,6 +17,8 @@ _num_params = {
     'chabrier_disk': 0,
     'chabrier_globular': 0,
     'chabrier_spheroid': 0,
+    'binorm': 5,
+    'feh_disk': 0,
 }
 
 
@@ -37,6 +39,10 @@ def process_distribution(var: str | Symb, dist: str, params: list[str | float | 
     elif dist == 'chabrier_spheroid':
         params += [-0.15490195, -0.65757, 0.33, 5.295945]
         dist = 'chabrier'
+    elif dist == "feh_disk":
+        params = [0.8, .016, -.15, 0.15, 0.22]
+        dist = 'binorm'
+
     pars: list[Symb] = [Symb(i) for i in params]
     return Symb(var), dist, pars
 
