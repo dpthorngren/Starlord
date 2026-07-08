@@ -152,8 +152,11 @@ def main():
         return
 
     # === Setup the Sampler ===
-    sampler_type = settings['sampling'].get('sampler', "emcee")
+    sampler_type = settings['sampling'].get('sampler', 'builtin')
     sampler_args: dict[str, dict[str, Any]] = settings['sampling'].get(sampler_type, dict())
+    for key in settings['sampling'].keys():
+        if key not in ['sampler', 'const', sampler_type]:
+            print(f"Warning: sampling argument '{key}' was not used.")
     init_args = sampler_args.get('init', {})
     run_args = sampler_args.get('run', {})
     assert all([i in ['run', 'init'] for i in sampler_args.keys()]), \
