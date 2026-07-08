@@ -29,20 +29,20 @@ outputs = dict(
 )
 
 # Optionally, derived values that can be calculated from the outputs or inputs
+# Note that adding or removing "log_*" is understood without an entry here
 derived = dict(
-    age="10**g.hotJupiters.log_age",
-    flux="10**g.hotJupiters.log_flux",
-    luminosity="10**g.hotJupiters.log_luminosity",
-    mass="10**g.hotJupiters.log_mass",
-    radius="10**g.hotJupiters.log_radius",
     tint="math.pow(g.hotJupiters.luminosity / (7.125593e-4 * (g.hotJupiters.radius * 6.9911e9)**2), 0.25)",
     typical_heating="0.0237 * math.exp(-(g.hotJupiters.log_flux - 9.14)**2 / (2 * .37**2))",
 )
 
-# Input everything into the
+# Input everything into the create_grid function
 starlord.GridGenerator.create_grid(
     "hotJupiters",
     inputs=inputs,
     outputs=outputs,
     derived=derived,
+    citations="Thorngren & Fortney (2018; 10.3847/1538-3881/aaba13)",
+    version="2",
+    notes="Appropriate for fitting the compositions of hot Jupiters and cool giants (T_eq < 1000 K).  For the latter," +
+    " set heating to 0.",
 )

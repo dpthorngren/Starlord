@@ -7,6 +7,7 @@ mist2.WISE_W1 = [7.203, 0.029]
 mist2.WISE_W2 = [7.322, 0.020]
 mist2.WISE_W3 = [7.297, 0.018]
 mist2.WISE_W4 = ["normal", "c.wise_w4_mean", 0.0114]
+mist2.parallax = [15.0153, 0.03612]
 
 # Fix the extinction parameter and [alpha/iron] to 0:
 override.mist2.Av = "0.0"
@@ -14,9 +15,9 @@ override.mist2.afe = "0.0"
 
 # The priors for the remaining parameters:
 prior.log_age = ["uniform", -0.5, 1]
-prior.log_mass0 = ["uniform", -0.5, 0.5]
-prior.feh = ["uniform", -0.2, 0.5]
-prior.parallax = [15.0153, 0.03612]
+prior.log_mass0 = ["chabrier_disk"]
+prior.feh = ["casagrande_disk"]
+prior.distance = ["trunc_power", -2, 10, 200]
 
 # Outputs to calculate
 outputs = ["g.mist2Tracks.log_radius", "g.mist2Tracks.log_g", "g.mist2Tracks.log_lum"]
@@ -25,7 +26,7 @@ outputs = ["g.mist2Tracks.log_radius", "g.mist2Tracks.log_g", "g.mist2Tracks.log
 sampler = "builtin"
 builtin.run.progress = true
 
-# Example of using a runtime constant (can be changed without recompiling)
+# Example of using a runtime constant
 const.wise_w4_mean = 7.196
 
 [output]

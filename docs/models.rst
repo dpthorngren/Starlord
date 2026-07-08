@@ -63,8 +63,8 @@ In the Python API this is split into two function calls:
 
 .. code-block:: python
 
-   builder.assign("l.sqrt_A", "math.sqrt(A)")
-   builder.constraint("l.sqrt_A", "normal", [1.5, 0.2])
+   builder.assign("v.sqrt_A", "math.sqrt(A)")
+   builder.constraint("v.sqrt_A", "normal", [1.5, 0.2])
 
 Expressions
 --------------------

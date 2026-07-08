@@ -58,16 +58,21 @@ class ModelBuilder():
         well as lower and upper bounds :math:`a` and :math:`b`.
     :Trunc_exponential (3): The exponential distribution parameterized by a rate
         parameter :math:`\lambda`, and lower and upper bounds :math:`a` and :math:`b`.
+    :binorm (5): A mixture of two normal distributions, given a first component weight,
+        mean, and standard deviation and a second component mean and standard deviation.
     :Chabrier (4): A piecewise prior for stellar log-masses based on a log-normal
-        and power-law distribution from Chabrier (2002).  It has four parameters --
+        and power-law distribution from Chabrier (2003).  It has four parameters --
         the log-normal to power-law boundary point, the log-normal mean and sigma,
         and the rate for the power law component ``rate = (1+power)*ln(10)``.
     :Chabrier_disk (0): The Chabrier prior using the parameters for disk and young
-        cluster stars from Chabrier (2002), table 2.
+        cluster stars from Chabrier (2003), table 2.
     :Chabrier_globular (0): The Chabrier prior using the parameters for globular
-        cluster stars from Chabrier (2002), table 2.
+        cluster stars from Chabrier (2003), table 2.
     :Chabrier_spheroid (0): The Chabrier prior using the parameters for spheroid
-        stars from Chabrier (2002), table 2.
+        stars from Chabrier (2003), table 2.
+    :casagrande_disk (0): A prior for [Fe/H] based on local disk stars from Casagrande (2011)
+        as used by the Isochrones package, which is a mixture of two normals -- equivalent to
+        binorm with params [.8, .016, -.15, 0.15, 0.22].
     '''
 
     # Valid inputs to override_input satisfy this regex, but it doesn't catch every bad case.

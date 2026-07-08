@@ -6,9 +6,9 @@ The ``[sampling]`` is also where you may set the values of any constants you use
 
 This page lists some common sampling parameters you may wish to set; however, it is not an exhaustive list of the sampler options.
 
-Emcee Sampler
+Builtin Sampler
 --------------------
-The `Emcee sampler <https://emcee.readthedocs.io/en/stable/>`_ is a popular MCMC sampler in astronomy which uses a collection of walkers to propose jumps that are invariant to affine transformations of the distribution being sampled.  It's a good choice so long as your posterior isn't too complex (donuts, bananas, holes, etc).
+The builtin sampler is a simple variant of the affine invariant ensemble sampler, written in Cython and built directly into Starlord to reduce the calling overhead.  It features an adaptive system that runs the sampler until a convergence criterion (similar to the Gelman-Rubin statistic) is satisfied. It is a good default choice as it requires little tuning to work well, but will struggle with more complex distributions.
 
 **Initialization Parameters**
 
@@ -16,9 +16,34 @@ The `Emcee sampler <https://emcee.readthedocs.io/en/stable/>`_ is a popular MCMC
 
 **Run Parameters**
 
+:n_samples:             The number of samples to record for each walker during the run.
+:burnin:                The number of samples to take before beginning to record the output samples.
+:thin:                  The number of samples to take for each sample that is actually recorded.
+:alpha:                 The scaling distance for stretch moves -- the default of 2 is usually best.
+:initial_state:         The initial walker states -- if not set Starlord will draw this from the prior PPF. 
+:progress:              Whether to show a very minimal indicator of sampling progress while running.
+:metropolis_frac:       The fraction of samples to be made as a metropolis step rather than a stretch move, 0.2 by default.
+:metropolis_presamples: The number of samples used in calculating a proposal covariance for the metropolis steps, n_samples//10 by default.
+:adaptive_pgr_thresh:   The threshold convergence statistic at which to end convergence, 1.1 by default, and numbers closer to zero are more aggressive requirements.  If set to less than 1, no adaptation is done.
+:max_adapt_iter:        How many failures to meet the convergence requirement before the sampler gives up, 6 by default. Each failure *doubles* the thinning, so the final sample run before giving up will take `(n_samples + burnin) * thin * 2**max_adapt_iter` samples.
+
+
+Emcee Sampler
+--------------------
+The `Emcee sampler <https://emcee.readthedocs.io/en/stable/>`_ is a popular MCMC sampler in astronomy which uses a collection of walkers to propose jumps that are invariant to affine transformations of the distribution being sampled.  It's a good choice so long as your posterior isn't too complex (donuts, bananas, holes, etc).
+
+**Initialization Parameters**
+
+:nwalkers:          The number of walkers, which must be at least twice the number of dimensions; more complex posteriors can benefit from higher walker counts.
+:burnin:            The number of samples to take before beginning to record the output samples.
+:thin:              The number of samples to take for each sample that is actually recorded.
+
+**Run Parameters**
+
 :initial_state:     The initial walker states -- if not set Starlord will draw this from the prior PPF. 
 :nsteps:            The number of steps per walker to take during the run.
-:progress:    Whether to print the progress of the sampler as it runs.
+:alpha:             The scaling distance for stretch moves -- the default of 2 is usually best.
+:progress:          Whether to print the progress of the sampler as it runs.
 
 Dynesty Sampler
 --------------------

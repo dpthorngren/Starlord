@@ -14,6 +14,10 @@ mist2.TWOMASS_H--blend = [8.3739, 0.0430]
 mist2.WISE_W1--blend = [8.5299, 0.0504]
 mist2.WISE_W2--blend = [8.5699, 0.0502]
 
+# Parallax information is the same for both stars
+mist2.parallax--1 = [9.508, 0.018]
+mist2.parallax--2 = [9.508, 0.018]
+
 # Require the second star to be of lower mass (to disambiguate the indices)
 var.mass_difference = ["p.log_mass0--1 - p.log_mass0--2", "uniform", 0, 10]
 
@@ -22,12 +26,12 @@ override.mist2.afe = "0"
 
 # Priors for most parameters are shared
 prior.Av = ["trunc_normal", 0.02687, 0.03, 0, 20]
-prior.parallax = [9.508, 0.018]
-prior.feh = ["uniform", -0.2, 0.5]
+prior.feh = ["casagrande_disk"]
 prior.log_age = ["uniform", -1.5, 1.2]
+prior.distance = ["trunc_power", -2, 10, 200]
 # The masses are not shared, must set prior separately for each
-prior.log_mass0--1 = ["uniform", -0.5, 0.5]
-prior.log_mass0--2 = ["uniform", -0.5, 0.5]
+prior.log_mass0--1 = ["chabrier_disk"]
+prior.log_mass0--2 = ["chabrier_disk"]
 
 # Outputs to calculate
 outputs = ["g.mist2.log_radius--1", "g.mist2.log_g--1", "g.mist2.log_lum--1", "g.mist2.log_teff--1",
