@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import partial
 
 # The number of parameters for each type of distribution.
 _num_params = {
@@ -22,7 +23,8 @@ _num_params = {
 }
 
 
-def process_distribution(var: str | Symb, dist: str, params: list[str | float | Symb]) -> tuple[Symb, str, list[Symb]]:
+def process_distribution(var: str | Symb, dist: str,
+                         params: list[str | float | Symb]) -> tuple[Symb, str, list[str], set[Symb]]:
     '''Validates a distribution input and converts to the appropriate types.'''
     dist = dist.lower()
     assert dist in _num_params.keys(), f"Unrecognized distribution name '{dist}' for '{var}'."
@@ -43,8 +45,30 @@ def process_distribution(var: str | Symb, dist: str, params: list[str | float | 
         params = [0.8, .016, -.15, 0.15, 0.22]
         dist = 'binorm'
 
-    pars: list[Symb] = [Symb(i) for i in params]
-    return Symb(var), dist, pars
+    # Process parameters into strings, list requirements
+    pars: list[str] = []
+    reqs: set[Symb] = set()
+    for p in params:
+        p = str(p)
+        template, vars = _extract_params(p)
+        pars.append(template)
+        reqs |= vars
+    return Symb(var), dist, pars, reqs
+
+
+def _extract_params(source: str) -> tuple[str, set[Symb]]:
+    '''Extracts variables from the given string and replaces them with format brackets.
+    Variables can be constants "c.name", parameters "p.name", or local variables "v.name".'''
+    vars = set()
+    replace_var = partial(_replace_var, vars=vars)
+    template = re.sub(r"(?<!\w)([pcv]\.[A-Za-z_]\w*)", replace_var, source, flags=re.M)
+    return template, vars
+
+
+def _replace_var(source: re.Match, vars: set[Symb]) -> str:
+    var = Symb(source.group())
+    vars.add(var)
+    return var.bracketed
 
 
 class Symb(str):
@@ -128,21 +152,21 @@ class DistributionComponent(Component):
     params: list[str]
     var: Symb
 
+    @property
+    def params_str(self) -> str:
+        return ", ".join([p for p in self.params])
+
     @classmethod
     def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
-        var, dist, pars = process_distribution(var, dist, params)
-        requires: set[Symb] = set(p for p in pars if not p.is_literal)
-        requires = requires | {var}
-        pars = [str(p) if p.is_literal else f"{{{p}}}" for p in pars]
+        var, dist, pars, requires = process_distribution(var, dist, params)
+        requires.add(var)
         return cls(requires, set(), dist, pars, var)
 
     def display(self) -> str:
-        params = ", ".join([p for p in self.params])
-        return f"{self.code.title()}({self.var} | {params})"
+        return f"{self.code.title()}({self.var} | {self.params_str})"
 
     def generate_code(self) -> str:
-        params = ", ".join([Symb(p).bracketed for p in self.params])
-        return f"logL += {self.code}_lpdf({self.var.bracketed}, {params})"
+        return f"logL += {self.code}_lpdf({self.var.bracketed}, {self.params_str})"
 
 
 @dataclass(frozen=True)
@@ -150,24 +174,30 @@ class Prior:
     vars: list[Symb]
     code_ppf: str
     code_pdf: str
-    params: list[Symb]
+    requires: set[Symb]
+    params: list[str]
     distribution: str
-
-    @property
-    def requires(self) -> set[Symb]:
-        return set([p for p in self.params if not p.is_literal])
 
     @property
     def provides(self) -> set[Symb]:
         return set(self.vars)
 
+    @property
+    def vars_str(self) -> str:
+        return ", ".join([v.bracketed for v in self.vars])
+
+    @property
+    def params_str(self) -> str:
+        return ", ".join([p for p in self.params])
+
     @classmethod
     def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
-        var, dist, pars = process_distribution(var, dist, params)
+        var, dist, pars, requires = process_distribution(var, dist, params)
         return Prior(
             vars=[var],
             code_ppf="{vars} = " + dist + "_ppf({vars}, {paramStr})",
             code_pdf="logP += " + dist + "_lpdf({vars}, {paramStr})",
+            requires=requires,
             params=pars,
             distribution=dist,
         )
@@ -181,12 +211,7 @@ class Prior:
         return f"{self.distribution.title()}({vars} | {params})"
 
     def generate_ppf(self) -> str:
-        vars = [v.bracketed for v in self.vars]
-        params = [p.bracketed for p in self.params]
-        return self.code_ppf.format(vars=", ".join(vars), params=params, paramStr=", ".join(params))
+        return self.code_ppf.format(vars=self.vars_str, paramStr=self.params_str)
 
     def generate_pdf(self) -> str:
-        vars = [v.bracketed for v in self.vars]
-        params = [p.bracketed for p in self.params]
-        fmt = dict(vars=", ".join(vars), params=self.params, paramStr=", ".join(params))
-        return self.code_pdf.format(**fmt)
+        return self.code_pdf.format(vars=self.vars_str, paramStr=self.params_str)

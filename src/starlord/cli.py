@@ -143,7 +143,7 @@ def main():
     if args.code:
         code = builder.generate_code()
         if not args.plain_text:
-            code = re.sub(r"(?<!\w)(l_[a-zA-z]\w*)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", code, flags=re.M)
+            code = re.sub(r"(?<!\w)(v_[a-zA-z]\w*)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", code, flags=re.M)
             code = re.sub(r"(?<!\w)(c_[a-zA-z]\w*)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", code, flags=re.M)
             code = re.sub(r"(?<!\w)(params(\[\d+\])?)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", code, flags=re.M)
             code = re.sub(r"(?<!\w)(logL|logP|self)", f"{txt.bold}\\g<1>{txt.end}", code, flags=re.M)

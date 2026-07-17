@@ -7,7 +7,6 @@ import re
 import shutil
 import sys
 import time
-from functools import partial
 from importlib import util
 from importlib.machinery import ModuleSpec
 from types import ModuleType
@@ -16,7 +15,7 @@ from typing import NamedTuple, Optional
 import cython
 
 from ._config import __version__, _TextFormatCodes_, config
-from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb)
+from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb, _extract_params)
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('prior_p', tuple[Symb]), ('c', tuple[Symb]), ('v', tuple[Symb]),
@@ -141,7 +140,7 @@ class CodeGenerator:
             else:
                 postprocess_mapping[key] = value
         for i, var in enumerate(self.outputs):
-            var, _ = CodeGenerator._extract_params(var)
+            var, _ = _extract_params(var)
             result.append(f"        out[i, {i+2}] = {var}".format(**postprocess_mapping))
         result.append("    return\n")
         result = ["    " + r for r in result]
@@ -261,7 +260,7 @@ class CodeGenerator:
                 # Verify that the result is a local var "v.foo"
                 assert var[:2] == "v.", var
                 provides.add(Symb(var))
-        code, variables = self._extract_params(expr)
+        code, variables = _extract_params(expr)
         requires = variables - provides
         comp = Component(requires, provides, code)
         if self.verbose:
@@ -271,7 +270,7 @@ class CodeGenerator:
     def assign(self, var: str, expr: str) -> None:
         # If v is omitted, it is implied
         var = Symb(var if re.match(r"^v\.", var) is not None else f"v.{var}")
-        code, variables = self._extract_params(expr)
+        code, variables = _extract_params(expr)
         comp = AssignmentComponent.create(var, code, variables - {var})
         if self.verbose:
             print(CodeGenerator.fancy_print(comp.display(), self.txt))
@@ -347,21 +346,6 @@ class CodeGenerator:
                 else:
                     raise ValueError(f"Invalid symbol {sym}.")
         return params, consts, locals
-
-    @staticmethod
-    def _extract_params(source: str) -> tuple[str, set[Symb]]:
-        '''Extracts variables from the given string and replaces them with format brackets.
-        Variables can be constants "c.name", parameters "p.name", or local variables "v.name".'''
-        vars = set()
-        replace_var = partial(CodeGenerator._replace_var, vars=vars)
-        template = re.sub(r"(?<!\w)([pcv]\.[A-Za-z_]\w*)", replace_var, source, flags=re.M)
-        return template, vars
-
-    @staticmethod
-    def _replace_var(source: re.Match, vars: set[Symb]) -> str:
-        var = Symb(source.group())
-        vars.add(var)
-        return var.bracketed
 
     @staticmethod
     def _cleanup_old_modules(exclude: list[str] = [], ignore_below: int = 20, stale_time: float = 7.) -> None:

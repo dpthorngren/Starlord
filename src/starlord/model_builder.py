@@ -728,10 +728,10 @@ class DeferredResolver:
             # Text processing for better graph appearance
             label = label.replace("{", "g.").replace("}", "")
             label = re.sub(r"c.grid__(\w*)__(\w*)._interp\dd", r"c.\g<1>__\g<2>", label)
-            label = re.sub(r"(?<!\w)(l(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="green">\g<1></FONT>', label)
+            label = re.sub(r"(?<!\w)(v(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="green">\g<1></FONT>', label)
             label = re.sub(r"(?<!\w)(c(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="blue">\g<1></FONT>', label)
             label = re.sub(r"(?<!\w)(p(\.|__)[a-zA-z]\w*)", r'<FONT COLOR="#E1712B">\g<1></FONT>', label)
-            label = re.sub(r"(?<!\w)(d(\.|__)[a-zA-z.]\w*)", r'<FONT COLOR="red">\g<1></FONT>', label)
+            label = re.sub(r"(?<!\w)(g(\.|__)[a-zA-z.]\w*)", r'<FONT COLOR="red">\g<1></FONT>', label)
             label = label.replace("__", ".")
             # Add the node and link with all dependencies
             g.node(key, label=label, fillcolor=bgcolor, style="filled")
