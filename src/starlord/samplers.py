@@ -452,10 +452,10 @@ class SamplerEnsemble(_Sampler):
 
 class SamplerNested(_Sampler):
     '''Thin wrapper for the Dynesty NestedSampler'''
-    _sampler: dynesty.NestedSampler | None
+    _sampler: dynesty.DynamicNestedSampler | None
 
     @property
-    def sampler(self) -> dynesty.NestedSampler:
+    def sampler(self) -> dynesty.DynamicNestedSampler:
         assert self._sampler is not None, "Must run sampler before accessing it."
         return self._sampler
 
@@ -476,7 +476,7 @@ class SamplerNested(_Sampler):
         init_args.setdefault('prior_transform', self.prior_transform)
         self._last_init_args = init_args.copy()
         self._last_run_args = run_args.copy()
-        self._sampler = dynesty.NestedSampler(**init_args)
+        self._sampler = dynesty.DynamicNestedSampler(**init_args)
         self._last_constants = [getattr(self.model, f"c__{c}") for c in self.const_names if not c.startswith("grid")]
         self.sampler.run_nested(**run_args)
 
