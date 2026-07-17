@@ -128,6 +128,17 @@ def test_binorm():
         assert cy_tools.binorm_cdf(x, w1, mu1, mu2, s1, s2) == approx(p, 1e-6)
 
 
+def test_special_functions():
+    assert cy_tools.smootherstep(-5, 0, 1) == 0.
+    assert cy_tools.smootherstep(5, -3, 4) == 1.
+    assert cy_tools.smootherstep(-1e13, 1e16, -1e12) == 1.
+    assert cy_tools.smootherstep(1.2, 1e-12, -1e-15) == 0.
+    assert cy_tools.smootherstep(5, 0, 10) == 0.5
+    assert cy_tools.smootherstep(5, 10, 0) == 0.5
+    for xc in np.random.rand(100):
+        assert cy_tools.smootherstep(xc, 0, 1) == approx(xc * xc * xc * (xc * (6.0*xc - 15.0) + 10.0), 1e-12)
+
+
 @pytest.mark.flaky(reruns=3)
 def test_mvnormal():
     # Poorly sampled uniform distribution to get a random covariance

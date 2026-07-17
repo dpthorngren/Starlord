@@ -10,6 +10,7 @@ cpdef void copy_arr3d(double[:,:,:] source, double[:,:,:] dest)
 
 cpdef double expit(double x) noexcept
 cpdef double logit(double x) noexcept
+cpdef double smootherstep(double x, double start, double end) noexcept
 
 cpdef double logsumexp(double x, double y, double c_x=?, double c_y=?) noexcept
 cpdef double uniform_lpdf(double x, double xmin, double xmax) noexcept

@@ -33,6 +33,15 @@ cpdef double expit(double x) noexcept:
 cpdef double logit(double x) noexcept:
     return math.log(x / (1. - x))
 
+cpdef double smootherstep(double x, double start, double end) noexcept:
+    '''A sigmoid function smoothly interpolated from 0 to 1 between start and end;
+    end does not have to be greater than start.
+    See en.wikipedia.org/wiki/Smoothstep'''
+    if end == start:
+        return 0.5
+    x = math.fmax(math.fmin((x-start)/(end-start), 1.), 0.)
+    return x * x * x * (x * (6. * x - 15.) + 10.)
+
 cpdef double logsumexp(double x, double y, double c_x=1., double c_y=1.) noexcept:
     cdef double baseline = max(x, y)
     x = c_x*math.exp(x - baseline)

@@ -20,6 +20,8 @@ _num_params = {
     'chabrier_spheroid': 0,
     'binorm': 5,
     'casagrande_disk': 0,
+    'apogee_dr17_afe': 1,
+    'galah_dr4_afe': 1,
 }
 
 
@@ -44,6 +46,25 @@ def process_distribution(var: str | Symb, dist: str,
     elif dist == "casagrande_disk":
         params = [0.8, .016, -.15, 0.15, 0.22]
         dist = 'binorm'
+    elif dist == 'apogee_dr17_afe':
+        # Get [Fe/H] variable from input params, then generate output params
+        x = params[0]
+        params = [
+            f"0.7693 - 0.571 * math.exp(-({x} + 0.8137)**2 / 0.10369458)",
+            f"-.0052 + .286 * smootherstep({x}, 0.7, -2.1993)",
+            f"-.0052 + .286 * smootherstep({x}, 0.6189, -0.7542)",
+            f"0.024893 + 0.01672 * smootherstep({x}, 0.5, -2.)",
+            f"0.024893 + 0.01672 * smootherstep({x}, 0.5, -2.)",
+        ]
+        dist = 'binorm'
+    elif dist == "galah_dr4_afe":
+        # Get [Fe/H] variable from input params, then generate output params
+        x = params[0]
+        params = [
+            f"math.fmin(0.0305 - 0.2862*{x} + 0.186*{x}*{x}, 0.3987)",
+            f"0.0378 + 0.02667 * smootherstep({x}, 0.3543, -1.0635)",
+        ]
+        dist = "normal"
 
     # Process parameters into strings, list requirements
     pars: list[str] = []
@@ -120,7 +141,7 @@ class Component:
     code: str
 
     def display(self) -> str:
-        mapping = {s.var: str(s) for s in self.requires.union(self.provides)}
+        mapping = {s.var: str(s) for s in self.requires | self.provides}
         return self.code.format(**mapping) + " [Expr]"
 
     def generate_code(self) -> str:
@@ -139,7 +160,7 @@ class AssignmentComponent(Component):
         return cls(requires, set([var]), expr)
 
     def display(self) -> str:
-        mapping = {s.var: str(s) for s in self.requires.union(self.provides)}
+        mapping = {s.var: str(s) for s in self.requires | self.provides}
         return f"{list(self.provides)[0]} = {self.code.format(**mapping)}"
 
     def generate_code(self) -> str:
@@ -193,6 +214,9 @@ class Prior:
     @classmethod
     def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
         var, dist, pars, requires = process_distribution(var, dist, params)
+        for req in requires:
+            assert req.label in 'pc', f"Bad prior parameter '{req}'.  " + \
+                "Prior parameters may only use constants or parameters, not variables."
         return Prior(
             vars=[var],
             code_ppf="{vars} = " + dist + "_ppf({vars}, {paramStr})",
@@ -206,9 +230,8 @@ class Prior:
         return ", ".join(sorted(self.vars)) < ", ".join(sorted(other.vars))
 
     def display(self) -> str:
-        params = ", ".join([p for p in self.params])
-        vars = ", ".join([v for v in self.vars])
-        return f"{self.distribution.title()}({vars} | {params})"
+        mapping = {s.var: str(s) for s in self.requires | self.provides}
+        return f"{self.distribution.title()}({self.vars_str} | {self.params_str.format(**mapping)})"
 
     def generate_ppf(self) -> str:
         return self.code_ppf.format(vars=self.vars_str, paramStr=self.params_str)
