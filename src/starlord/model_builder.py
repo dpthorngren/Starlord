@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from ._config import _TextFormatCodes_, config
-from .code_components import _num_params
+from .code_components import _num_params, prefixes
 from .code_gen import CodeGenerator
 from .grid_gen import GridGenerator
 from .io import read_model_toml
@@ -413,7 +413,7 @@ class ModelBuilder():
         assert len(spec) >= 1
         dist: str = "normal"
         if type(spec[0]) is str:
-            if spec[0].lower() in _num_params.keys():
+            if any([spec[0].lower().endswith(k) for k in _num_params.keys()]):
                 dist = spec.pop(0)
             elif self.distribution_name.fullmatch(spec[0]):
                 raise ValueError(
@@ -534,16 +534,6 @@ class DeferredResolver:
     # Matches indexed code_generator varibles like "p.stuff--i" or "g.grid__var--3"
     find_indexed_vars = re.compile(r"(?<!\w)([pcv])\.([a-zA-Z_]\w*)(?:--(\w+))?")
 
-    # Automatically function prefixes and their forward and inverse functions
-    prefixes = {
-        'log_': ('math.log10', '10**'),
-        'exp10_': ('10**', 'math.log10'),
-        'ln_': ('math.log', 'math.exp'),
-        'expn_': ('math.exp', 'math.log'),
-        'expit_': ('expit', 'logit'),
-        'logit_': ('logit', 'expit'),
-    }
-
     @property
     def txt(self) -> _TextFormatCodes_:
         if self.fancy_text:
@@ -632,7 +622,7 @@ class DeferredResolver:
             if name in valid:
                 value = self._resolve_grid_var(grid, name, index)
             else:
-                for prefix, (forward, inverse) in self.prefixes.items():
+                for prefix, (forward, inverse, _) in prefixes.items():
                     # Next, check if the name is in the grid but with a prefix
                     if prefix + name in valid:
                         value = self._resolve_grid_var(grid, prefix + name, index)

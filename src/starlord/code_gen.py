@@ -290,10 +290,10 @@ class CodeGenerator:
 
     @staticmethod
     def fancy_print(source, txt):
-        source = re.sub(r"(?<!\w)(g\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.red}\\g<1>{txt.end}", source)
-        source = re.sub(r"(?<!\w)(p\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source)
-        source = re.sub(r"(?<!\w)(c\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", source)
-        source = re.sub(r"(?<!\w)(v\.[a-zA-Z_]\w+)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(g\.[a-zA-Z_]\w*)", f"{txt.bold}{txt.red}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(p\.[a-zA-Z_]\w*)", f"{txt.bold}{txt.yellow}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(c\.[a-zA-Z_]\w*)", f"{txt.bold}{txt.blue}\\g<1>{txt.end}", source)
+        source = re.sub(r"(?<!\w)(v\.[a-zA-Z_]\w*)", f"{txt.bold}{txt.green}\\g<1>{txt.end}", source)
         source = re.sub(r"(?<!\033\[)(?<![\w\\])([+-]?(?:[0-9]*[.])?[0-9]+)", f"{txt.blue}\\g<1>{txt.end}", source)
         return source
 

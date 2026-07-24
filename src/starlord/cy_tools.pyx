@@ -33,6 +33,9 @@ cpdef double expit(double x) noexcept:
 cpdef double logit(double x) noexcept:
     return math.log(x / (1. - x))
 
+cpdef double logddx_logit(double x) noexcept:
+    return -math.log(x - x*x)
+
 cpdef double smootherstep(double x, double start, double end) noexcept:
     '''A sigmoid function smoothly interpolated from 0 to 1 between start and end;
     end does not have to be greater than start.

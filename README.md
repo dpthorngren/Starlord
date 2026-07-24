@@ -32,9 +32,6 @@ Roadmap
 --------------------
 This is a list of features I'd like to add, roughly ordered by priority and definitely subject to change.
 
- - **Prior Features** -- Priors on transformed parameters.
- - **Stellar Physics Priors** -- Additional physically motivated priors for stars.
- - **Implicit Variables** -- If mass is defined, then log_mass is pretty clear in its intent.
+ - **Python interpolation support** -- The grid system is faster than `scipy.RegularGridInterpolator`, but currently awkward to use directly in Python.
  - **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
  - **Vector Operations** -- Useful for more general Bayesian models.
- - **Python interpolation support** -- The grid system is faster than `scipy.RegularGridInterpolator`, but currently awkward to use directly in Python.

@@ -24,6 +24,15 @@ _num_params = {
     'galah_dr4_afe': 1,
 }
 
+prefixes = {
+    'log_': ('math.log10', "10**", "-math.log(10)-"),
+    'exp10_': ('10**', 'math.log10', "-math.log(10)-"),
+    'ln_': ('math.log', 'math.exp', "-"),
+    'expn_': ('math.exp', 'math.log', "+"),
+    'expit_': ('expit', 'logit', '-logddx_logit'),
+    'logit_': ('logit', 'expit', "logddx_logit"),
+}
+
 
 def process_distribution(var: str | Symb, dist: str,
                          params: list[str | float | Symb]) -> tuple[Symb, str, list[str], set[Symb]]:
@@ -213,17 +222,29 @@ class Prior:
 
     @classmethod
     def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
+        # Check for transform prefixes
+        for k, (fwd, inv, log_jac) in prefixes.items():
+            if dist.startswith(k):
+                dist_prefix = k
+                dist = dist[len(k):]
+                code_ppf = f"{{vars}} = {inv}({dist}_ppf({{vars}}, {{paramStr}}))"
+                code_pdf = f"logP += {dist}_lpdf({fwd}({{vars}}), {{paramStr}}) + {log_jac}({{vars}})"
+                break
+        else:
+            dist_prefix = ""
+            code_ppf = f"{{vars}} = {dist}_ppf({{vars}}, {{paramStr}})"
+            code_pdf = f"logP += {dist}_lpdf({{vars}}, {{paramStr}})"
         var, dist, pars, requires = process_distribution(var, dist, params)
         for req in requires:
             assert req.label in 'pc', f"Bad prior parameter '{req}'.  " + \
                 "Prior parameters may only use constants or parameters, not variables."
         return Prior(
             vars=[var],
-            code_ppf="{vars} = " + dist + "_ppf({vars}, {paramStr})",
-            code_pdf="logP += " + dist + "_lpdf({vars}, {paramStr})",
+            code_ppf=code_ppf,
+            code_pdf=code_pdf,
             requires=requires,
             params=pars,
-            distribution=dist,
+            distribution=dist_prefix + dist,
         )
 
     def __lt__(self, other):
@@ -231,7 +252,7 @@ class Prior:
 
     def display(self) -> str:
         mapping = {s.var: str(s) for s in self.requires | self.provides}
-        return f"{self.distribution.title()}({self.vars_str} | {self.params_str.format(**mapping)})"
+        return f"{self.distribution.title()}({', '.join(self.vars)} | {self.params_str.format(**mapping)})"
 
     def generate_ppf(self) -> str:
         return self.code_ppf.format(vars=self.vars_str, paramStr=self.params_str)
