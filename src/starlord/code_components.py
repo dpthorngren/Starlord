@@ -22,6 +22,7 @@ _num_params = {
     'casagrande_disk': 0,
     'apogee_dr17_afe': 1,
     'galah_dr4_afe': 1,
+    'thorngren2018_heating': 1,
 }
 
 prefixes = {
@@ -35,13 +36,20 @@ prefixes = {
 
 
 def process_distribution(var: str | Symb, dist: str,
-                         params: list[str | float | Symb]) -> tuple[Symb, str, list[str], set[Symb]]:
+                         params: list[str | float | Symb]) -> tuple[Symb, str, list[str], set[Symb], str]:
     '''Validates a distribution input and converts to the appropriate types.'''
     dist = dist.lower()
+    # Check for transform prefixes
+    dist_prefix = ""
+    for k in prefixes.keys():
+        if dist.startswith(k):
+            dist_prefix = k
+            dist = dist[len(k):]
     assert dist in _num_params.keys(), f"Unrecognized distribution name '{dist}' for '{var}'."
     nparams = _num_params[dist]
     assert nparams == len(params), \
         f"Wrong number of parameters for distribution '{dist}', (expected {nparams}, got {len(params)})"
+
     # Prior Aliases
     if dist == 'chabrier_disk':
         params += [0.0, -1.10237, 0.69, 5.295945]
@@ -74,6 +82,11 @@ def process_distribution(var: str | Symb, dist: str,
             f"0.0378 + 0.02667 * smootherstep({x}, 0.3543, -1.0635)",
         ]
         dist = "normal"
+    elif dist == "thorngren2018_heating":
+        x = params[0]
+        params = [f"math.log10(.0237 * math.exp(-({x} - 9.14)**2 / (2 * .37**2)))", 0.1]
+        dist = 'normal'
+        dist_prefix = 'log_'
 
     # Process parameters into strings, list requirements
     pars: list[str] = []
@@ -83,7 +96,7 @@ def process_distribution(var: str | Symb, dist: str,
         template, vars = _extract_params(p)
         pars.append(template)
         reqs |= vars
-    return Symb(var), dist, pars, reqs
+    return Symb(var), dist, pars, reqs, dist_prefix
 
 
 def _extract_params(source: str) -> tuple[str, set[Symb]]:
@@ -181,22 +194,24 @@ class AssignmentComponent(Component):
 class DistributionComponent(Component):
     params: list[str]
     var: Symb
-
-    @property
-    def params_str(self) -> str:
-        return ", ".join([p for p in self.params])
+    distribution: str
 
     @classmethod
     def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
-        var, dist, pars, requires = process_distribution(var, dist, params)
+        var, dist, pars, requires, dist_prefix = process_distribution(var, dist, params)
+        param_str = ", ".join([Symb(p).bracketed for p in params])
+        if dist_prefix:
+            fwd, _, log_jac = prefixes[dist_prefix]
+            code = f"logL += {dist}_lpdf({fwd}({var.bracketed}), {param_str}) + {log_jac}({var.bracketed})"
+            dist = dist_prefix + dist
+        else:
+            code = f"logL += {dist}_lpdf({var.bracketed}, {param_str})"
         requires.add(var)
-        return cls(requires, set(), dist, pars, var)
+        return cls(requires, set(), code, pars, var, dist)
 
     def display(self) -> str:
-        return f"{self.code.title()}({self.var} | {self.params_str})"
-
-    def generate_code(self) -> str:
-        return f"logL += {self.code}_lpdf({self.var.bracketed}, {self.params_str})"
+        param_str = ", ".join([str(p) for p in self.params])
+        return f"{self.distribution.title()}({self.var} | {param_str})"
 
 
 @dataclass(frozen=True)
@@ -222,19 +237,14 @@ class Prior:
 
     @classmethod
     def create(cls, var: str | Symb, dist: str, params: list[str | float | Symb]):
-        # Check for transform prefixes
-        for k, (fwd, inv, log_jac) in prefixes.items():
-            if dist.startswith(k):
-                dist_prefix = k
-                dist = dist[len(k):]
-                code_ppf = f"{{vars}} = {inv}({dist}_ppf({{vars}}, {{paramStr}}))"
-                code_pdf = f"logP += {dist}_lpdf({fwd}({{vars}}), {{paramStr}}) + {log_jac}({{vars}})"
-                break
+        var, dist, pars, requires, dist_prefix = process_distribution(var, dist, params)
+        if dist_prefix:
+            fwd, inv, log_jac = prefixes[dist_prefix]
+            code_ppf = f"{{vars}} = {inv}({dist}_ppf({{vars}}, {{paramStr}}))"
+            code_pdf = f"logP += {dist}_lpdf({fwd}({{vars}}), {{paramStr}}) + {log_jac}({{vars}})"
         else:
-            dist_prefix = ""
             code_ppf = f"{{vars}} = {dist}_ppf({{vars}}, {{paramStr}})"
             code_pdf = f"logP += {dist}_lpdf({{vars}}, {{paramStr}})"
-        var, dist, pars, requires = process_distribution(var, dist, params)
         for req in requires:
             assert req.label in 'pc', f"Bad prior parameter '{req}'.  " + \
                 "Prior parameters may only use constants or parameters, not variables."
