@@ -9,6 +9,7 @@ import sys
 import time
 from importlib import util
 from importlib.machinery import ModuleSpec
+from pathlib import Path
 from types import ModuleType
 from typing import NamedTuple, Optional
 
@@ -203,8 +204,8 @@ class CodeGenerator:
         result.append(self.generate_log_like())
         return "\n".join(result) + "\n"
 
-    def compile(self) -> ModuleType:
-        hash = CodeGenerator._compile_to_module(self.generate())
+    def compile(self, force: bool = False) -> ModuleType:
+        hash = CodeGenerator._compile_to_module(self.generate(), force)
         return CodeGenerator._load_module(hash)
 
     def summary(self, fancy=False) -> str:
@@ -368,12 +369,18 @@ class CodeGenerator:
                 f.unlink()
 
     @staticmethod
-    def _compile_to_module(code: str) -> str:
+    def _compile_to_module(code: str, force: bool = False) -> str:
         # Get the code hash for file lookup
         hasher = hashlib.shake_128(code.encode())
         hash = base64.b32encode(hasher.digest(25)).decode("utf-8")
         name = f"sl_gen_{hash}"
         pyxfile = config.cache_dir / (name+".pyx")
+        # Remove any existing files if force flag is set
+        if force and pyxfile.exists():
+            pyxfile.unlink()
+            for f in config.cache_dir.glob(name + ".*.*"):
+                Path(f).unlink()
+            libfiles = []
         # Write the pyx file if needed
         if not pyxfile.exists():
             with pyxfile.open("w") as pxfh:

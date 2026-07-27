@@ -19,6 +19,8 @@ def main():
         "input", type=Path, nargs="?", default=None, help="An input model toml, grid npz, or posterior npz file.")
     parser.add_argument(
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
+    parser.add_argument(
+        "-f", "--force", action="store_true", help="Recompile any model used even if a cached version is found.")
     parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
     parser.add_argument("--batch-summary", help="File to write batch run summary information to as a csv.")
     parser.add_argument(
@@ -161,7 +163,7 @@ def main():
     run_args = sampler_args.get('run', {})
     assert all([i in ['run', 'init'] for i in sampler_args.keys()]), \
         "Sampler settings must be set with either 'run' or 'init'."
-    sampler = builder.build_sampler(sampler_type, constants=consts, **init_args)
+    sampler = builder.build_sampler(sampler_type, constants=consts, force=args.force, **init_args)
     if args.test_case:
         test_case_str = args.test_case.replace('"', "").split(",")
         test_case = np.array([float(x) for x in test_case_str])

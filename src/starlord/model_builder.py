@@ -454,7 +454,7 @@ class ModelBuilder():
             print("")
         return missing, extra
 
-    def build_sampler(self, sampler_type: str, constants: dict = {}, **init_args):
+    def build_sampler(self, sampler_type: str, constants: dict = {}, force: bool = False, **init_args):
         '''Construct an MCMC sampler for the model.
 
         Args:
@@ -470,7 +470,7 @@ class ModelBuilder():
             KeyError: if a required constant was not provided in constants
             ValueError: if the `sampler_type` was not one of "dynesty" or "emcee"
         '''
-        mod = self.code_generator.compile()
+        mod = self.code_generator.compile(force)
         missing, _ = self.validate_constants(constants, self.verbose)
         if self.verbose and missing:
             print("Warning: Missing values for constant(s) " + ", ".join(missing))
