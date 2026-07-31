@@ -278,7 +278,6 @@ class _Sampler:
             run_args=run_args,
             terminal_output=terminal_output,
             postfile=postfile,
-            summary_cols=nongrid_consts,
         )
 
         if threads > 1:
@@ -296,7 +295,7 @@ class _Sampler:
             summary_rows = []
             for name, input, output in zip(names, work, results):
                 assert output is not None
-                row = [name]
+                row = [str(name)]
                 row += [f"{input[c]:.6f}" for c in nongrid_consts]
                 row += [f"{v:.6f}" for v in output]
                 summary_rows.append(", ".join(row))
@@ -311,7 +310,6 @@ class _Sampler:
         run_args: dict,
         terminal_output: bool = True,
         postfile: Optional[str] = None,
-        summary_cols: list[str] = [],
     ) -> np.ndarray:
         name = constants.pop('name', '')
         print(name, ", ".join([f"{k} = {v}" for k, v in constants.items()]))
@@ -325,7 +323,7 @@ class _Sampler:
             return self.stats.to_array(False).flatten()
         except Exception as e:
             print(f"Error: {name} raised exception {e}")
-        return np.full(5 * len(summary_cols), np.nan)
+        return np.full(5 * (self.ndim + len(self.output_names)), np.nan)
 
 
 class SamplerBuiltin(_Sampler):

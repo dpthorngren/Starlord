@@ -9,6 +9,7 @@ ext = Extension("starlord.cy_tools", ["src/starlord/cy_tools.pyx"], include_dirs
 directives = {
     'embedsignature': True,
     'cdivision': True,
+    'cpow': True,
     'initializedcheck': False,
     'boundscheck': False,
     'binding': True,
