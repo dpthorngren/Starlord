@@ -193,6 +193,7 @@ class GridGenerator:
                 cls.register_grid(filename)
             except (ValueError, AssertionError):
                 pass  # Non-grid file, ignore it
+        cls._initialized = True
 
     @classmethod
     def grids(cls) -> dict[str, GridGenerator]:
