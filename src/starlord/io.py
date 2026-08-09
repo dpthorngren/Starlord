@@ -37,6 +37,23 @@ def read_model_toml(filename: str | Path) -> dict:
     return results
 
 
+def load_simple_csv(filename: str | Path, ensure_name: bool = True) -> np.ndarray:
+    data = np.genfromtxt(
+        filename,
+        delimiter=",",
+        comments="#",
+        autostrip=True,
+        names=True,
+        dtype=None,
+        encoding="UTF-8",
+    )
+    columns = data.dtype.names
+    assert columns is not None, f"Failed to read column names in {filename}."
+    if ensure_name and "name" not in columns:
+        data['name'] = np.arange(len(data))
+    return data
+
+
 def load_posterior(filename, metadata_only=False, include_outputs=True) -> dict:
     file = np.load(filename)
     expected_keys = ['params', 'outputs', 'output_names', 'param_names']

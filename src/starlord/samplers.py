@@ -5,7 +5,6 @@ import sys
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Pool
-from pathlib import Path
 from typing import Callable, Optional, Type
 
 import dynesty
@@ -247,32 +246,16 @@ class _Sampler:
 
     def batch_run(
         self,
+        data: np.ndarray,
         run_args: dict,
-        infile: str | Path,
         terminal_output: bool = True,
         postfile: Optional[str] = None,
         summaryfile: Optional[str] = None,
         threads: int = 1,
     ) -> np.ndarray:
-        # Read in the constants data from the provided file
-        data = np.genfromtxt(
-            infile,
-            delimiter=",",
-            comments="#",
-            autostrip=True,
-            names=True,
-            dtype=None,
-            encoding="UTF-8",
-        )
-        columns = data.dtype.names
-        assert columns is not None, f"Failed to read column names in {infile}."
-        columns = [n for n in columns if n in self.const_names + ['name']]
         nongrid_consts = [c for c in self.const_names if not c.startswith("grid__")]
-        if "name" not in columns:
-            data['name'] = np.arange(len(data))
         names = data['name'].copy()
-        work = [{c: row[c] for c in columns} for row in data]
-
+        work = [{c: row[c] for c in nongrid_consts} for row in data]
         task = partial(
             self._run_single_,
             run_args=run_args,
@@ -287,7 +270,6 @@ class _Sampler:
             results = list(map(task, work))
 
         if summaryfile is not None:
-            assert summaryfile != infile, "Error: will not output to input csv file (would overwrite!)"
             assert results is not None
             header = ["name"] + nongrid_consts
             for p in self.param_names + self.output_names:

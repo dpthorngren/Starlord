@@ -184,7 +184,16 @@ def main():
     out: dict = {"terminal": False, "file": None, "corner_plot": None}
     out.update(settings['output'])
     if args.batch is not None:
-        sampler.batch_run(run_args, args.batch, out['terminal'], out['file'], args.batch_summary, args.batch_threads)
+        assert args.batch != args.batch_summary, "Error: output and input csv are the same (would overwrite!)"
+        batch_constants = io.load_simple_csv(args.batch)
+        sampler.batch_run(
+            batch_constants,
+            run_args,
+            out['terminal'],
+            out['file'],
+            args.batch_summary,
+            args.batch_threads,
+        )
     else:
         sampler.run(**run_args)
         if out['terminal']:
