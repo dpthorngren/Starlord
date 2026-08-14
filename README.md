@@ -9,7 +9,7 @@ Starlord
 
 A Python library for Bayesian fits of models with gridded functions to data, with an emphasis on very flexible stellar model fitting.
 
-This project has reached a beta release.  There are very likely still some bugs, please let me know if you find any.
+This project has reached a beta release.  If you encounter any bugs, please report them in the issues tab or by emailing the author (Daniel Thorngren)
 
 Installation
 --------------------
@@ -23,15 +23,20 @@ git clone git@github.com:dpthorngren/Starlord.git
 cd Starlord
 pip install .
 ```
-Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
 
-> [!IMPORTANT]
-> The current version of Starlord does not come with any grids pre-installed, including the MIST grid the documentation references.  We hope to have them hosted publicly soon.  For now, contact me (Daniel Thorngren) if you would like to use them.
+Finally, you must obtain grids to fit with.  To download the full set of standard grids from [Zenodo]([url](https://zenodo.org/records/21911646)), you can use:
+```
+starlord --download all
+```
+or replace all with the name of the grid to download just that one (the downloadable grids are listed if no argument is given)
+
+Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
 
 Roadmap
 --------------------
 This is a list of features I'd like to add, roughly ordered by priority and definitely subject to change.
 
  - **Python interpolation support** -- The grid system is faster than `scipy.RegularGridInterpolator`, but currently awkward to use directly in Python.
+ - **Additional Standard Grids** -- Brown dwarfs, white dwarfs, and circumstellar disks are of particular interest.
  - **Vector Interpolation** -- For low-resolution spectra and faster interpolation of many outputs from the same grid.
  - **Vector Operations** -- Useful for more general Bayesian models.
