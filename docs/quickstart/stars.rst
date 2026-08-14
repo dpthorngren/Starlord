@@ -5,7 +5,7 @@ The primary purpose of Starlord is to flexibly fit stellar models to observation
 .. literalinclude:: /examples/hd80606.toml
    :language: toml
 
-We have two examples of fixing grid input parameters, both simplifying approximations. First, we fix the extinction parameter to 0, and second, we set the alpha-to-iron ratio to zero. We set a power-law prior for the distance, a builtin prior for [Fe/H] from `Casagrande (2011) <https://ui.adsabs.harvard.edu/abs/2011A%26A...530A.138C/abstract>`, another builtin prior for mass from `Chabrier (2003) <https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract>`, and a uniform prior for the log-age.
+We have two examples of fixing grid input parameters, both simplifying approximations. First, we fix the extinction parameter to 0, and second, we set the alpha-to-iron ratio to zero. We set a power-law prior for the distance, a builtin prior for [Fe/H] from `Casagrande (2011) <https://ui.adsabs.harvard.edu/abs/2011A%26A...530A.138C/abstract>`_, another builtin prior for mass from `Chabrier (2003) <https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract>`_, and a uniform prior for the log-age.
 
 Model Checks
 --------------------

@@ -1,0 +1,38 @@
+[model]
+parsec.TWOMASS_J = [6.591, 0.02]
+parsec.TWOMASS_H = [6.366, 0.038]
+parsec.TWOMASS_Ks = [6.308, 0.026]
+parsec.Gaia_G_DR2 = [7.5087, 0.0018]
+parsec.Tycho2_B = [8.334, 0.0808084154033477]
+parsec.Tycho2_V = [7.699, 0.0602079728939615]
+parsec.WISE_W1 = [6.287, 0.0576888204074238]
+parsec.WISE_W2 = [6.28, 0.0430464865000618]
+
+parsec.parallax = [20.6745, 0.0526]
+
+prior.distance = ["trunc_power", -2, 10, 100]
+prior.log_mass0 = ["chabrier_disk"]
+prior.feh = ["casagrande_disk"]
+prior.Av = ["uniform", 0, 0.07817618]
+prior.log_age = ["uniform", -1, 1.2]
+
+outputs = [
+    "g.parsec.mass",
+    "g.parsec.radius",
+    "g.parsec.age",
+    "g.parsec.log_g",
+    "g.parsec.log_teff",
+    "g.parsec.Gaia_G_DR2",
+]
+
+[sampling]
+sampler="builtin"
+builtin.run.progress = true
+# builtin.init.nwalkers = 25
+# builtin.run.burn_in = 1000
+# builtin.run.thin = 5
+# builtin.run.n_samples = 2000
+
+[output]
+terminal=true
+# file="parsec_hd209458.npz"

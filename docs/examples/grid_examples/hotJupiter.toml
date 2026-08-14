@@ -1,0 +1,29 @@
+[model]
+hotJupiters.mass = [0.730, 0.040]
+hotJupiters.radius = [1.39, 0.02]
+hotJupiters.age = [4.0, 2.0]
+
+prior.log_mass = ['uniform', -0.5, 0.5]
+prior.zpl = ['uniform', 0.0, 1.0]
+prior.log_age = ['uniform', -1.0, 1.0]
+prior.log_flux = ['normal', 9.0, 0.1]
+prior.heating = ["thorngren2018_heating", 'p.log_flux']
+
+outputs = [
+    'g.hotJupiters.mass',
+    'g.hotJupiters.radius',
+    'g.hotJupiters.entropy',
+    'g.hotJupiters.tint',
+]
+
+[sampling]
+sampler='builtin'
+builtin.run.progress = true
+# builtin.init.nwalkers = 25
+# builtin.run.burn_in = 1000
+# builtin.run.thin = 5
+# builtin.run.n_samples = 2000
+
+[output]
+terminal=true
+# file='planet.npz'

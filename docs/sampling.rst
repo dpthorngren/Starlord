@@ -17,7 +17,7 @@ The builtin sampler is a simple variant of the affine invariant ensemble sampler
 **Run Parameters**
 
 :n_samples:             The number of samples to record for each walker during the run.
-:burnin:                The number of samples to take before beginning to record the output samples.
+:burn_in:                The number of samples to take before beginning to record the output samples.
 :thin:                  The number of samples to take for each sample that is actually recorded.
 :alpha:                 The scaling distance for stretch moves -- the default of 2 is usually best.
 :initial_state:         The initial walker states -- if not set Starlord will draw this from the prior PPF. 

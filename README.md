@@ -5,7 +5,7 @@ Starlord
 [![Test Coverage](https://dpthorngren.github.io/Starlord/htmlcov/coverage_badge.svg?dummy=unused)](https://dpthorngren.github.io/Starlord/htmlcov/index.html)
 [![Cython Annotation](https://dpthorngren.github.io/Starlord/htmlcov/cython.svg?dummy=unused)](https://dpthorngren.github.io/Starlord/htmlcov/cy_tools.html)
 
-[**Documentation**](https://dpthorngren.github.io/Starlord/)
+[**Documentation**](https://dpthorngren.github.io/Starlord/), [**Zenodo Record**](https://zenodo.org/records/21911646)
 
 A Python library for Bayesian fits of models with gridded functions to data, with an emphasis on very flexible stellar model fitting.
 
@@ -24,13 +24,24 @@ cd Starlord
 pip install .
 ```
 
-Finally, you must obtain grids to fit with.  To download the full set of standard grids from [Zenodo]([url](https://zenodo.org/records/21911646)), you can use:
+Finally, you must obtain grids to fit with.  To download the full set of standard grids from [Zenodo](https://zenodo.org/records/21911646), you can use:
 ```
 starlord --download all
 ```
-or replace all with the name of the grid to download just that one (the downloadable grids are listed if no argument is given)
+which will download ~1GB of data files to `~/.config/starlord/grids/`.  Alternatively, replace `all` with the name of the grid to download just that one; the downloadable grids are listed if no argument is given.
 
-Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  For usage see the [Documentation](https://dpthorngren.github.io/Starlord/).
+Basic Usage
+--------------------
+Once installed, Starlord can be invoked in the terminal with `starlord`, which with no arguments prints basic help information.  Starlord models are defined by [TOML files](https://dpthorngren.github.io/Starlord/models.html), and can be run with just `starlord my_model.toml` or with the Python API.
+
+If you're interested in stellar characterization, see this [quickstart guide](https://dpthorngren.github.io/Starlord/quickstart/stars.html) and these basic input TOML files to get you started:
+- [MIST1, HD 209458](./docs/examples/grid_examples/mist1_hd209458.toml)
+- [MIST2, HD 209458](./docs/examples/grid_examples/mist2_hd209458.toml)
+- [PARSEC, HD 209458](./docs/examples/grid_examples/parsec_hd209458.toml)
+
+For planetary characterization, see this [example input TOML file](./docs/examples/grid_examples/hotJupiter.toml) and this [quickstart guide](https://dpthorngren.github.io/Starlord/quickstart/planets.html).
+
+For more information see the [documentation](https://dpthorngren.github.io/Starlord/).
 
 Roadmap
 --------------------

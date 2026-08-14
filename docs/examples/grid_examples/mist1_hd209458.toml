@@ -1,0 +1,40 @@
+[model]
+# See `starlord -g mist2` for a list of available bands.
+mist1.TWOMASS_J = [6.591, 0.02]
+mist1.TWOMASS_H = [6.366, 0.038]
+mist1.TWOMASS_Ks = [6.308, 0.026]
+mist1.Gaia_G_DR2Rev = [7.5087, 0.0018]
+mist1.GALEX_NUV = [12.4410, 0.0140]
+mist1.Tycho2_B = [8.334, 0.0808084154033477]
+mist1.Tycho2_V = [7.699, 0.0602079728939615]
+mist1.WISE_W1 = [6.287, 0.0576888204074238]
+mist1.WISE_W2 = [6.28, 0.0430464865000618]
+
+mist1.parallax = [20.6745, 0.0526]
+
+prior.distance = ["trunc_power", -2, 10, 100]
+prior.log_mass0 = ["chabrier_disk"]
+prior.feh = ["casagrande_disk"]
+prior.Av = ["uniform", 0, 0.07817618]
+prior.log_age = ["uniform", -1, 1.2]
+
+outputs = [
+    "g.mist1.mass",
+    "g.mist1.radius",
+    "g.mist1.age",
+    "g.mist1.log_g",
+    "g.mist1.log_teff",
+    "g.mist1.Gaia_G_DR2Rev",
+]
+
+[sampling]
+sampler="builtin"
+builtin.run.progress = true
+# builtin.init.nwalkers = 25
+# builtin.run.burn_in = 1000
+# builtin.run.thin = 5
+# builtin.run.n_samples = 2000
+
+[output]
+terminal=true
+# file="mist1_hd209458.npz"
