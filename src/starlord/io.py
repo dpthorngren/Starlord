@@ -1,8 +1,12 @@
+import hashlib
 import sys
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
+import requests
 
+from ._config import config
 from .samplers import ResultStats
 
 if sys.version_info >= (3, 11):
@@ -52,6 +56,67 @@ def load_simple_csv(filename: str | Path, ensure_name: bool = True) -> np.ndarra
     if ensure_name and "name" not in columns:
         data['name'] = np.arange(len(data))
     return data
+
+
+def _hash_file(filename: Path, hash_type: str):
+    hasher = hashlib.new(hash_type)
+    with open(filename, 'rb') as f:
+        chunk = f.read(8192)
+        while chunk:
+            hasher.update(chunk)
+            chunk = f.read(8192)
+    return hasher.hexdigest()
+
+
+def _download_grid(fileinfo: dict):
+    url = fileinfo['links']['self']
+    localfile = config.grid_dir / fileinfo['key']
+    hash_type, remote_hash = fileinfo['checksum'].split(":")
+
+    if localfile.exists() and _hash_file(localfile, hash_type) == remote_hash:
+        print(f"File {fileinfo['key']} matches remote copy; skipping.", flush=True)
+        return
+
+    print(f"Downloading {fileinfo['key']} from {url}...", end=" ", flush=True)
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(localfile, 'wb') as f:
+            for chunk in r.iter_content(8192):
+                f.write(chunk)
+    print(" done.", flush=True)
+    if _hash_file(localfile, hash_type) != remote_hash:
+        print("Error: downloaded file did not yield expected hash; check your connection!")
+        localfile.unlink()
+
+
+def download_grids(gridname: Optional[str] = None):
+    req = requests.get('https://zenodo.org/api/records/21911646')
+    if req.status_code != 200:
+        print(f"Connection to Zenodo failed with HTTP code {req.status_code}.")
+        return
+    record = req.json()
+    files = sorted(record['files'], key=lambda f: f['key'])
+    files_dict = {f['key'].removesuffix(".npz"): f for f in files}
+
+    if gridname is not None:
+        gridname = str(gridname).removesuffix(".npz")
+        if gridname == "all":
+            for f in files:
+                _download_grid(f)
+            return
+        elif gridname is not None and gridname in files_dict.keys():
+            _download_grid(files_dict[gridname])
+            return
+        else:
+            print(f"No grid named `{gridname}` was found.\n")
+    print("Grids available for download:")
+    print("Name                  Size (MB)")
+    for f in files:
+        name = f['key'].removesuffix(".npz")
+        print(f"{name:<20} {f['size']/1e6:>8.2f}")
+    else:
+        print("\nUse `starlord --download [name]` to download a particular grid,")
+        print(" or `starlord --download all` to download all available grids.")
 
 
 def load_posterior(filename, metadata_only=False, include_outputs=True) -> dict:

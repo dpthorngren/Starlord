@@ -19,6 +19,7 @@ def main():
         "input", type=Path, nargs="?", default=None, help="An input model toml, grid npz, or posterior npz file.")
     parser.add_argument(
         "-g", "--grids", action="store_true", help="List available grids, or summarize a specific one, then exit.")
+    parser.add_argument("--download", action="store_true", help="List remote grids, or download by name if provided.")
     parser.add_argument(
         "-f", "--force", action="store_true", help="Recompile any model used even if a cached version is found.")
     parser.add_argument("-b", "--batch", help="Run for a range of constants, pulled from the given csv file.")
@@ -69,6 +70,10 @@ def main():
         for g in sorted(grids, key=lambda g: g.name):
             # Print short grid info, no need for "Grid_" prefix.
             print("   ", str(g)[5:])
+        return
+
+    if args.download:
+        io.download_grids(args.input)
         return
 
     # === Load Settings ===
