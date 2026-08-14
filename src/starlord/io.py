@@ -77,13 +77,19 @@ def _download_grid(fileinfo: dict):
         print(f"File {fileinfo['key']} matches remote copy; skipping.", flush=True)
         return
 
-    print(f"Downloading {fileinfo['key']} from {url}...", end=" ", flush=True)
+    label = f"Downloading {fileinfo['key']}".ljust(30)
+    print("\r" + label, end="", flush=True)
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
+        size = 0
+        total_size = int(r.headers.get("content-length", 0)) / 1e6
         with open(localfile, 'wb') as f:
             for chunk in r.iter_content(8192):
+                size += len(chunk)
+                print("\r" + label + f"{size/1e6:>6.2f}/{total_size:<6.2f} MB", end="", flush=True)
                 f.write(chunk)
-    print(" done.", flush=True)
+        print("\r" + label + f"{total_size:>6.2f}/{total_size:<6.2f} MB", flush=True)
+
     if _hash_file(localfile, hash_type) != remote_hash:
         print("Error: downloaded file did not yield expected hash; check your connection!")
         localfile.unlink()
