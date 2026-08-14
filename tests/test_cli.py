@@ -34,6 +34,20 @@ def test_grid_summary(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pyte
         assert out in captured.out
 
 
+def test_grid_summary_direct(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
+    monkeypatch.setattr(sys, 'argv', ['starlord', str(dummy_grids) + '/dummy.npz', '-p'])
+    config.grid_dir = dummy_grids
+    GridGenerator.reload_grids()
+    cli.main()
+    captured = capsys.readouterr()
+    assert captured.out.startswith("Grid dummy")
+    grid = GridGenerator.get_grid("dummy")
+    for i, grid_input in enumerate(grid.inputs):
+        assert f"  {i} {grid_input}" in captured.out
+    for out in grid.outputs:
+        assert out in captured.out
+
+
 def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     monkeypatch.setattr(sys, 'argv', ['starlord', 'tests/low_level.toml', '-cvpda', '-s', 'c.offset=-1.5'])
     config.grid_dir = dummy_grids

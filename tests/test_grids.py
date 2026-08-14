@@ -113,3 +113,9 @@ def test_restructure_grid():
     assert len(values) == 2
     assert np.all(values[0] == np.sin(x[:, None]) + y[None, :])
     assert np.all(values[1] == np.cos(y[None, :]) - x[:, None])
+
+
+def test_file_locations(tmpdir, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("STARLORD_DATA_DIR", str(tmpdir))
+    starlord._config._load_config()
+    assert str(starlord._config.config.base_dir) == str(tmpdir)

@@ -83,7 +83,7 @@ def main():
     if args.input is not None:
         filetype = io.classify_file(args.input)
         if filetype == "grid":
-            GridGenerator(args.input).summary()
+            GridGenerator(args.input).summary(True, fancy_text=not args.plain_text)
             return
         elif filetype == "posterior":
             meta = io.load_posterior(args.input, not bool(args.corner_plot))

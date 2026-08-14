@@ -105,6 +105,7 @@ cdef class BuiltinSampler:
         assert burn_in >= 0
         assert thin >= 0
         assert alpha > 1.0
+        assert metropolis_presamples <= n_samples, "Cannot have more pre-samples than samples."
         assert initial_state.shape[0] == self.n_walkers and initial_state.shape[1] == self.n_dim
         if metropolis_presamples < 0:
             metropolis_presamples = n_samples // 10
