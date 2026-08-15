@@ -29,8 +29,11 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
         "rdummy",
         inputs=OrderedDict(a=a.flatten(), b=b.flatten()),
         outputs=dict(c=c),
-        derived=dict(d="math.exp(g.rdummy.c--i)"),
-        input_mappings=dict(a="g.dummy.g1--i"))
+        derived=dict(d="math.exp(g.rdummy.c--i)", bad="g.breaks_if_used.x"),
+        input_mappings=dict(a="g.dummy.g1--i"),
+        version="0.0",
+        citations="Nobody.",
+        notes="A fake grid for testing purposes.")
     # Add some non-grids to test GridGenerator filtering.
     nonGrid = config.grid_dir / "filter_test.txt"
     nonGrid.write_text("Filler to make sure the GridGenerator ignores this file.", "utf-8")
@@ -46,8 +49,11 @@ def test_input_mappings(dummy_grids):
     # Checking that the grid loads and parses the string correctly
     grid = starlord.GridGenerator.get_grid("rdummy")
     assert grid.name == "rdummy"
-    assert grid.spec == "a, b -> c; d"
+    assert grid.spec == "a, b -> c; bad, d"
     assert grid._input_mappings == {"a": "g.dummy.g1--i", "b": "p.b--i"}
+    assert grid.version == "0.0"
+    assert grid.notes == "A fake grid for testing purposes."
+    assert grid.citations == "Nobody."
 
 
 def test_grid_parsing(dummy_grids):

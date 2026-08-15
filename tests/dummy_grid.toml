@@ -8,6 +8,8 @@ prior.y = ['uniform', 5.1, 6.0]
 
 override.rdummy.a = "math.sqrt(g.dummy.g1)"
 
+outputs = ['g.rdummy.c', 'g.dummy.v2']
+
 [sampling]
 sampler = "emcee"
 

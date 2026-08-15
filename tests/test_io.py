@@ -52,3 +52,51 @@ def test_posterior_handling(tmpdir, monkeypatch: pytest.MonkeyPatch, capsys: pyt
     assert "   1 foo" in captured.out
     assert "   2 log_like" in captured.out
     assert "   3 log_prior" in captured.out
+
+
+def test_downloader(dummy_grids, mocker, capsys: pytest.CaptureFixture):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+
+    # Don't actually bother Zenodo servers with the test, use this class as a substitute
+    class MockRequestGet:
+
+        def __init__(self, url, **args):
+            self.url = url
+            self.status_code = 200
+            self.headers = dict()
+            self.raise_for_status = lambda *args: None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return
+
+        def json(self):
+            '''Pretends to be Zenodo metadata.'''
+            foo = dict(key='foo', size=35.2, checksum='md5:asdf', links={'self': 'sdfg'})
+            return {'files': [foo]}
+
+        def iter_content(*args):
+            '''Pretend (badly) to be a grid to be downloaded.'''
+            return [b"Definitely a real grid, totally.", b" Second chunk."]
+
+    mocker.patch("requests.get", MockRequestGet)
+
+    # Local file will be overwritten on download, then deleted because checksum doesn't match
+    localfile = dummy_grids / "foo"
+    with open(localfile, 'w') as f:
+        f.write("asdf")
+
+    starlord.io.download_grids()
+    starlord.io.download_grids("foo")
+    captured = capsys.readouterr()
+
+    assert captured.out.startswith("Grids available for download:")
+    assert "foo" in captured.out
+    assert "mist2" not in captured.out
+    assert "Downloading foo" in captured.out
+    # Hash was made up, so it should reject the "downloaded" file and delete it
+    assert "downloaded file did not yield expected hash" in captured.out
+    assert not localfile.exists()

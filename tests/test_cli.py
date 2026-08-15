@@ -57,6 +57,7 @@ def test_dryrun(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.Cap
     assert "Warning, section erroneous in input file " in captured.out
     # Basic code outputs
     assert "from starlord.cy_tools cimport *\n" in captured.out
+    assert "import numpy as np\n" in captured.out
     assert "\n    cpdef double[:] prior_transform(self, double[:] params):\n" in captured.out
     # Key terms in the output present?
     assert "\n        logL += normal_lpdf(self.v__A, 0.5, 0.25)\n" in captured.out
@@ -93,9 +94,8 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     captured = capsys.readouterr().out
     print(captured)
     assert "Params:     p.b, p.x, p.y" in captured
-    # assert "dummy g1, v1, v2" in captured
-    # assert "rdummy c" in captured
-    assert "Params:     p.b, p.x, p.y" in captured
+    assert "dummy g1, v1, v2" in captured
+    assert "rdummy c" in captured
     assert "v.dummy__g1 = 2.5*(5+p.x) + v.dummy__v1" in captured
     assert "Exponential(v.dummy__v2 | 1.0)" in captured
     assert "Normal(v.rdummy__c | 0.0, 1.0)" in captured

@@ -123,7 +123,8 @@ def test_recursive_grids(dummy_grids: Path):
     fitter = starlord.ModelBuilder()
     fitter.constraint("g.rdummy.log_d", "normal", [1., 0.1])
     assert fitter.code_generator.params == ('p.b', 'p.x', 'p.y')
-    assert fitter.code_generator.locals == ('v.dummy__g1', 'v.dummy__v1', 'v.rdummy__c', 'v.rdummy__d', 'v.rdummy__log_d')
+    assert fitter.code_generator.locals == (
+        'v.dummy__g1', 'v.dummy__v1', 'v.rdummy__c', 'v.rdummy__d', 'v.rdummy__log_d')
     assert fitter.code_generator.constants == ('c.grid__dummy__v1', 'c.grid__rdummy__c')
 
 
@@ -217,6 +218,7 @@ def test_param_overrides(dummy_grids: Path):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()
     fitter = starlord.ModelBuilder()
+    fitter.imports.append('import numpy as np')
     fitter.constraint("g.dummy.v1", "normal", [3., 1.])
     fitter.override_mapping("dummy.y", "g.five + c.fixed_y")
     fitter.override_mapping("five", "5.0")
@@ -235,3 +237,48 @@ def test_param_overrides(dummy_grids: Path):
     code = fitter.generate_code()
     assert "5.0 + self.c__fixed_y" in code
     assert "params[1]" not in code
+    assert "import numpy as np" in code.splitlines()
+
+
+def test_graph_output(mocker):
+
+    class MockDigraph:
+        most_recent = None
+
+        def __init__(self, *args, **kwargs):
+            self.init_args = args
+            self.init_kwargs = kwargs
+            self.nodes = {}
+            self.edges = []
+
+        def node(self, key, **kwargs):
+            print(key)
+            self.nodes[key] = kwargs
+
+        def edge(self, src, dest):
+            print(src, dest)
+            self.edges.append((src, dest))
+
+        def render(self, filename, **kwargs):
+            self.render_filename = filename
+            self.render_kwargs = kwargs
+            MockDigraph.most_recent = self
+
+    mocker.patch("graphviz.Digraph", MockDigraph)
+    builder = starlord.ModelBuilder()
+    builder.override_mapping("stuff", "2*g.stuff2")
+    builder.override_mapping("stuff2", "2*p.foo")
+    builder.assign("v.ratio", "g.stuff / p.bar")
+    builder.constraint("v.ratio", "normal", [1.0, 0.1])
+    builder.prior("p.foo", "uniform", [0., 5.])
+    builder.prior("p.bar", "uniform", [1., 2.])
+    builder.outputs.append("g.stuff")
+    resolved = builder._resolve_deferred()
+    resolved.render_graph("foo.png")
+
+    assert MockDigraph.most_recent is not None
+    assert resolved.def_map.keys() == MockDigraph.most_recent.nodes.keys()
+    assert MockDigraph.most_recent.edges
+    for origin, dest in MockDigraph.most_recent.edges:
+        assert origin in resolved.def_map.keys()
+        assert dest in resolved.def_map.keys()
