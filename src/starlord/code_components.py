@@ -27,7 +27,7 @@ _num_params = {
 
 prefixes = {
     'log_': ('math.log10', "10**", "-math.log(10)-"),
-    'exp10_': ('10**', 'math.log10', "-math.log(10)-"),
+    'exp10_': ('10**', 'math.log10', "+math.log(10)+"),
     'ln_': ('math.log', 'math.exp', "-"),
     'expn_': ('math.exp', 'math.log', "+"),
     'expit_': ('expit', 'logit', '-logddx_logit'),
