@@ -2,7 +2,7 @@ Fitting Planets
 ====================
 Although Starlord is designed for fitting stellar models to observations, it is perfectly capable of fitting planet evolution models instead.  If anything, planet models are simpler as the mass and/or radius are usually measured directly, rather than inferred from a collection of observed bands.  Existing model grids can be readily input into Starlord by the user, allowing modellers to avoid the laborious process of retrieval setup.
 
-For illustrative purposes we'll use the hot Jupiter evolution model grids of `Thorngren & Fortney 2018 <https://ui.adsabs.harvard.edu/abs/2018AJ....155..214T/abstract>`_; these will be made publicly available when the Starlord built-in grid repository is setup, but for now may be obtained by contacting the developers.  This grid is 5 dimensional, in mass, metallicity, incident flux, internal heating power (as a fraction of flux), and age.  The outputs are the specific entropy, luminosity, and radius.
+For this example we'll use the hot Jupiter evolution model grids of `Thorngren & Fortney 2018 <https://ui.adsabs.harvard.edu/abs/2018AJ....155..214T/abstract>`_, which is provided in the standard Starlord grids (or download with ``starlord --download hotJupiters``).  This grid is 5 dimensional, in mass, metallicity, incident flux, internal heating power (as a fraction of flux), and age.  The outputs are the specific entropy, luminosity, and radius.
 
 Defining the Model Grid
 -----------------------

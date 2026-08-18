@@ -48,9 +48,10 @@ outputs = ["g.mist2.log_radius--1", "g.mist2.log_g--1", "g.mist2.log_lum--1", "g
            "g.mist2.log_radius--2", "g.mist2.log_g--2", "g.mist2.log_lum--2", "g.mist2.log_teff--2"]
 
 [sampling]
-emcee_init.burn_in = 2000
-emcee_run.nsteps = 5000
-emcee_init.thin = 10
+sampler="emcee"
+emcee.init.burn_in = 2000
+emcee.run.nsteps = 5000
+emcee.init.thin = 10
 
 [output]
 terminal=true

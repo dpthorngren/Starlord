@@ -5,10 +5,8 @@ Bayesian models are defined by their likelihoods, the model parameters, and the 
 A key feature of Starlord's model specification is the *implicit declaration of variables*.  If you use a variable, Starlord will infer its purpose from the prefix (every valid variable is of the form ```type.varname```) and generate code accordingly.  That is, you do not need to list your model parameters, constants, or grid outputs, you just *use them* and Starlord will handle it.  The types of variables are:
 
 :Parameters: ``p.[name]``, these are model parameters to be sampled from.
-:Constants: ``c.[name]``, these are set when the sampler is run and don't
-   change.
-:Local Variables: ``v.[name]`` these are calculated for each log likelihood call
-   but not recorded
+:Constants: ``c.[name]``, these are set when the sampler is run and don't change.
+:Local Variables: ``v.[name]`` these are calculated for each log likelihood call but not recorded
 :Grid Variables: ``g.[grid_name].[output_name]``, these indicate a value obtained by interpolating from the specified grid.
 
 These variables are used in defining the model via one of the five valid entries for the ``[model]`` section of the TOML file:
@@ -47,9 +45,9 @@ If you're building a model using the Python API (see :doc:`ref/index`), the func
 .. code-block:: python
 
     builder = starlord.ModelBuilder()
-    builder.constraint('d.ExampleGrid.A', 'normal', [1.5, 0.2])
-    builder.constraint('d.ExampleGrid.B', 'normal', [2.3, 0.15])
-    builder.constraint('d.ExampleGrid.C', 'normal', [-0.5, 0.05])
+    builder.constraint('g.ExampleGrid.A', 'normal', [1.5, 0.2])
+    builder.constraint('g.ExampleGrid.B', 'normal', [2.3, 0.15])
+    builder.constraint('g.ExampleGrid.C', 'normal', [-0.5, 0.05])
 
 Local Variables
 --------------------
@@ -98,7 +96,7 @@ In Python the setup is nearly the same:
 
 .. code-block:: python
 
-   builder.override("d.ExampleGrid", "x", "2*p.y")
+   builder.override("g.ExampleGrid", "x", "2*p.y")
 
 Either way, the generated code would now interpolate at ``(2*p.y, p.y, p.z)`` instead of ``(p.x, p.y, p.z)``.
 
