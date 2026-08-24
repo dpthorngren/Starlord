@@ -343,10 +343,10 @@ class SamplerBuiltin(_Sampler):
         # Prepare an initial state matrix
         if "initial_state" not in run_args:
             assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
-            run_args['initial_state'] = self.model.generate_initial_state(self.init_args['nwalkers'], 100)
+            run_args['initial_state'] = self.model.generate_initial_state(self.init_args['nwalkers'], 1000)
             assert np.all(
                 np.isfinite(run_args['initial_state'])
-            ), "Failed to generate a valid initial state from 100 draws.  Check your prior bounds."
+            ), "Failed to generate a valid initial state from 1000 draws.  Check your prior bounds."
         self.sampler.run(**run_args)
 
         # Process the results

@@ -33,7 +33,7 @@ cdef class BuiltinSampler:
         self.propose_chol = self._working_memory_[self.n_walkers+2:, :self.n_dim]
         return 0
 
-    cdef int stretch_step(self, double alpha=2.0) except -1:
+    cdef int stretch_step(self, double alpha=2.0, double anneal=1.0) except -1:
         cdef double p, z, logp
         cdef int i, j, k
         cdef double root_alpha = math.sqrt(alpha)
@@ -52,7 +52,7 @@ cdef class BuiltinSampler:
             logp = self.model.log_prob(self.x_propose)
             # Calculate the metropolis correction and decide whether to accept the point
             adjust = math.log(z) * (self.n_dim - 1)
-            p = math.log(float(rand()) / RAND_MAX)
+            p = math.log(float(rand()) / RAND_MAX / anneal)
             self.trials_stretch += 1
             if p < adjust + logp - self.walkers[i, self.n_dim]:
                 self.accepted_stretch += 1
@@ -60,7 +60,7 @@ cdef class BuiltinSampler:
                 self.walkers[i, self.n_dim] = logp
         return 0
 
-    cdef int metropolis_step(self) except -1:
+    cdef int metropolis_step(self, double anneal=1.0) except -1:
         cdef int i, k
         cdef double accept_thresh, logp
         for i in range(self.n_walkers):
@@ -71,15 +71,16 @@ cdef class BuiltinSampler:
             logp = self.model.log_prob(self.x_propose)
             # Decide whether to accept the new position
             self.trials_metropolis += 1
-            accept_thresh = math.log(float(rand()) / RAND_MAX)
+            accept_thresh = math.log(float(rand()) / RAND_MAX / anneal)
             if accept_thresh < logp - self.walkers[i, self.n_dim]:
                 self.accepted_metropolis += 1
                 copy_arr1d(self.x_propose, self.walkers[i, :self.n_dim])
                 self.walkers[i, self.n_dim] = logp
         return 0
 
-    cdef int _sub_run_(self, int n_samples, int thin=1, bint record=False, double alpha=2.0, double metropolis_frac=0.2, int start=0) except -1:
+    cdef int _sub_run_(self, int n_samples, int thin=1, bint record=False, double alpha=2.0, double metropolis_frac=0.2, int start=0, double anneal_max=1.0) except -1:
         cdef int i, si
+        cdef double anneal
 
         if record:
             assert self.samples is not None and self.samples.shape[0] >= n_samples
@@ -88,16 +89,17 @@ cdef class BuiltinSampler:
         srand(np.random.rand() * int(os.urandom(4).hex(),16))
 
         for i in range(start, n_samples*thin):
+            anneal = 1. + (anneal_max - 1.) * max(1.-2.*float(i) / n_samples / thin, 0.)
             if (float(rand()) / RAND_MAX) < metropolis_frac:
-                self.metropolis_step()
+                self.metropolis_step(anneal)
             else:
-                self.stretch_step(alpha)
+                self.stretch_step(alpha, anneal)
             if record and i % thin == 0:
                 si = i / thin
                 copy_arr2d(self.walkers, self.samples[si])
         return 0
 
-    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=4, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1, double adaptive_pgr_thresh=1.1, int max_adapt_iter=6):
+    cpdef void run(self, double[:,:] initial_state, int n_samples, int burn_in, int thin=4, bint progress = False, double alpha=2.0, double metropolis_frac=0.2, int metropolis_presamples=-1, double adaptive_pgr_thresh=1.1, int max_adapt_iter=6, double anneal_max=10.):
         cdef int i, j
         cdef double gr
         # Validate inputs
@@ -123,21 +125,20 @@ cdef class BuiltinSampler:
         if progress:
             print("Pre-run and burn-in ", end="", flush=True)
         if metropolis_frac > 0 and metropolis_presamples > 0:
+            self._sub_run_(burn_in, thin, False, alpha, metropolis_frac, 0, anneal_max)
             self._sub_run_(metropolis_presamples, thin, True, alpha, metropolis_frac)
             covar = self._samples_memory_[:metropolis_presamples, :, :self.n_dim]
             covar = covar.reshape([metropolis_presamples*self.n_walkers, self.n_dim])
             covar = np.cov(covar.T)
             covar = np.linalg.cholesky(covar)
             copy_arr2d(covar, self.propose_chol)
-        if progress:
-            print("done.")
 
         # Burn-in
-        self._sub_run_(burn_in, thin, False, alpha, metropolis_frac)
+        self._sub_run_(burn_in, thin, False, alpha, metropolis_frac, 0, anneal_max)
 
         # Collect samples
         if progress:
-            print("Sampling.", end="", flush=True)
+            print("done.\nSampling.", end="", flush=True)
         cdef int burn_iter = n_samples // 10
         cdef int n_keep = (n_samples - burn_iter) // 2
         self._sub_run_(n_samples, thin, True, alpha, metropolis_frac)
