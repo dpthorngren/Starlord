@@ -10,6 +10,7 @@ import numpy as np
 
 from ._config import config
 from .cy_tools import GridInterpolator
+from .code_components import prefixes
 
 
 class GridGenerator:
@@ -100,7 +101,7 @@ class GridGenerator:
                 if target_grid is not None:
                     if target_grid == grid_name:
                         if target_key not in defined_keys:
-                            for p in DeferredResolver.prefixes.keys():
+                            for p in prefixes.keys():
                                 if target_key.startswith(p) and target_key[len(p):] in defined_keys:
                                     break
                                 if p + target_key in defined_keys:
@@ -111,7 +112,7 @@ class GridGenerator:
                         g = cls.get_grid(target_grid)
                         valid = g.inputs + g.provides
                         if target_key not in valid:
-                            for p in DeferredResolver.prefixes.keys():
+                            for p in prefixes.keys():
                                 if target_key.startswith(p) and target_key[len(p):] in valid:
                                     break
                                 if p + target_key in valid:
@@ -251,29 +252,29 @@ class GridGenerator:
     def __init__(self, filename: str | Path):
         self.file_path = Path(filename)
         self.name = self.file_path.stem
-        self.data = np.load(str(filename))
-        assert "_grid_spec" in self.data.files, f"{filename} is not a Starlord grid file."
-        self.spec: str = str(self.data['_grid_spec'])
+        data = np.load(str(filename))
+        assert "_grid_spec" in data.files, f"{filename} is not a Starlord grid file."
+        self.spec: str = str(data['_grid_spec'])
         spec = self.spec.split('->')
-        self.bounds = self.data['_bounds']
-        self.shape = tuple(self.data['_shape'])
+        self.bounds = data['_bounds']
+        self.shape = tuple(data['_shape'])
         self.inputs: list[str] = [i.strip() for i in spec[0].split(",")]
         self.ndim = len(self.inputs)
         spec = spec[1].split(";")
         self.outputs: list[str] = [i.strip() for i in spec[0].split(",")]
-        if '_derived' in self.data.files:
-            self.derived: dict[str, str] = json.loads(str(self.data['_derived']))
+        if '_derived' in data.files:
+            self.derived: dict[str, str] = json.loads(str(data['_derived']))
         else:
             self.derived = {}
-        self.citations = str(self.data.get('_citations', ''))
-        self.notes = str(self.data.get('_notes', ''))
-        self.version = str(self.data.get('_version', ''))
+        self.citations = str(data.get('_citations', ''))
+        self.notes = str(data.get('_notes', ''))
+        self.version = str(data.get('_version', ''))
         self.provides = self.outputs + list(self.derived.keys())
         for k in self.inputs + self.outputs:
-            assert k in self.data.files, f"Bad grid: {k} in _grid_spec but was not found."
+            assert k in data.files, f"Bad grid: {k} in _grid_spec but was not found."
         self._input_mappings = {p: f"p.{p}--i" for p in self.inputs}
-        if '_input_mappings' in self.data.files:
-            self._input_mappings.update(json.loads(str(self.data['_input_mappings'])))
+        if '_input_mappings' in data.files:
+            self._input_mappings.update(json.loads(str(data['_input_mappings'])))
 
     def __repr__(self) -> str:
         out = f"Grid_{self.name}("
@@ -371,7 +372,8 @@ class GridGenerator:
         if column in self.derived:
             # TODO: Handle derived columns in Python
             raise NotImplementedError
-        axes = [axis_tf.get(k, lambda x: x)(self.data[k]) for k in self.inputs]
+        data = np.load(self.file_path)
+        axes = [axis_tf.get(k, lambda x: x)(data[k]) for k in self.inputs]
         assert all([np.all(np.diff(ax) > 0) for ax in axes])
-        values = value_tf(self.data[column])
+        values = value_tf(data[column])
         return GridInterpolator(axes, values)
