@@ -30,6 +30,9 @@ cpdef inline void copy_arr3d(double[:,:,:] source, double[:,:,:] dest):
 cpdef double expit(double x) noexcept:
     return 1. / (1. + math.exp(-x))
 
+cpdef double logddx_expit(double x) noexcept:
+    return - x - 2*math.log(1+math.exp(-x))
+
 cpdef double logit(double x) noexcept:
     return math.log(x / (1. - x))
 

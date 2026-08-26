@@ -26,11 +26,11 @@ _num_params = {
 }
 
 prefixes = {
-    'log_': ('math.log10', "10**", "-math.log(10)-"),
-    'exp10_': ('10**', 'math.log10', "+math.log(10)+"),
-    'ln_': ('math.log', 'math.exp', "-"),
+    'log_': ('math.log10', "10**", "-math.log(math.log(10)) - math.log"),
+    'exp10_': ('10**', 'math.log10', "+math.log(math.log(10)) + math.log(10)*"),
+    'ln_': ('math.log', 'math.exp', "-math.log"),
     'expn_': ('math.exp', 'math.log', "+"),
-    'expit_': ('expit', 'logit', '-logddx_logit'),
+    'expit_': ('expit', 'logit', 'logddx_expit'),
     'logit_': ('logit', 'expit', "logddx_logit"),
 }
 
