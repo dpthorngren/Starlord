@@ -23,6 +23,7 @@ _num_params = {
     'apogee_dr17_afe': 1,
     'galah_dr4_afe': 1,
     'thorngren2018_heating': 1,
+    'thorngren2016_zpl': 1,
 }
 
 prefixes = {
@@ -85,6 +86,11 @@ def process_distribution(var: str | Symb, dist: str,
     elif dist == "thorngren2018_heating":
         x = params[0]
         params = [f"math.log10(.0237 * math.exp(-({x} - 9.14)**2 / (2 * .37**2)))", 0.1]
+        dist = 'normal'
+        dist_prefix = 'log_'
+    elif dist == "thorngren2016_zpl":
+        x = params[0]
+        params = [f"-0.7395 - 0.39 * {x}", 0.26]
         dist = 'normal'
         dist_prefix = 'log_'
 
