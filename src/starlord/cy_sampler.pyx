@@ -129,8 +129,11 @@ cdef class BuiltinSampler:
             self._sub_run_(metropolis_presamples, thin, True, alpha, metropolis_frac)
             covar = self._samples_memory_[:metropolis_presamples, :, :self.n_dim]
             covar = covar.reshape([metropolis_presamples*self.n_walkers, self.n_dim])
-            covar = np.cov(covar.T)
-            covar = np.linalg.cholesky(covar)
+            if self.n_dim > 1:
+                covar = np.cov(covar.T)
+                covar = np.linalg.cholesky(covar)
+            else:
+                covar = np.array([[np.std(covar)]])
             copy_arr2d(covar, self.propose_chol)
 
         # Burn-in

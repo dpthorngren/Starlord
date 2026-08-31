@@ -28,6 +28,22 @@ def test_initial_state_generator():
 
 
 @pytest.mark.flaky(reruns=3)
+def test_builtin_1d_run():
+    # Special case that can fail when larger dimension cant; also a good smoke test
+    builder = starlord.ModelBuilder()
+    builder.assign("v.asquared", "p.a*p.a")
+    builder.constraint("v.asquared", "normal", [15., 2.0])
+    builder.prior("p.a", "normal", [5.0, 1.5])
+
+    sampler = builder.build_sampler("builtin", n_walkers=10)
+    assert type(sampler) is SamplerBuiltin
+    sampler.run()
+    assert sampler.get_convergence_stats()['pseudo_gr'] < 1.1
+    assert np.mean(sampler.results) == approx(3.88, abs=0.1)
+    assert np.std(sampler.results) == approx(.25, abs=0.05)
+
+
+@pytest.mark.flaky(reruns=3)
 def test_builtin_run():
     builder = starlord.ModelBuilder()
     builder.assign("v.sina", "math.sin(p.a)")
