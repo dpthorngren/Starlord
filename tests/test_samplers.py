@@ -57,6 +57,9 @@ def test_grid_retrieval(dummy_grids: Path):
 
     # Check that the results are reasonable
     sampler.run()
+    converge = sampler.get_convergence_stats()
+    assert list(converge.keys()) == ['pseudo_gr', 'autocorr_time']
+    assert 1.0 < converge['pseudo_gr'] < 1.1
     stats = sampler.stats
     assert np.all(np.isfinite(stats.cov))
     for s in [stats.mean, stats.p16, stats.p50, stats.p84]:

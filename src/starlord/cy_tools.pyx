@@ -27,6 +27,22 @@ cpdef inline void copy_arr3d(double[:,:,:] source, double[:,:,:] dest):
             for k in range(dest.shape[2]):
                 dest[i, j, k] = source[i, j, k]
 
+cpdef double pseudo_gelman_rubin(samples) except -1.:
+    assert type(samples) is np.ndarray
+    assert samples.ndim == 3
+    cdef int n_samples = samples.shape[0]
+    cdef int n_walkers = samples.shape[1]
+    cdef int n_dim = samples.shape[2]
+    # Split the samples into the front and back half for comparison; discard final sample if length is odd
+    cdef int ns = 2 * (n_samples // 2)
+    x = samples[:ns, :, :]
+    x = x.reshape(2, ns // 2, n_walkers, n_dim)
+    # Mean across samples of the variance across chains
+    W = np.mean(np.var(x, axis=1, ddof=1), axis=0)
+    # Variance across samples of the mean across chains
+    B_n = np.var(np.mean(x, axis=1), axis=0, ddof=1)
+    return np.max(np.mean(np.sqrt((1. - 1. / x.shape[1]) + B_n/W), axis=0))
+
 cpdef double expit(double x) noexcept:
     return 1. / (1. + math.exp(-x))
 

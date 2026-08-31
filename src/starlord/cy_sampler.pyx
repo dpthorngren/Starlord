@@ -160,16 +160,7 @@ cdef class BuiltinSampler:
 
     cpdef double pseudo_gelman_rubin(self) except -1.:
         assert self._samples_memory_ is not None, "No samples to get PGR statistic for; run the sampler first."
-        # Discard final sample if length is odd
-        cdef int ns = 2 * (self._samples_memory_.shape[0] // 2)
-        # Split the samples into the front and back half for comparison
-        x = self._samples_memory_[:ns, :, :self.n_dim]
-        x = x.reshape(2, ns // 2, self.n_walkers, self.n_dim)
-        # Mean across samples of the variance across chains
-        W = np.mean(np.var(x, axis=1, ddof=1), axis=0)
-        # Variance across samples of the mean across chains
-        B_n = np.var(np.mean(x, axis=1), axis=0, ddof=1)
-        return np.max(np.mean(np.sqrt((1. - 1. / x.shape[1]) + B_n/W), axis=0))
+        return pseudo_gelman_rubin(self._samples_memory_[:,:,:self.n_dim])
 
     cpdef object get_samples(self, bint flatten=False):
         assert self._samples_memory_ is not None, "Must run sampler before retrieving samples."

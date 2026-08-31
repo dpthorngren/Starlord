@@ -25,6 +25,19 @@ def test_cdf():
         assert cy_tools.exponential_cdf(abs(x), sigma) == approx(stats.expon.cdf(abs(x), scale=1 / sigma), rel=1e-12)
 
 
+def test_pseudo_gr():
+    # Random numbers should give a very good PGR
+    x = np.random.randn(10000, 100, 5) * np.array([.3, 4, 5, -3, 5.])[None, None, :]
+    assert 1.0 < cy_tools.pseudo_gelman_rubin(x) < 1.02
+    # Adding a trend should give a failing PGR
+    x += np.linspace(0, 1., 10000)[:, None, None]
+    assert cy_tools.pseudo_gelman_rubin(x) > 1.10
+    # Adding an offset should give a failing PGR
+    x = np.random.randn(10000, 100, 5) + np.array([.3, 4, 5, -3, 5.])[None, None, :]
+    x[3000:] += 2.
+    assert cy_tools.pseudo_gelman_rubin(x) > 1.10
+
+
 def test_lpdf():
     assert cy_tools.uniform_lpdf(3.5, 3.1, 6.6) == approx(-np.log(3.5))
     assert cy_tools.uniform_lpdf(3.0, 3.1, 6.6) == -np.inf

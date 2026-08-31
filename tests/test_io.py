@@ -30,6 +30,9 @@ def test_posterior_handling(tmpdir, monkeypatch: pytest.MonkeyPatch, capsys: pyt
     builder.prior("p.bar", "uniform", [1., 2.])
     sampler = builder.build_sampler("builtin")
     sampler.run()
+    converge = sampler.get_convergence_stats()
+    assert list(converge.keys()) == ['pseudo_gr']
+    assert 1.0 < converge['pseudo_gr'] < 1.1
     outfile = str(tmpdir.join("output_test.npz"))
     sampler.save_results(outfile)
     assert starlord.io.classify_file(outfile) == "posterior"
@@ -47,11 +50,12 @@ def test_posterior_handling(tmpdir, monkeypatch: pytest.MonkeyPatch, capsys: pyt
     cli.main()
     captured = capsys.readouterr()
     assert captured.out.startswith("Posterior file with contents:")
-    assert "Results Summary:" in captured.out
-    assert "   0 bar" in captured.out
-    assert "   1 foo" in captured.out
-    assert "   2 log_like" in captured.out
-    assert "   3 log_prior" in captured.out
+    assert "\n    convergence_stats:   pseudo_gr = 1"
+    assert "\nResults Summary:" in captured.out
+    assert "\n   0 bar" in captured.out
+    assert "\n   1 foo" in captured.out
+    assert "\n   2 log_like" in captured.out
+    assert "\n   3 log_prior" in captured.out
 
 
 def test_downloader(dummy_grids, mocker, capsys: pytest.CaptureFixture):

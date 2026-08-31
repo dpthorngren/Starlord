@@ -120,6 +120,7 @@ def test_full_run(dummy_grids, monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     print(captured)
     assert outfile.exists()
     assert "   0 b" in captured
+    assert "\nConvergence Stats:  pseudo_gr = " in captured
 
 
 @pytest.mark.flaky(reruns=3)

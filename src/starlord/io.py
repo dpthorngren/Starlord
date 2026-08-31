@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sys
 from pathlib import Path
 from typing import Optional
@@ -129,13 +130,14 @@ def load_posterior(filename, metadata_only=False, include_outputs=True) -> dict:
     file = np.load(filename)
     expected_keys = ['params', 'outputs', 'output_names', 'param_names']
     assert all([k in file.files for k in expected_keys]), f"File {filename} does not appear to be a Starlord output."
+    converge = str(file.get('convergence_stats', ""))
     result = dict(
         # Required keys
         output_names=[str(i) for i in file['output_names']],
         param_names=[str(i) for i in file['param_names']],
         # Optional keys
+        const_names=[str(i) for i in file.get('const_names', [])],
         constants=file.get('consts', np.array([])),
-        const_names=[str(i) for i in file.get('output_names', [])],
         code=str(file.get('code', "")),
         code_hash=str(file.get('code_hash', "")),
         grids=[str(i) for i in file.get('grids', [])],
@@ -145,6 +147,7 @@ def load_posterior(filename, metadata_only=False, include_outputs=True) -> dict:
         starlord_version=str(file.get('starlord_version', "")),
         python_version=str(file.get('python_version', "")),
         citations=str(file.get('citations', "")),
+        convergence_stats=json.loads(converge) if converge else "",
     )
     if not metadata_only:
         posterior = file['params']

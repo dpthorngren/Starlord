@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import sys
 from dataclasses import dataclass
 from functools import partial
@@ -13,7 +14,7 @@ import numpy as np
 from dynesty.results import Results as DynestyResults
 
 from ._config import __version__
-from .cy_tools import BaseModel, BuiltinSampler
+from .cy_tools import BaseModel, BuiltinSampler, pseudo_gelman_rubin
 from .grid_gen import GridGenerator
 
 
@@ -166,12 +167,23 @@ class _Sampler:
         return self._stats
 
     @property
-    def post(self) -> np.ndarray:
+    def posterior_sample(self) -> np.ndarray:
+        '''The posterior sample, including additional model outputs if requested,
+        as either as 2d or 3d Numpy array depending on the sampler type.'''
         assert self._post is not None, "Cannot read results before running the model"
         return self._post
 
     @property
+    def post(self) -> np.ndarray:
+        '''The posterior sample, including additional model outputs if requested,
+        flattened to 2d if necessary.'''
+        assert self._post is not None, "Cannot read results before running the model"
+        return self._post.reshape(-1, self._post.shape[-1])
+
+    @property
     def results(self) -> object:
+        '''The results object from the sampler -- the type will vary depending
+        on the type of sampler.'''
         return self.post
 
     def __init__(self, model_class, constants={}, **init_args):
@@ -202,6 +214,9 @@ class _Sampler:
         if citations:
             print("Grid Citations:")
             print("    " + "\n    ".join(citations))
+        convergence = [f"{k} = {v:.4f}" for k, v in self.get_convergence_stats().items()]
+        if convergence:
+            print("Convergence Stats: ", "; ".join(convergence))
         return self.stats.summary(self.param_names, self.output_names)
 
     def run(self, **run_args):
@@ -222,6 +237,11 @@ class _Sampler:
             citations.append(f"{gridname}: {grid_citations}")
         return citations
 
+    def get_convergence_stats(self) -> dict:
+        if self.posterior_sample.ndim == 2:
+            return {'pseudo_gr': pseudo_gelman_rubin(self.posterior_sample[:, None, :])}
+        return {'pseudo_gr': pseudo_gelman_rubin(self.posterior_sample)}
+
     def _to_dict_(self) -> dict:
         grid_vars = []
         for gridname, keys in self.grids_used.items():
@@ -239,6 +259,7 @@ class _Sampler:
             grid_vars=grid_vars,
             stats=self.stats.to_array(),
             citations='\n'.join(self.get_citations()),
+            convergence_stats=json.dumps(self.get_convergence_stats()),
             time=str(datetime.datetime.now(datetime.timezone.utc).ctime() + " UTC"),
             starlord_version=__version__,
             python_version=sys.version,
@@ -350,12 +371,14 @@ class SamplerBuiltin(_Sampler):
         self.sampler.run(**run_args)
 
         # Process the results
+        n_walkers = self.init_args['nwalkers']
+        n_out = len(self.output_names)
         results = self.sampler.get_samples(True)
         assert results is not None and type(results) is np.ndarray
-        postprocessed = np.zeros((results.shape[0], len(self.output_names)))
+        postprocessed = np.zeros((results.shape[0], n_out))
         self.postprocess(results, postprocessed)
-        self._post = np.hstack([results, postprocessed])
-        self._stats = ResultStats.create_from_post(self._post)
+        self._post = np.hstack([results, postprocessed]).reshape(-1, n_walkers, n_out + self.ndim)
+        self._stats = ResultStats.create_from_post(self.post)
 
 
 class SamplerEnsemble(_Sampler):
@@ -379,16 +402,14 @@ class SamplerEnsemble(_Sampler):
         self.burn_in = burn_in
         self.thin = thin
 
-    def summary(self) -> str:
+    def get_convergence_stats(self) -> dict:
+        result = super().get_convergence_stats()
         try:
             convergence = self.sampler.get_autocorr_time(thin=self.thin, discard=self.burn_in)
-            convergence = max(convergence)
-            neff = self._last_run_args['nsteps'] / convergence
-            summary = f"Convergence: Tau = {convergence:.2f}; N/Tau = {neff:.2f}\n"
+            result['autocorr_time'] = max(convergence)
         except emcee.autocorr.AutocorrError:
-            summary = "Too few samples to estimate convergence.\n"
-        summary += super().summary()
-        return summary
+            result['autocorr_time'] = np.nan
+        return result
 
     def run(self, threads=1, **run_args):
         self.validate_constants(self._model_class.optional_likelihood_terms)
@@ -427,7 +448,7 @@ class SamplerEnsemble(_Sampler):
         postprocessed = np.zeros((self.results.shape[0], len(self.output_names)))
         self.postprocess(self.results, postprocessed)
         self._post = np.hstack([self.results, postprocessed])
-        self._stats = ResultStats.create_from_post(self._post)
+        self._stats = ResultStats.create_from_post(self.post)
 
 
 class SamplerNested(_Sampler):
@@ -446,6 +467,10 @@ class SamplerNested(_Sampler):
     def __init__(self, model_class, constants={}, **init_args) -> None:
         super().__init__(model_class, constants, **init_args)
         self._sampler = None
+
+    def get_convergence_stats(self) -> dict:
+        # TODO: Figure out good convergence stats for the DynamicNestedSampler
+        return dict()
 
     def run(self, **run_args):
         self.validate_constants(self._model_class.optional_likelihood_terms)

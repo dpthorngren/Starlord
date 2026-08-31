@@ -8,6 +8,8 @@ cpdef void copy_arr1d(double[:] source, double[:] dest)
 cpdef void copy_arr2d(double[:,:] source, double[:,:] dest)
 cpdef void copy_arr3d(double[:,:,:] source, double[:,:,:] dest)
 
+cpdef double pseudo_gelman_rubin(samples) except -1.
+
 cpdef double expit(double x) noexcept
 cpdef double logddx_expit(double x) noexcept
 cpdef double logit(double x) noexcept

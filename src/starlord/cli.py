@@ -89,12 +89,16 @@ def main():
             meta = io.load_posterior(args.input, not bool(args.corner_plot))
             print("Posterior file with contents:")
             for key, value in meta.items():
-                if key in ['stats', 'code', 'posterior', 'weights', 'citations']:
+                if key in ['stats', 'code', 'posterior', 'weights', 'citations', 'convergence_stats']:
                     continue
                 if type(value) is str:
-                    print(f"    {key:16s} {value}")
+                    print(f"    {key:20s} {value}")
                 elif type(value) in [list, np.ndarray]:
-                    print(f"    {key:16s} {', '.join([str(i) for i in value])}")
+                    print(f"    {key:20s} {', '.join([str(i) for i in value])}")
+            if meta.get('convergence_stats', None):
+                convergence = [f"{k} = {v:.4f}" for k, v in meta['convergence_stats'].items()]
+                if convergence:
+                    print("    convergence_stats:  ", "; ".join(convergence))
             if meta.get('citations', None):
                 print("\nGrid Citations:")
                 print("    " + meta['citations'].replace('\n', '\n    '))
