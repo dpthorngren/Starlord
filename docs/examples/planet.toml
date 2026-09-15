@@ -4,16 +4,13 @@ hotJupiters.radius = [1.5, 0.05]
 hotJupiters.mass = [0.9, 0.1]
 hotJupiters.age = [3.5, 1.5]
 
-# Fixing the log_flux to a constant
-override.hotJupiters.log_flux = "9.2"
-# Fixing the heating to a function of flux defined by the grid
-override.hotJupiters.heating = "g.hotJupiters.typical_heating"
-
 # Mass and age priors set from observations
 prior.log_mass = ['uniform', -0.5, 0.5]
 prior.log_age = ['uniform', -1.0, 1.0]
-# Uninformative Z_planet prior
-prior.zpl = ['uniform', 0.0, 1.0]
+prior.log_flux = [9.2, 0.1]
+# Population-based priors:
+prior.heating = ['thorngren2018_heating', 'p.log_flux']
+prior.zpl = ['thorngren2016_zpl', 'p.log_mass']
 
 # Additional outputs for the sampler to record
 # (Mass and age only because the sampler records only their log10 otherwise)

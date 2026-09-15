@@ -9,5 +9,4 @@ Starlord Documentation
    grids
    models
    sampling
-   bayes
    ref/index

@@ -4,9 +4,72 @@ Although Starlord is designed for fitting stellar models to observations, it is 
 
 For this example we'll use the hot Jupiter evolution model grids of `Thorngren & Fortney 2018 <https://ui.adsabs.harvard.edu/abs/2018AJ....155..214T/abstract>`_, which is provided in the standard Starlord grids (or download with ``starlord --download hotJupiters``).  This grid is 5 dimensional, in mass, metallicity, incident flux, internal heating power (as a fraction of flux), and age.  The outputs are the specific entropy, luminosity, and radius.
 
-Defining the Model Grid
+Specifying the Model
+--------------------
+The first step defining the model to be fitted.  This can be done with the Python API, but we'll use the ``toml`` file approach here (see :doc:`../models`). The likelihood terms are written as ``hotJupiters.output = ["distribution", param1, param2,...]``, and the distribution defaults to ``"normal"``.  For a transiting planet the outputs you want to fit to will generally include the radius and mass.
+
+.. literalinclude:: ../examples/planet.toml
+   :language: toml
+   :lines: 1-5
+   :linenos:
+
+You can already run ``starlord -da planet.toml`` to get a sense of how Starlord will interpret your model.  The variables section is most important -- pay close attention to the ``Params:     p.log_age, p.log_mass, ...`` line; you need to either set priors for every parameter or change the model to not use it by e.g. fixing them (again see `../models`).  Finally we set the priors in the same manner as the likelihood terms were set.
+
+.. literalinclude:: ../examples/planet.toml
+   :language: toml
+   :lines: 7-13
+   :linenos:
+   :lineno-start: 7
+
+It can be helpful for Starlord to output additional derived values like the intrinsic temperature even though they aren't parameters of the model.  This is set in the model ``outputs`` list as follows:
+
+.. literalinclude:: ../examples/planet.toml
+   :language: toml
+   :lines: 15-22
+   :linenos:
+   :lineno-start: 16
+
+Finally, sampling and output options are set in the ``[sampling]`` and ``[output]`` sections respectively -- we'll just use a simple setup here, see :doc:`../sampling` for more information.
+
+.. literalinclude:: ../examples/planet.toml
+   :language: toml
+   :lines: 23-30
+   :linenos:
+   :lineno-start: 23
+
+Running and Reading Outputs
+---------------------------
+Running the model with ``starlord planet.toml``, we obtain:
+
+.. code:: none
+
+    Pre-run and burn-in done.
+    Sampling. done.
+    Grid Citations:
+        hotJupiters: Thorngren & Fortney (2018; 10.3847/1538-3881/aaba13)
+    Convergence Stats:  pseudo_gr = 1.0031
+         Name                            Mean         Std         16%         50%         84%
+       0 heating                      0.02347    0.005577     0.01806     0.02289     0.02886
+       1 log_age                       0.2812      0.4015     -0.1042      0.3988       0.627
+       2 log_flux                        9.21     0.09072        9.12       9.209         9.3
+       3 log_mass                    -0.05159     0.04804    -0.09901    -0.04893   -0.004114
+       4 zpl                           0.1307     0.03864     0.09162       0.129      0.1698
+    -----------------------------------------------------------------------------------------
+       5 log_like                      0.4513       1.234     -0.7271      0.7129       1.637
+       6 log_prior                      5.422      0.9755       4.598       5.719       6.231
+       7 hotJupiters__mass             0.8934     0.09736      0.7961      0.8935      0.9906
+       8 hotJupiters__age               2.578       1.576      0.7867       2.505       4.236
+       9 hotJupiters__entropy           9.833      0.1483       9.685       9.833       9.978
+      10 hotJupiters__tint              637.5       42.03       595.8       637.2       679.1
+ 
+
+The model parameters are listed first, then the logl ikelihood, log prior, and output values requested in the ``toml`` file.  We can see, for example, that this planet was inferred to have a metallicity of 0.1307 +/- 0.03864, and an intrinsic temperature of 637 K.
+
+In the model file we also specified an output file of ``hotJupiter.npz`` -- this was saved in the directory the model was run in.  The data can be loaded in using ``np.load`` or with :func:`starlord.load_to_frame` to obtain a nicely-formatted Pandas data frame of the posterior.
+
+Defining a Model Grid
 -----------------------
-We'll start by showing how to convert your planet grid into the Starlord format (required to fit models to it).  This is also covered in :doc:`../grids`, but will be so common for planet modelling as to merit a tailored example.  This mostly consists of naming the axes, defining any derived parameters, and handing the data to :func:`starlord.GridGenerator.create_grid` for processing.  For this example, we'll assume the data was stored in a csv file and open it with Pandas (in reality it wasn't but this is an important case to cover).
+Users may have their own planet grids they'd like to use, so we'll discuss how to convert grids into the Starlord format (required to fit models to it).  This is also covered in :doc:`../grids`, but will be so common for planet modelling as to merit a tailored example.  This mostly consists of naming the axes, defining any derived parameters, and handing the data to :func:`starlord.GridGenerator.create_grid` for processing.  For this example, we'll assume the data was stored in a csv file and open it with Pandas (in reality it wasn't but this is an important case to cover).
 
 .. literalinclude:: ../examples/grid_hot_jupiters.py
    :language: python
@@ -46,51 +109,3 @@ If all went well, you should see your new grid listed when you run ``starlord -g
      13 tint                 math.pow(g.hotJupiters.luminosity / (7.125593e-4 * (g.hotJupiters.radius * 6.991 ...
      14 typical_heating      0.0237 * math.exp(-(g.hotJupiters.log_flux - 9.14)**2 / (2 * .37**2))
 
-Specifying the Model
---------------------
-To actually fit a planet using this grid, you'll need to define a model.  This can be done with the Python API, but we'll use the ``toml`` file approach here (see :doc:`../models`).  You should start by writing down your likelihood terms as ``gridname.output = ["distribution", param1, param2,...]``.  For a transiting planet this will generally include the radius and mass.
-
-.. literalinclude:: ../examples/planet.toml
-   :language: toml
-   :lines: 1-5
-   :linenos:
-
-You can already run ``starlord -da planet.toml`` to get a sense of how Starlord will interpret your model.  Pay close attention to the ``Params:     p.log_age, p.log_mass, ...`` line; you need to either set priors for every parameter or change the model to not use it by e.g. fixing them.  Below, we set ``log_flux`` to a constant value and fix ``heating`` to a formula defined in the grid (see above) which is itself a function of flux (you could also have directly input the formula on this line).  Finally we set the priors in the same manner as the likelihood terms were set.
-
-.. literalinclude:: ../examples/planet.toml
-   :language: toml
-   :lines: 6-16
-   :linenos:
-   :lineno-start: 6
-
-It can be helpful for Starlord to output additional derived values like the intrinsic temperature even though they aren't parameters of the model.  This is set in the model ``outputs`` section as shown.  Finally, sampling and output options are set in the ``[sampling]`` and ``[output]`` sections respectively -- we'll just use a simple setup here, see :doc:`../sampling` for more information.
-
-.. literalinclude:: ../examples/planet.toml
-   :language: toml
-   :lines: 16-32
-   :linenos:
-   :lineno-start: 16
-
-Running and Reading Outputs
----------------------------
-Running the model with ``starlord planet.toml``, we obtain:
-
-.. code:: none
-
-    Pre-run and burn-in done.
-    Sampling. done.
-         Name                            Mean         Std         16%         50%         84%
-       0 log_age                       0.2871      0.3986    -0.08877      0.4047      0.6274
-       1 log_mass                    -0.05023     0.04902    -0.09838    -0.04799   -0.001777
-       2 zpl                           0.1247     0.03185     0.09322       0.124      0.1565
-    -----------------------------------------------------------------------------------------
-       3 log_like                      0.4117       1.271     -0.7866      0.6778       1.632
-       4 log_prior                    -0.6931   1.382e-12     -0.6931     -0.6931     -0.6931
-       5 hotJupiters__mass             0.8964     0.09973      0.7973      0.8954      0.9959
-       6 hotJupiters__age                 2.6       1.574      0.8151       2.539       4.241
-       7 hotJupiters__entropy           9.816     0.04124       9.776       9.813       9.857
-       8 hotJupiters__tint              636.1     0.09113         636       636.1       636.1
-
-The three model parameters are listed first, then the log_likelihood, log_prior, and output values requested in the ``toml`` file.  We can see, for example, that this planet was inferred to have a metallicity of 0.1247 +/- 0.032, and an intrinsic temperature of 636 K.  Because we fixed the flux and heating, the uncertainties on the latter are very small -- relaxing that assumption would get us more realistic uncertainties.
-
-In the model file we also specified an output file of ``hotJupiter.npz`` -- this was saved in the directory the model was run in.  The data can be loaded in using ``np.load`` or with :func:`starlord.load_to_frame` to obtain a nicely-formatted Pandas data frame of the posterior.
