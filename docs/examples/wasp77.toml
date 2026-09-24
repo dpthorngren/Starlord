@@ -28,7 +28,7 @@ override.mist2.afe = "0"
 prior.Av = ["trunc_normal", 0.02687, 0.03, 0, 20]
 prior.feh = ["casagrande_disk"]
 prior.log_age = ["uniform", -1.5, 1.2]
-prior.distance = ["trunc_power", -2, 10, 200]
+prior.distance = ["trunc_power", 2, 10, 200]
 # The masses are not shared, must set prior separately for each
 prior.log_mass0--1 = ["chabrier_disk"]
 prior.log_mass0--2 = ["chabrier_disk"]

@@ -17,7 +17,7 @@ override.mist2.afe = "0.0"
 prior.log_age = ["uniform", -0.5, 1]
 prior.log_mass0 = ["chabrier_disk"]
 prior.feh = ["casagrande_disk"]
-prior.distance = ["trunc_power", -2, 10, 200]
+prior.distance = ["trunc_power", 2, 10, 200]
 
 # Outputs to calculate
 outputs = ["g.mist2Tracks.log_radius", "g.mist2Tracks.log_g", "g.mist2Tracks.log_lum"]

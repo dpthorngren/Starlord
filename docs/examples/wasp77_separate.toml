@@ -30,7 +30,7 @@ override.mist2InvAge.log_age = "p.log_age--i"
 
 # Priors for distance and extinction remain shared
 prior.Av = ["trunc_normal", 0.02687, 0.03, 0, 20]
-prior.distance = ["trunc_power", -2, 10, 200]
+prior.distance = ["trunc_power", 2, 10, 200]
 # Most parameters are now unshared
 prior.feh--1 = ["casagrande_disk"]
 prior.feh--2 = ["casagrande_disk"]

@@ -53,7 +53,7 @@ We want to make sure there aren't any syntax errors and that Starlord is interpr
     Normal(v.mist2__parallax | 15.0153, 0.03612)
 
         Prior
-    Trunc_Power(p.distance | -2.0, 10.0, 200.0)
+    Trunc_Power(p.distance | 2.0, 10.0, 200.0)
     Binorm(p.feh | 0.8, 0.016, -0.15, 0.15, 0.22)
     Uniform(p.log_age | -0.5, 1.0)
     Chabrier(p.log_mass0 | 0.0, -1.10237, 0.69, 5.295945)

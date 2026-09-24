@@ -34,8 +34,8 @@ override.mist2.distance = "p.distance--i"
 # All parameters are unshared
 prior.Av--1 = ["trunc_normal", 0.02687, 0.03, 0, 20]
 prior.Av--2 = ["trunc_normal", 0.02687, 0.03, 0, 20]
-prior.distance--1 = ["trunc_power", -2, 10, 200]
-prior.distance--2 = ["trunc_power", -2, 10, 200]
+prior.distance--1 = ["trunc_power", 2, 10, 200]
+prior.distance--2 = ["trunc_power", 2, 10, 200]
 prior.feh--1 = ["casagrande_disk"]
 prior.feh--2 = ["casagrande_disk"]
 prior.log_age--1 = ["uniform", -1.5, 1.2]
