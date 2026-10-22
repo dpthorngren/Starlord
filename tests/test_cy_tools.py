@@ -19,10 +19,14 @@ def test_cdf():
     assert cy_tools.normal_cdf(-100, -53., 6.0) == approx(0., abs=1e-12)
     assert cy_tools.normal_cdf(50, -7.3, 3.5) == approx(1.0, abs=1e-12)
     assert cy_tools.exponential_cdf(-5, 23) == 0.0
-    for rng in np.random.rand(100, 3):
-        x, mu, sigma = rng * np.array([2.0, 1.0, 0.2]) + np.array([-1.0, -0.6, 0.01])
+    assert cy_tools.studentt_cdf(1.3, 5.0, 1.3, 2.3) == approx(0.5, rel=1e-12)
+    assert cy_tools.cauchy_cdf(1.3, 1.3, 2.3) == approx(0.5, rel=1e-12)
+    for rng in np.random.rand(100, 4):
+        x, mu, sigma, dof = rng * np.array([2.0, 1.0, 0.2, 20]) + np.array([-1.0, -0.6, 0.01, 1.0])
         assert cy_tools.normal_cdf(x, mu, sigma) == approx(stats.norm.cdf(x, mu, sigma), rel=1e-12)
         assert cy_tools.exponential_cdf(abs(x), sigma) == approx(stats.expon.cdf(abs(x), scale=1 / sigma), rel=1e-12)
+        assert cy_tools.studentt_cdf(x, dof, mu, sigma) == approx(stats.t.cdf(x, dof, loc=mu, scale=sigma), rel=1e-12)
+        assert cy_tools.cauchy_cdf(x, mu, sigma) == approx(stats.t.cdf(x, 1, loc=mu, scale=sigma), rel=1e-12)
 
 
 def test_pseudo_gr():
@@ -52,6 +56,13 @@ def test_lpdf():
         assert cy_tools.trunc_normal_lpdf(x, -10.1, 2.5, -15, -5) == approx(expect, rel=1e-12)
         expect = stats.truncnorm.logpdf(x, 5e2, 2e3, 1e3, 1e2)
         assert cy_tools.trunc_normal_lpdf(x, 1e3, 1e2, 5e2, 2e3) == approx(expect, rel=1e-12)
+        assert cy_tools.studentt_lpdf(x, 8, 3.5, 0.1) == approx(stats.t.logpdf(x, 8, loc=3.5, scale=0.1), rel=1e-12)
+        assert cy_tools.studentt_lpdf(x, .6, -3.5, 0.3) == approx(stats.t.logpdf(x, .6, loc=-3.5, scale=0.3), rel=1e-12)
+        expect = stats.t.logpdf(x, 832., loc=2343.5, scale=1.3)
+        assert cy_tools.studentt_lpdf(x, 832., 2343.5, 1.3) == approx(expect, rel=1e-12)
+        assert cy_tools.cauchy_lpdf(x, 3.5, 0.1) == approx(stats.t.logpdf(x, 1, loc=3.5, scale=0.1), rel=1e-12)
+        expect = stats.t.logpdf(x, 1., loc=23.5, scale=1.3)
+        assert cy_tools.cauchy_lpdf(x, 23.5, 1.3) == approx(expect, rel=1e-12)
     assert np.isnan(cy_tools.normal_lpdf(5., 2., -1.5))
     for x in stats.uniform.rvs(0., 1., 100):
         assert stats.beta.logpdf(x, 15., 20.) == approx(cy_tools.beta_lpdf(x, 15., 20.), rel=1e-12)
@@ -119,6 +130,14 @@ def test_ppf():
         assert cy_tools.trunc_exponential_ppf(p, 0.15, 0, 5.) == approx(expect)
         expect = stats.truncexpon.ppf(p, 13.25 * 6.5, scale=1. / 13.25)
         assert cy_tools.trunc_exponential_ppf(p, 13.25, 0, 6.5) == approx(expect)
+        expect = stats.t.ppf(p, 3.2, loc=5.5, scale=0.12)
+        assert cy_tools.studentt_ppf(p, 3.2, 5.5, .12) == approx(expect, rel=1e-12)
+        expect = stats.t.ppf(p, .95, loc=-5.5, scale=0.35)
+        assert cy_tools.studentt_ppf(p, .95, -5.5, .35) == approx(expect, rel=1e-12)
+        expect = stats.cauchy.ppf(p, loc=5.5, scale=0.12)
+        assert cy_tools.cauchy_ppf(p, 5.5, .12) == approx(expect, rel=1e-12)
+        expect = stats.cauchy.ppf(p, loc=-5.5, scale=0.35)
+        assert cy_tools.cauchy_ppf(p, -5.5, .35) == approx(expect, rel=1e-12)
 
 
 def test_binorm():

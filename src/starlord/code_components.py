@@ -11,6 +11,8 @@ _num_params = {
     'beta': 2,
     'gamma': 2,
     'exponential': 1,
+    'studentt': 3,
+    'cauchy': 2,
     'trunc_power': 3,
     'trunc_normal': 4,
     'trunc_exponential': 3,

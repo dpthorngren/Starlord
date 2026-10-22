@@ -18,7 +18,7 @@ def test_grid_retrieval(dummy_grids: Path):
     builder.assign("foo", "g.dummy.v1 + c.offset")
     builder.constraint("v.foo", "trunc_normal", [0.5, 0.1, -10, 10.])
     builder.constraint("g.dummy.g2", "normal", [0.5, 2.3])
-    builder.constraint("g.dummy.v2", "normal", [1.5, 1.3])
+    builder.constraint("g.dummy.v2", "cauchy", [1.5, 1.3])
     builder.prior("x", "uniform", [-5., 5.])
     builder.prior("y", "uniform", [0.1, 10.0])
     print(builder.summary())
@@ -99,7 +99,7 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     builder.constraint("v.blah", "beta", [15., 25])
     builder.prior("foo", "uniform", [0., 1.])
     builder.expression("v.stuff = p.bar + c.offset")
-    builder.constraint("v.stuff", "normal", [5., 2])
+    builder.constraint("v.stuff", "studentt", [100., 5., 2])
     builder.prior("bar", "normal", [0., 10.])
 
     # Test that the summaries were reasonable

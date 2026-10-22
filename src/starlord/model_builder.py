@@ -52,13 +52,17 @@ class ModelBuilder():
         rather than shape and scale :math:`\theta = 1/\beta`.
     :Exponential (1): The exponential distribution parameterized by a rate parameter
         :math:`\lambda`.
+    :Studentt (3): The student-t distribution with parameters :math:`\nu` degrees of
+        freedom, mean :math:`\mu`, and scale parameter :math:`sigma`.
+    :Cauchy (2): The cauchy distribution (student-t with :math:`\nu=1` with location
+        parameter :math:`\mu`, and scale parameter :math:`sigma`.
     :Trunc_power (3): A power law distribution with power :math:`k` and lower and upper
         bounds :math:`a` and :math:`b`.
     :Trunc_normal (4): A normal distribution with a mean and standard deviation as
         well as lower and upper bounds :math:`a` and :math:`b`.
     :Trunc_exponential (3): The exponential distribution parameterized by a rate
         parameter :math:`\lambda`, and lower and upper bounds :math:`a` and :math:`b`.
-    :binorm (5): A mixture of two normal distributions, given a first component weight,
+    :Binorm (5): A mixture of two normal distributions, given a first component weight,
         mean, and standard deviation and a second component mean and standard deviation.
     :Chabrier (4): A piecewise prior for stellar log-masses based on a log-normal
         and power-law distribution from Chabrier (2003).  It has four parameters --

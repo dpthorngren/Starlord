@@ -121,6 +121,39 @@ cpdef double exponential_cdf(double x, double rate) noexcept:
         return 0.
     return 1. - math.exp(-rate*x)
 
+cpdef double studentt_lpdf(double x, double nu, double mu, double sigma) noexcept:
+    if nu <= 0. or sigma <= 0.:
+        return math.NAN
+    cdef double log_norm = special.gammaln(nu/2.) + math.log(sigma) + 0.5 * math.log(math.M_PI*nu) - special.gammaln((nu+1)/2.)
+    return studentt_unnorm_lpdf(x, nu, mu, sigma) - log_norm
+
+cpdef double studentt_unnorm_lpdf(double x, double nu, double mu, double sigma) noexcept:
+    if nu <= 0. or sigma <= 0.:
+        return math.NAN
+    return math.log(1 + ((x-mu)/sigma)**2 / nu) * -(nu+1.) / 2.
+
+cpdef double studentt_ppf(double p, double nu, double mu, double sigma) noexcept:
+    if nu <= 0. or sigma <= 0.:
+        return math.NAN
+    return special.stdtrit(nu, p) * sigma + mu
+
+cpdef double studentt_cdf(double x, double nu, double mu, double sigma) noexcept:
+    if nu <= 0. or sigma <= 0.:
+        return math.NAN
+    return special.stdtr(nu, (x - mu) / sigma)
+
+cpdef double cauchy_lpdf(double x, double mu, double sigma) noexcept:
+    if sigma <= 0.:
+        return math.NAN
+    cdef double xn = (x - mu) / sigma
+    return - math.log((1 + xn*xn) * math.M_PI * sigma)
+
+cpdef double cauchy_ppf(double p, double mu, double sigma) noexcept:
+    return mu + sigma*math.tan(math.M_PI * (p - 0.5))
+
+cpdef double cauchy_cdf(double x, double mu, double sigma) noexcept:
+    return math.atan((x - mu) / sigma) / math.M_PI + 0.5
+
 cpdef double binorm_lpdf(double x, double weight1, double mean1, double mean2, double sigma1, double sigma2):
     if sigma1 <= 0 or sigma2 <=0 or weight1 > 1 or weight1 < 0:
         return math.NAN
