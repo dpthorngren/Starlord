@@ -54,7 +54,7 @@ class ModelBuilder():
         :math:`\lambda`.
     :Studentt (3): The student-t distribution with parameters :math:`\nu` degrees of
         freedom, mean :math:`\mu`, and scale parameter :math:`sigma`.
-    :Cauchy (2): The cauchy distribution (student-t with :math:`\nu=1` with location
+    :Cauchy (2): The cauchy distribution (student-t with :math:`\nu=1`) with location
         parameter :math:`\mu`, and scale parameter :math:`sigma`.
     :Trunc_power (3): A power law distribution with power :math:`k` and lower and upper
         bounds :math:`a` and :math:`b`.
@@ -68,15 +68,33 @@ class ModelBuilder():
         and power-law distribution from Chabrier (2003).  It has four parameters --
         the log-normal to power-law boundary point, the log-normal mean and sigma,
         and the rate for the power law component ``rate = (1+power)*ln(10)``.
+
+    Additionally, there are some named distributions, intended mainly for priors, that
+    are aliases of the above distributions but with certain parameters fixed:
+
+    :Apogee_dr17_afe (1): The distribution of stellar [Alpha/Fe] as a function of
+        [Fe/H], derived from the Apogee DR17 data.
+    :Galah_dr4_afe (1): The distribution of stellar [Alpha/Fe] as a function of [Fe/H],
+        derived from the Galah DR4 data.
+    :Casagrande_disk (0): A prior for [Fe/H] based on local disk stars from Casagrande (2011)
+        as used by the Isochrones package, which is a mixture of two normals -- equivalent to
+        binorm with params [.8, .016, -.15, 0.15, 0.22].
     :Chabrier_disk (0): The Chabrier prior using the parameters for disk and young
         cluster stars from Chabrier (2003), table 2.
     :Chabrier_globular (0): The Chabrier prior using the parameters for globular
         cluster stars from Chabrier (2003), table 2.
     :Chabrier_spheroid (0): The Chabrier prior using the parameters for spheroid
         stars from Chabrier (2003), table 2.
-    :casagrande_disk (0): A prior for [Fe/H] based on local disk stars from Casagrande (2011)
-        as used by the Isochrones package, which is a mixture of two normals -- equivalent to
-        binorm with params [.8, .016, -.15, 0.15, 0.22].
+    :Thorngren2018_heating (1): The empirical distribution of Jupiter heating (as the
+        log fraction of incident flux) as a function of incident flux (CGS), from
+        Thorngren & Fortney (2018).
+    :Thorngren2016_zpl (1): The empirical distribution of giant planet bulk metallicities
+        (unitless mass fraction) as a function of planet mass (in Juptier masses), from
+        Thorngren et al. (2016).
+
+    Finally, all distributions may be prefixed with one of ``log_``, ``exp10_``, ``ln_``,
+    ``expn_``, ``expit_``, or ``logit_`` to obtain the transformed distribution (e.g.
+    ``ln_normal`` is the base-e log-normal distribution).
     '''
 
     # Valid inputs to override_input satisfy this regex, but it doesn't catch every bad case.
