@@ -12,6 +12,17 @@ from .grid_gen import GridGenerator
 from .model_builder import ModelBuilder
 
 
+def error(message, during, txt, verbose=False, exception=None):
+    '''Reports an error and exits; for use only in the CLI.'''
+    if verbose and exception is not None:
+        print(exception.__traceback__)
+    if during:
+        print(f"{txt.red}Error ({during}){txt.end}:", message)
+    else:
+        print(f"{txt.red}Error{txt.end}:", message)
+    return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         "starlord", description="Fit stellar observations with starlord from the command line.")
@@ -61,8 +72,10 @@ def main():
             if grid_name.endswith('.npz'):
                 g = GridGenerator(grid_name)
             else:
-                assert grid_name in GridGenerator.grids(), f"Grid {grid_name} not found."
-                g = GridGenerator.get_grid(grid_name)
+                if grid_name in GridGenerator.grids():
+                    g = GridGenerator.get_grid(grid_name)
+                else:
+                    return error(f"Grid name '{grid_name}' not found.", None, txt)
             g.summary(True, fancy_text=not args.plain_text)
             return
         print("Available grids:")
@@ -80,45 +93,46 @@ def main():
     # Default initial settings (keep minimal)
     settings = {'output': {'terminal': True, 'file': "", "corner_plot": None}, "sampling": {}}
 
-    if args.input is not None:
-        filetype = io.classify_file(args.input)
-        if filetype == "grid":
-            GridGenerator(args.input).summary(True, fancy_text=not args.plain_text)
-            return
-        elif filetype == "posterior":
-            meta = io.load_posterior(args.input, not bool(args.corner_plot))
-            print("Posterior file with contents:")
-            for key, value in meta.items():
-                if key in ['stats', 'code', 'posterior', 'weights', 'citations', 'convergence_stats']:
-                    continue
-                if type(value) is str:
-                    print(f"    {key:20s} {value}")
-                elif type(value) in [list, np.ndarray]:
-                    print(f"    {key:20s} {', '.join([str(i) for i in value])}")
-            if meta.get('convergence_stats', None):
-                convergence = [f"{k} = {v:.4f}" for k, v in meta['convergence_stats'].items()]
-                if convergence:
-                    print("    convergence_stats:  ", "; ".join(convergence))
-            if meta.get('citations', None):
-                print("\nGrid Citations:")
-                print("    " + meta['citations'].replace('\n', '\n    '))
-            if meta.get('stats', None) is not None:
-                print("\nResults Summary:")
-                print(meta['stats'].summary(meta['param_names'], meta['output_names']))
-            if args.corner_plot:
-                if args.verbose:
-                    print("Generating corner plot.")
-                nparams = len(meta['param_names'])
-                io.corner_plot(meta['posterior'][:, :nparams], args.corner_plot, labels=meta['param_names'])
-            return
-        assert filetype == "model", f"Unrecognized input file {args.input}"
+    if not Path(args.input).is_file():
+        return error(f"Input file '{args.input}' does not exist.", None, txt)
+    filetype = io.classify_file(args.input)
+    if filetype == "grid":
+        GridGenerator(args.input).summary(True, fancy_text=not args.plain_text)
+        return
+    elif filetype == "posterior":
+        meta = io.load_posterior(args.input, not bool(args.corner_plot))
+        print("Posterior file with contents:")
+        for key, value in meta.items():
+            if key in ['stats', 'code', 'posterior', 'weights', 'citations', 'convergence_stats']:
+                continue
+            if type(value) is str:
+                print(f"    {key:20s} {value}")
+            elif type(value) in [list, np.ndarray]:
+                print(f"    {key:20s} {', '.join([str(i) for i in value])}")
+        if meta.get('convergence_stats', None):
+            convergence = [f"{k} = {v:.4f}" for k, v in meta['convergence_stats'].items()]
+            if convergence:
+                print("    convergence_stats:  ", "; ".join(convergence))
+        if meta.get('citations', None):
+            print("\nGrid Citations:")
+            print("    " + meta['citations'].replace('\n', '\n    '))
+        if meta.get('stats', None) is not None:
+            print("\nResults Summary:")
+            print(meta['stats'].summary(meta['param_names'], meta['output_names']))
+        if args.corner_plot:
+            if args.verbose:
+                print("Generating corner plot.")
+            nparams = len(meta['param_names'])
+            io.corner_plot(meta['posterior'][:, :nparams], args.corner_plot, labels=meta['param_names'])
+        return 0
+    elif filetype != "model":
+        return error(f"Unrecognized input file {args.input}", None, txt)
 
-    try:
-        settings.update(io.read_model_toml(args.input))
-    except ValueError as e:
-        # Print error but not traceback (useless for CLI users) and exit
-        print(f"Error: can't parse '{args.input}':", *e.args)
-        return 1
+    toml_data = io.read_model_toml(args.input)
+    if toml_data:
+        settings.update(toml_data)
+    else:
+        return error(f"Failed to parse '{args.input}'", None, txt)
 
     # Update settings with command line arguments (TODO: More CLI options)
     if args.output:
@@ -129,7 +143,10 @@ def main():
     for key, value in consts.items():
         consts[key] = float(value)
     for const_str in args.set_const:
-        key, value = const_str.split("=")
+        try:
+            key, value = const_str.split("=")
+        except ValueError:
+            return error(f"Constants must be formatted as 'key=value', not {const_str}", "reading constant", txt)
         if key.startswith("c."):
             key = key[2:]
         consts[key] = float(value)
@@ -142,9 +159,14 @@ def main():
         print("")
 
     # === Set up the Model ===
-    assert "model" in settings.keys(), "No model information was specified."
+    if "model" not in settings.keys():
+        return error("No model information was specified.", None, txt)
     builder = ModelBuilder(args.verbose, not args.plain_text)
-    builder.set_from_dict(settings['model'])
+    try:
+        builder.set_from_dict(settings['model'])
+    except Exception as ex:
+        # CLI users don't need tracebacks
+        return error(ex, "building model", txt, args.verbose, ex)
     if args.analyze:
         print(builder.summary())
         builder.validate_constants(consts, True)
@@ -170,13 +192,24 @@ def main():
             print(f"Warning: sampling argument '{key}' was not used.")
     init_args = sampler_args.get('init', {})
     run_args = sampler_args.get('run', {})
-    assert all([i in ['run', 'init'] for i in sampler_args.keys()]), \
-        "Sampler settings must be set with either 'run' or 'init'."
-    sampler = builder.build_sampler(sampler_type, constants=consts, force=args.force, **init_args)
+    for i in sampler_args.keys():
+        if i not in ['run', 'init']:
+            return error("sampler arguments must be set for either 'run' or 'init', not '{i}'", None, txt)
+    try:
+        sampler = builder.build_sampler(sampler_type, constants=consts, force=args.force, **init_args)
+    except Exception as ex:
+        return error(ex, "building sampler", txt, args.verbose, ex)
     if args.test_case:
         test_case_str = args.test_case.replace('"', "").split(",")
-        test_case = np.array([float(x) for x in test_case_str])
-        assert len(test_case) == len(sampler.param_names)
+        try:
+            test_case = np.array([float(x) for x in test_case_str])
+        except ValueError:
+            return error(f"Could not convert all parameters in '{args.test_case}' to floats.", "test case", txt)
+        if len(test_case) != len(sampler.param_names):
+            return error(
+                "Error in test case: wrong number of parameters " +
+                f"({len(test_case)} instead of {len(sampler.param_names)})" + "\nModel parameters are " +
+                ", ".join(f"'{p}'" for p in sampler.param_names) + ".", None, txt)
         out = sampler.model.forward_model(test_case)
         padding = max(len(i) for i in set(sampler.param_names) | set(out.keys()))
         print(f"    {txt.underline}Test Case{txt.end}")
@@ -193,7 +226,8 @@ def main():
     out: dict = {"terminal": False, "file": None, "corner_plot": None}
     out.update(settings['output'])
     if args.batch is not None:
-        assert args.batch != args.batch_summary, "Error: output and input csv are the same (would overwrite!)"
+        if args.batch == args.batch_summary:
+            print(f"Error in batch run: output and input csv are the same '{args.batch}' (would overwrite!)")
         batch_constants = io.load_simple_csv(args.batch)
         sampler.batch_run(
             batch_constants,
@@ -204,7 +238,10 @@ def main():
             args.batch_threads,
         )
     else:
-        sampler.run(**run_args)
+        try:
+            sampler.run(**run_args)
+        except Exception as ex:
+            return error(ex, "running sampler", txt, args.verbose, ex)
         if out['terminal']:
             print(sampler.summary())
         if out['file'] is not None:

@@ -34,7 +34,13 @@ def classify_file(filename: str | Path) -> str:
 
 def read_model_toml(filename: str | Path) -> dict:
     with open(filename, 'rb') as f:
-        results = tomllib.load(f)
+        try:
+            results = tomllib.load(f)
+        except tomllib.TOMLDecodeError as err:
+            print(f"Syntax error in '{filename}', line {err.lineno}, col {err.colno}:", err.msg)
+            print(err.doc.splitlines()[err.lineno-1])
+            print((err.colno - 1) * " " + "^")
+            return {}
     # Report ignored sections
     for section in results.keys():
         if section not in ['model', 'sampling', 'output']:

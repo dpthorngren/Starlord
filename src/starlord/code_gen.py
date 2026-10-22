@@ -90,8 +90,10 @@ class CodeGenerator:
         result.append("cpdef double[:] prior_transform(self, double[:] params):")
         prior_params = set(self.prior_params)
         params = set(self.params)
-        assert not params - prior_params, f"Priors were not set for param(s) {params-prior_params}."
-        assert not prior_params - params, f"Priors were set for unrecognized param(s) {prior_params-params}."
+        assert not params - prior_params, "Priors were not set for param(s) " + ', '.join(
+            f"'{p.name}'" for p in params - prior_params) + "."
+        assert not prior_params - params, "Priors were set for unrecognized param(s) " + ', '.join(
+            f"'{p.name}'" for p in prior_params - params) + "."
         for comp in self._sort_by_dependency(sorted(self._prior_components), True):
             assert type(comp) is Prior
             code: str = comp.generate_ppf().format(**self.mapping)

@@ -233,7 +233,6 @@ class ModelBuilder():
         for grid in grids:
             if grid in model.keys():
                 for key, value in model[grid].items():
-                    assert len(value) in [2, 3]
                     if grid in self.multiplicity.keys():
                         assert "--" in key, f"No index for multi-interpolated grid {grid}.{key}"
                     else:

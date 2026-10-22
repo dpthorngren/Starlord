@@ -202,7 +202,7 @@ class _Sampler:
         expected = set(self.const_names) - set(self.optional_consts)
         missing = expected - set(self._constants.keys())
         extra = set(self._constants.keys()) - expected
-        assert not missing, "Missing values for constant(s) " + ", ".join(missing)
+        assert not missing, "Missing values for constant(s) " + ", ".join(f"'{m}'" for m in missing)
         if extra:
             print("Warning, unused constants: " + ", ".join(extra))
         for cname in expected:

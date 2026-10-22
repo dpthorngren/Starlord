@@ -52,7 +52,8 @@ def process_distribution(var: str | Symb, dist: str,
     assert dist in _num_params.keys(), f"Unrecognized distribution name '{dist}' for '{var}'."
     nparams = _num_params[dist]
     assert nparams == len(params), \
-        f"Wrong number of parameters for distribution '{dist}', (expected {nparams}, got {len(params)})"
+        f"Wrong number of parameters for distribution '{dist}' for variable '{var}'"\
+        f"(expected {nparams}, got {len(params)})"
 
     # Prior Aliases
     if dist == 'chabrier_disk':
