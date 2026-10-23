@@ -49,7 +49,9 @@ def process_distribution(var: str | Symb, dist: str,
         if dist.startswith(k):
             dist_prefix = k
             dist = dist[len(k):]
-    assert dist in _num_params.keys(), f"Unrecognized distribution name '{dist}' for '{var}'."
+    assert dist in _num_params.keys(), f"Unrecognized distribution name '{dist}' for '{var}'." + \
+        "\nValid distributions are " + ', '.join(f"'{n}'" for n in _num_params.keys()) + \
+        ".\nValid prefixes are " + ', '.join(f"'{p}'" for p in prefixes.keys()) + "."
     nparams = _num_params[dist]
     assert nparams == len(params), \
         f"Wrong number of parameters for distribution '{dist}' for variable '{var}'"\

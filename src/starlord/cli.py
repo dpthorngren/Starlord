@@ -1,6 +1,7 @@
 import argparse
 import re
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,13 @@ from .model_builder import ModelBuilder
 
 def error(message, during, txt, verbose=False, exception=None):
     '''Reports an error and exits; for use only in the CLI.'''
-    if verbose and exception is not None:
-        print(exception.__traceback__)
+    if exception is not None:
+        tb = traceback.format_exception(exception)
+        if verbose:
+            print("Traceback:")
+            print("".join(tb))
+        if not str(message):
+            message = tb[-1] + " " + tb[-2]
     if during:
         print(f"{txt.red}Error ({during}){txt.end}:", message)
     else:
@@ -168,8 +174,11 @@ def main():
         # CLI users don't need tracebacks
         return error(ex, "building model", txt, args.verbose, ex)
     if args.analyze:
-        print(builder.summary())
-        builder.validate_constants(consts, True)
+        try:
+            print(builder.summary())
+            builder.validate_constants(consts, True)
+        except Exception as ex:
+            return error(ex, "building code", txt, args.verbose, ex)
     if args.dep_graph:
         outfile = Path(args.input).stem
         builder._resolve_deferred().render_graph(outfile + "_graph")

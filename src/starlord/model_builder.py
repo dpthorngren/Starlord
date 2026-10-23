@@ -197,14 +197,21 @@ class ModelBuilder():
         valid = ['multiplicity', 'expr', 'var', 'prior', 'override', 'outputs', 'options', 'imports']
         grids = GridGenerator.grids().keys()
         for k in model.keys():
-            assert k in valid or k in grids, f"Model key '{k}' was neither a known grid ({grids}) or keyword ({valid})"
+            assert k in valid or k in grids, f"Model key '{k}' was neither a known grid or keyword." + \
+                "\nValid keywords: " + ", ".join(valid) + \
+                "\nValid grids: " + ", ".join(grids)
         if "multiplicity" in model.keys():
             for key, num in model['multiplicity'].items():
+                assert type(num) is int, f"Multiplicity of {key} ({num}) was not a positive integer."
+                assert num > 0, f"Multiplicity of {key} ({num}) was not positive."
+                if num == 1:
+                    continue
                 if self.verbose:
                     print(f"multiplicity.{key} = {num}")
                 self.multiplicity[key] = num
         if "expr" in model.keys():
             for name, code in model['expr'].items():
+                assert type(code) is str, f"Expression expr.{name} was not a string {type(code)}."
                 if self.verbose:
                     print(f"expr.{name} = '{code}'")
                 self.expression(code)
@@ -220,8 +227,8 @@ class ModelBuilder():
                 if type(value) in [str, float, int]:
                     self.assign(key, str(value))
                 elif type(value) is list:
-                    assert type(value[0]) is str
-                    assert value[0] not in GridGenerator.grids().keys()
+                    assert type(value[0]) is str, "First item (the variable's formula) " + \
+                        f"in 'var.{key}' was not a string ({value[0]})."
                     self.assign(key, value.pop(0))
                     if len(value) > 0:
                         self._unpack_distribution("v." + key, value)
@@ -247,19 +254,26 @@ class ModelBuilder():
                 if type(override) is dict:
                     for input_name, value in override.items():
                         assert type(value) in [float, int, str], \
-                            f"Bad type for override of '{key}.{input_name}': '{value}' ({type(value)})"
+                            f"Override of '{key}.{input_name}': '{value}' ({type(value)})" + \
+                            "wasn't a float, int, or str."
                         self.override_mapping(f"{key}.{input_name}", str(value))
                 else:
                     assert type(override) is str
                     self.override_mapping(key, override)
         if "outputs" in model.keys():
+            assert type(model['outputs']) is list, "Outputs must be a list of strings."
             for key in model['outputs']:
+                assert type(key) is str, f"Output item '{key}' is not a string."
                 key = key.strip()
                 match = self.outname_regex.fullmatch(key)
                 _, key = DeferredResolver.extract_deferred(key)
                 assert match is not None, f"Invalid output key {key}."
                 self.outputs.append(key)
         if "options" in model.keys():
+            valid_options = ['optional_likelihood_terms']
+            for key, value in model['options'].items():
+                assert key in valid_options, f"Option '{key}' (set to '{value}') is unknown." + \
+                    "\nValid options: " + ", ".join([f"'{n}'" for n in valid_options])
             self.optional_likelihood_terms = bool(model['options'].get('optional_likelihood_terms', False))
 
     def override_mapping(self, key: str, value: str):
@@ -430,15 +444,17 @@ class ModelBuilder():
     def _unpack_distribution(self, var: str, spec: list, is_prior: bool = False) -> None:
         '''Checks if spec specifies a distribution, otherwise defaults to normal.  Passes
         the results on to :func:`prior` if prior=True else :func:`constraint`'''
-        assert type(spec) is list
-        assert len(spec) >= 1
+        assert type(spec) is list, f"Arguments for the '{var}' distribution was not a list ({type(spec)})."
+        assert len(spec) >= 1, f"Arguments for the '{var}' distribution was empty."
         dist: str = "normal"
         if type(spec[0]) is str:
             if any([spec[0].lower().endswith(k) for k in _num_params.keys()]):
                 dist = spec.pop(0)
             elif self.distribution_name.fullmatch(spec[0]):
                 raise ValueError(
-                    f"First argument of '{spec}' for '{var}' looks like a distribution name but isn't recognized.")
+                    f"First argument '{var}' distribution ({spec[0]})" +
+                    "looks like a distribution name but isn't recognized.\nValid distributions are " +
+                    ', '.join(f"'{m}'" for m in _num_params.keys()))
         if is_prior:
             self.prior(var, dist, spec)
         else:
