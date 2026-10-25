@@ -14,6 +14,7 @@ import numpy as np
 from dynesty.results import Results as DynestyResults
 
 from ._config import __version__
+from .code_gen import CodeGenerator
 from .cy_tools import BaseModel, BuiltinSampler, pseudo_gelman_rubin
 from .grid_gen import GridGenerator
 
@@ -197,6 +198,19 @@ class _Sampler:
         self._last_init_args = {}
         self._last_run_args = {}
         self._last_constants = []
+
+    def __getstate__(self):
+        # Compiled models are loaded from the cache directory rather than imported, so a fresh
+        # process (e.g. a multiprocessing worker using spawn, the default on macOS) can't
+        # unpickle a reference to the model class.  Pickle its code hash and reload it instead.
+        state = self.__dict__.copy()
+        state['_model_class'] = self._model_class.code_hash[0]
+        state['_model'] = None
+        return state
+
+    def __setstate__(self, state):
+        state['_model_class'] = CodeGenerator._load_module(state['_model_class']).Model
+        self.__dict__.update(state)
 
     def validate_constants(self, allow_nan=False):
         expected = set(self.const_names) - set(self.optional_consts)

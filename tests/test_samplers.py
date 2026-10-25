@@ -1,4 +1,6 @@
+import multiprocessing
 import re
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -136,3 +138,22 @@ def test_retrieval(capsys: pytest.CaptureFixture):
     # Beta distribution
     assert stats.mean[1] == pytest.approx(15. / (15+25.), rel=.05)
     assert stats.std[1]**2 == pytest.approx(15. * 25. / ((15 + 25)**2 * (15.+25.+1.)), rel=.1)
+
+
+@pytest.mark.flaky(reruns=3)
+def test_sampler_in_spawned_process(tmp_path: Path):
+    builder = starlord.ModelBuilder()
+    builder.set_from_toml("tests/batch_test.toml")
+    sampler = builder.build_sampler("builtin")
+    constants = {'name': 'foo', 'mean_a': 3.0, 'std_a': 0.2, 'alpha_b': 50.0, 'beta_b': 75.0}
+    # Spawned workers (the default on macOS and Windows) start without the compiled model, so
+    # the sampler must be able to reload it; ProcessPoolExecutor raises rather than hangs if not.
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(1, mp_context=context) as pool:
+        future = pool.submit(sampler._run_single_, constants, {}, False, str(tmp_path / "post"))
+        stats = future.result(timeout=300).reshape(-1, 5)
+    # _run_single_ returns NaN stats if running or saving the posterior failed
+    assert np.all(np.isfinite(stats))
+    assert stats[0, 0] == pytest.approx(3.0, abs=0.1)
+    post = starlord.load_posterior(tmp_path / "post_foo.npz", metadata_only=True)
+    assert post['code'] == sampler._model_class.code[0]
