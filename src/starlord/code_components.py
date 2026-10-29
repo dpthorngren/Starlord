@@ -186,6 +186,11 @@ class Component:
 
 
 @dataclass(frozen=True)
+class LikelihoodExpressionComponent(Component):
+    '''Represents a section of code in the likelihood for CodeGenerator.'''
+
+
+@dataclass(frozen=True)
 class AssignmentComponent(Component):
 
     @classmethod

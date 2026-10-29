@@ -16,7 +16,8 @@ from typing import NamedTuple, Optional
 import cython
 
 from ._config import __version__, _TextFormatCodes_, config
-from .code_components import (AssignmentComponent, Component, DistributionComponent, Prior, Symb, _extract_params)
+from .code_components import (
+    AssignmentComponent, Component, DistributionComponent, LikelihoodExpressionComponent, Prior, Symb, _extract_params)
 
 _VarCache = NamedTuple(
     'VarCache', [('p', tuple[Symb]), ('prior_p', tuple[Symb]), ('c', tuple[Symb]), ('v', tuple[Symb]),
@@ -123,7 +124,8 @@ class CodeGenerator:
         result: list[str] = []
         result.append("cdef void _forward_model(self, double[:] params):")
         # Generate the code for each component, sorted to satisfy their interdependencies
-        components = [c for c in self._like_components if type(c) is not DistributionComponent]
+        exclude = [DistributionComponent, LikelihoodExpressionComponent]
+        components = [c for c in self._like_components if type(c) not in exclude]
         components = sorted(components)
         components = self._sort_by_dependency(components)
         for comp in components:
@@ -163,6 +165,9 @@ class CodeGenerator:
                     result.append("\n".join("        " + loc for loc in code.splitlines()))
                 else:
                     result.append("\n".join("    " + loc for loc in code.splitlines()))
+            elif type(comp) is LikelihoodExpressionComponent:
+                code = comp.generate_code().format(**self.mapping)
+                result.append("\n".join("    " + loc for loc in code.splitlines()))
         result.append("    return logL if math.isfinite(logL) else -math.INFINITY\n")
         result = ["    " + r for r in result]
         return "\n".join(result)
@@ -243,9 +248,11 @@ class CodeGenerator:
             result_str = CodeGenerator.fancy_print(result_str, self.txt)
         return result_str
 
-    def expression(self, expr: str) -> None:
-        '''Specify a general expression to add to the code.  Assignments and variables used will be
-        automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
+    def expression(self, expr: str, likelihood=False) -> None:
+        '''Specify a general expression to add to the forward model code.  Assignments and variables used
+        will be automatically detected so long as they are formatted properly (see CodeGenerator doc)'''
+        code, variables = _extract_params(expr)
+
         provides = set()
         # Finds assignment blocks like "v.foo = " and "v.bar, v.foo = "
         assigns = re.findall(r"^\s*[pcv]\.[A-Za-z_]\w*\s*(?:,\s*[pcv]\.[A-Za-z_]\w*)*\s*=(?!=)", expr, flags=re.M)
@@ -263,9 +270,11 @@ class CodeGenerator:
                 # Verify that the result is a local var "v.foo"
                 assert var[:2] == "v.", var
                 provides.add(Symb(var))
-        code, variables = _extract_params(expr)
         requires = variables - provides
-        comp = Component(requires, provides, code)
+        if likelihood:
+            comp = LikelihoodExpressionComponent(requires, provides, code)
+        else:
+            comp = Component(requires, provides, code)
         if self.verbose:
             print(CodeGenerator.fancy_print("\n".join([line for line in str(comp).split("\n")]), self.txt))
         self._like_components.append(comp)

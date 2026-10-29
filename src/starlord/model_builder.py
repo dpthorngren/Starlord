@@ -114,9 +114,9 @@ class ModelBuilder():
             if self.verbose:
                 print(f"\n    {self.txt.underline}Code Generation{self.txt.end}")
             self.__gen__ = CodeGenerator(self.optional_likelihood_terms, self.verbose, self.fancy_text)
-            for deferred_vars, expr in self._expressions:
+            for deferred_vars, expr, likelihood in self._expressions:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
-                self.__gen__.expression(expr.format_map(deferred_map))
+                self.__gen__.expression(expr.format_map(deferred_map), likelihood)
             for deferred_vars, var, expr in self._assignments + self.__assignments_gen__:
                 assert all([i in deferred_map.keys() for i in deferred_vars])
                 self.__gen__.assign(var.format_map(deferred_map), expr.format_map(deferred_map))
@@ -159,7 +159,7 @@ class ModelBuilder():
         self.__gen__: Optional[CodeGenerator] = None
         self.__grids__: dict[str, list[str]] = {}
         # Component storage for CodeGenerator setup, formatted as ([grid vars], arguments...)
-        self._expressions: List[Tuple[List[str], str]] = []
+        self._expressions: List[Tuple[List[str], str, bool]] = []
         self._assignments: List[Tuple[List[str], str, str]] = []
         self._constraints: List[Tuple[List[str], str, str, List[str | float]]] = []
         # Generated component storage (same as above, but handled internally)
@@ -312,29 +312,32 @@ class ModelBuilder():
             assert grid_name in GridGenerator.grids(), f"Unrecognized grid name {grid_name} in override of {key}."
             grid = GridGenerator.get_grid(grid_name)
             assert name in (grid.provides + grid.inputs), f"Unrecognized grid var {name} in override of {key}."
-        self._gen = None
+        self.__gen__ = None
         self.user_mappings[key] = value
 
-    def expression(self, expr: str) -> None:
+    def expression(self, expr: str, likelihood=False) -> None:
         '''Directly insert an expression into the generated code.
 
         Starlord will identify any variables assigned or used within to ensure the code
-        is sorted properly by dependency (see ModelBuilder docstring).  Most of the time
-        you can use :func:`assign` or :func:`constraint` instead, but this gives you the flexibility
-        to add more complicated log-likelihood calculations.  For now this is the only way
-        to implement a for loop.
+        is sorted properly by dependency if likelihood is false (see ModelBuilder docstring).
+        Most of the time you can use :func:`assign` or :func:`constraint` instead, but this gives
+        you the flexibility to add more complicated log-likelihood calculations.  For now this is
+        the only way to implement a for loop.
 
         Args:
             expr: The expression to be inserted into the code, as a str.
+            likelihood: Whether the expression is inserted into the likelihood rather than the
+                forward model.  Note that this disables dependency sorting!
         '''
         if self.verbose:
             expr_str = expr[50:] + "..." if len(expr) > 50 else expr
-            print(f"  ModelBuilder.expression('{expr_str}')")
+            print(f"  ModelBuilder.expression('{expr_str}', {likelihood})")
+        assert type(likelihood) is bool
         # Switch any tabs out for spaces and process any grids
         expr = expr.replace("\t", "    ")
         deferred_vars, expr = DeferredResolver.extract_deferred(expr)
-        self._gen = None
-        self._expressions.append((deferred_vars, expr))
+        self.__gen__ = None
+        self._expressions.append((deferred_vars, expr, likelihood))
 
     def assign(self, var: str, expr: str) -> None:
         '''Adds a likelihood component that sets a local variable to the given expression.
@@ -363,7 +366,7 @@ class ModelBuilder():
             var = "v." + var.strip(" {}")
         ModelBuilder.is_valid_param(var)
         deferred_vars, expr = DeferredResolver.extract_deferred(expr)
-        self._gen = None
+        self.__gen__ = None
         if self.__auto_generating__:
             self.__assignments_gen__.append((deferred_vars, var, expr))
         else:
@@ -388,7 +391,7 @@ class ModelBuilder():
             print(f"  ModelBuilder.constraint('{var}', '{dist}', {params})")
         deferred_vars, var = DeferredResolver.extract_deferred(var)
         assert ModelBuilder.is_valid_param(var), f"Bad variable name {var}."
-        self._gen = None
+        self.__gen__ = None
         if self.__auto_generating__:
             self.__constraints_gen__.append((deferred_vars, var, dist, params))
         else:
@@ -409,7 +412,7 @@ class ModelBuilder():
         assert ModelBuilder.is_valid_param(param), f"Bad parameter name {param} for prior."
         if self.verbose:
             print(f"  ModelBuilder.prior('{param}', '{dist}', {params})")
-        self._gen = None
+        self.__gen__ = None
         self._priors.append((param, dist, params))
 
     def summary(self) -> str:

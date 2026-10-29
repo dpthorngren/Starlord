@@ -207,7 +207,7 @@ class _Sampler:
             print("Warning, unused constants: " + ", ".join(extra))
         for cname in expected:
             val = self._constants[cname]
-            assert allow_nan or np.isfinite(val), f"Invalid value for constant c.{cname} = {val}"
+            assert allow_nan or np.all(np.isfinite(val)), f"Invalid value for constant c.{cname} = {val}"
 
     def summary(self) -> str:
         citations = self.get_citations()
