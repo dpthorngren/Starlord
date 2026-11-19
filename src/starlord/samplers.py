@@ -348,6 +348,7 @@ class SamplerBuiltin(_Sampler):
         super().__init__(model_class, constants, **init_args)
         self.init_args.setdefault("nwalkers", max(40, 3 * self.ndim))
         self.init_args.setdefault("ndim", self.ndim)
+        self.init_args.setdefault('n_initial_steps', 1000)
 
     def run(self, **run_args):
         self.validate_constants(self._model_class.optional_likelihood_terms)
@@ -364,7 +365,8 @@ class SamplerBuiltin(_Sampler):
         # Prepare an initial state matrix
         if "initial_state" not in run_args:
             assert self.prior_transform is not None, "Must provide initial_state or prior_transform."
-            run_args['initial_state'] = self.model.generate_initial_state(self.init_args['nwalkers'], 1000)
+            steps = self.init_args['n_initial_steps']
+            run_args['initial_state'] = self.model.generate_initial_state(self.init_args['nwalkers'], steps)
             assert np.all(
                 np.isfinite(run_args['initial_state'])
             ), "Failed to generate a valid initial state from 1000 draws.  Check your prior bounds."
