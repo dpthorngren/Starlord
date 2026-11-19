@@ -71,6 +71,23 @@ cdef class GridInterpolator:
             rv[i] = self.interp(xt[i])
         return result.squeeze()
 
+    cpdef list get_axes(self):
+        cdef int i
+        result = [_extract_axis_(self.x_axis, self.x_len)]
+        if self.ndim >= 2:
+            result.append(_extract_axis_(self.y_axis, self.y_len))
+        if self.ndim >= 3:
+            result.append(_extract_axis_(self.z_axis, self.z_len))
+        if self.ndim >= 4:
+            result.append(_extract_axis_(self.u_axis, self.u_len))
+        if self.ndim >= 5:
+            result.append(_extract_axis_(self.v_axis, self.v_len))
+        return result
+
+    cpdef object get_values(self):
+        shape = [self.x_len, self.y_len, self.z_len, self.u_len, self.v_len][:self.ndim]
+        return np.asarray(self.values).reshape(shape)
+
     cpdef double interp(self, double[:] x):
         if self.ndim == 1:
             return self._interp1d(x[0])
@@ -195,6 +212,13 @@ cdef class GridInterpolator:
         (self.ndim, self._data, self.bounds, self.shape, ax_lens, data_lens) = info
         self.__set_views__(ax_lens, data_lens)
         return
+
+cpdef object _extract_axis_(double[:] axis, int axLen):
+    '''Takes an axis and reformats it as a numpy array.  This is necessary because uniform
+    axes are not stored in their entirety.'''
+    if axis[2] > axis[1]:
+        return np.asarray(axis)
+    return np.linspace(axis[0], axis[0] + (axLen-1)/ axis[1], axLen)
 
 cdef inline double _unit_interp3(double[:] values, int s, int xs, int ys, int zs, double xw, double yw, double zw) noexcept:
     cdef double a, b, c

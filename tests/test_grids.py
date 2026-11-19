@@ -41,6 +41,30 @@ def dummy_grids(tmpdir_factory: pytest.TempdirFactory):
     return config.grid_dir
 
 
+def test_data_access(dummy_grids):
+    config.grid_dir = dummy_grids
+    starlord.GridGenerator.reload_grids()
+    assert "dummy" in starlord.GridGenerator._grids.keys()
+    grid = starlord.GridGenerator.get_grid("dummy")
+
+    x = np.linspace(-5, 5, 75)[:, None]
+    y = np.logspace(-1, 1., 25)[None, :]
+    v1 = np.sin(x) + y
+    v2 = 25. + np.cos(2.2 * x) / np.sin(y)
+
+    assert grid.get_axes()[0] == pytest.approx(x.flatten())
+    assert grid.get_axes()[1] == pytest.approx(y.flatten())
+    assert grid.get_values('v1') == pytest.approx(v1)
+    assert grid.get_values('v2') == pytest.approx(v2)
+
+    f = grid.build_grid('v1')
+    assert f.get_axes()[0] == pytest.approx(x.flatten())
+    assert f.get_axes()[1] == pytest.approx(y.flatten())
+    assert f.get_values() == pytest.approx(v1)
+    g: starlord.GridInterpolator = starlord.GridGenerator['dummy.v2']
+    assert g.get_values() == pytest.approx(v2)
+
+
 def test_input_mappings(dummy_grids):
     config.grid_dir = dummy_grids
     starlord.GridGenerator.reload_grids()

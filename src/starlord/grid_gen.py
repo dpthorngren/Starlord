@@ -9,8 +9,8 @@ from typing import Callable, Optional
 import numpy as np
 
 from ._config import config
-from .cy_tools import GridInterpolator
 from .code_components import prefixes
+from .cy_tools import GridInterpolator
 
 
 class GridGenerator:
@@ -204,15 +204,24 @@ class GridGenerator:
         return cls._grids.copy()
 
     @classmethod
-    def get_grid(cls, grid_name: str) -> GridGenerator:
-        '''Gets a specific grid from the dict of known grids.
+    def get_grid(cls, grid_name: str) -> GridGenerator | GridInterpolator:
+        '''Gets a specific grid from the dict of known grids.  Returns the GridInterpolator
+        if an output is specified in grid_name like ``grid_name.output_name``, else returns
+        the GridGenerator.
 
         Raises:
             KeyError: if grid_name is not registered with Starlord.
         '''
         if not cls._initialized:
             cls.reload_grids()
+        if '.' in grid_name:
+            grid_name, output_name = grid_name.split(".")
+            return cls._grids[grid_name].build_grid(output_name)
         return cls._grids[grid_name]
+
+    def __class_getitem__(cls, grid_name) -> GridGenerator | GridInterpolator:
+        '''This is a shortcut for the get_grid() function.'''
+        return cls.get_grid(grid_name)
 
     @staticmethod
     def restructure_grid(arr, inputDims, outputDims):
@@ -299,6 +308,16 @@ class GridGenerator:
         input_map = self._input_mappings.copy()
         input_map.update(overrides)
         return input_map
+
+    def get_axes(self):
+        '''Returns the input axes for this grid as a list of numpy arrays.'''
+        data = np.load(self.file_path)
+        return [data[k] for k in self.inputs]
+
+    def get_values(self, output: str) -> np.ndarray:
+        '''Returns the specified output axis as a numpy array.'''
+        assert output in self.outputs, f"The output `{output}` is not in this grid ({self.name})."
+        return np.load(self.file_path)[output]
 
     def summary(self, full: bool = False, fancy_text: bool = True) -> None:
         '''Prints basic information about the grid.

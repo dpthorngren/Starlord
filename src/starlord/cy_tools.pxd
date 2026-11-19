@@ -74,6 +74,8 @@ cdef class GridInterpolator:
     cdef readonly object bounds
     cdef readonly object shape
 
+    cpdef list get_axes(self)
+    cpdef object get_values(self)
     cpdef double interp(self, double[:] x)
     cpdef double _interp1d(self, double point) noexcept
     cpdef double _interp2d(self, double x, double y) noexcept
