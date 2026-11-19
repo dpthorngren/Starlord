@@ -8,12 +8,36 @@ import numpy as np
 import requests
 
 from ._config import config
-from .samplers import ResultStats
+from .samplers import ResultStats, _Sampler
 
 if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
+
+
+def sampler_from_toml(filename: str | Path, const_overrides=dict(), sampler_type=None) -> _Sampler:
+    '''Load a model from a toml file and generate a sampler directly.
+
+    Args:
+        const_overrides: replaces constants specified in the toml file.
+        sampler_type: if not None, this overrides the sampler type specified in the toml file.
+
+    Returns:
+        A sampler object of type sampler_type if given, else the toml file sampler type (which
+        in turn defaults to the ``BuiltinSampler``.
+    '''
+    from .model_builder import ModelBuilder
+
+    assert classify_file(filename) == "model", f"File {filename} isn't a model file."
+    data = read_model_toml(filename)
+
+    model = ModelBuilder()
+    model.set_from_dict(data['model'])
+    if sampler_type is None:
+        sampler_type = data['sampling'].get('sampler', 'builtin')
+    consts = data['sampling'].get('const', {}) | const_overrides
+    return model.build_sampler(sampler_type, consts)
 
 
 def classify_file(filename: str | Path) -> str:
@@ -39,7 +63,7 @@ def read_model_toml(filename: str | Path) -> dict:
         except tomllib.TOMLDecodeError as err:
             if 'lineno' in err.__dict__:
                 print(f"Syntax error in '{filename}', line {err.lineno}, col {err.colno}:", err.msg)
-                print(err.doc.splitlines()[err.lineno-1])
+                print(err.doc.splitlines()[err.lineno - 1])
                 print((err.colno - 1) * " " + "^")
             else:
                 # Backup error message for tomli or tomllib versions without extra info
