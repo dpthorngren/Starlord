@@ -104,3 +104,21 @@ def test_downloader(dummy_grids, mocker, capsys: pytest.CaptureFixture):
     # Hash was made up, so it should reject the "downloaded" file and delete it
     assert "downloaded file did not yield expected hash" in captured.out
     assert not localfile.exists()
+
+
+def test_simple_csv_without_names(tmp_path):
+    csv = tmp_path / "consts.csv"
+    csv.write_text("mean_a, std_a\n0.0, 1.0\n3.0, 0.2\n")
+    data = starlord.io.load_simple_csv(csv)
+    # Rows are named by their index when no name column is given
+    assert list(data['name']) == ['0', '1']
+    assert list(data['mean_a']) == [0.0, 3.0]
+    assert list(data['std_a']) == [1.0, 0.2]
+
+
+def test_simple_csv_single_row(tmp_path):
+    csv = tmp_path / "consts.csv"
+    csv.write_text("name, mean_a, std_a\nfoo, 0.0, 1.0\n")
+    data = starlord.io.load_simple_csv(csv)
+    assert data.shape == (1, )
+    assert [str(row['name']) for row in data] == ['foo']
