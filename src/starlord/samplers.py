@@ -276,7 +276,8 @@ class _Sampler:
     ) -> np.ndarray:
         nongrid_consts = [c for c in self.const_names if not c.startswith("grid__")]
         names = data['name'].copy()
-        work = [{c: row[c] for c in nongrid_consts} for row in data]
+        # The name is passed along so _run_single_ can label its output and posterior file
+        work = [{'name': str(row['name']), **{c: row[c] for c in nongrid_consts}} for row in data]
         task = partial(
             self._run_single_,
             run_args=run_args,

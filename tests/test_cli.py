@@ -6,7 +6,7 @@ import pytest
 # flake8: noqa
 from test_grids import dummy_grids
 
-from starlord import GridGenerator, cli
+from starlord import GridGenerator, cli, io
 from starlord._config import config
 
 
@@ -162,3 +162,17 @@ def test_batch(dummy_grids, monkeypatch: pytest.MonkeyPatch):
     assert data['b_std'][0] == pytest.approx(beta_std(20, 15), rel=0.1)
     assert data['b_std'][1] == pytest.approx(beta_std(50., 75.), rel=0.1)
     assert data['b_std'][2] == pytest.approx(beta_std(25., 35.), rel=0.1)
+
+
+@pytest.mark.flaky(reruns=3)
+def test_batch_posterior_files(dummy_grids, tmp_path, monkeypatch: pytest.MonkeyPatch):
+    config.grid_dir = dummy_grids
+    GridGenerator.reload_grids()
+    prefix = tmp_path / "batch"
+    monkeypatch.setattr(
+        sys, 'argv', ['starlord', 'tests/batch_test.toml', '--batch', 'tests/batch_data.csv', '-o',
+                      str(prefix)])
+    cli.main()
+    # Each row of the batch file should get its own posterior file, named after the row
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["batch_bar.npz", "batch_baz.npz", "batch_foo.npz"]
+    assert io.load_posterior(tmp_path / "batch_bar.npz")['stats'].mean[0] == pytest.approx(3.0, abs=0.1)
